@@ -19,9 +19,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
-  // Modifica il metodo jump così:
+  // ECCO IL FIX: Reintegrato currentLevel per bilanciare l'aumento di gravità
   public jump(multiplier: number = 1, currentLevel: number = 1): void {
-    // Aumenta la forza base del 15% per ogni livello extra
     const levelSpeedMultiplier = 1 + (currentLevel - 1) * 0.15;
     this.setVelocityY(-this.jumpForce * levelSpeedMultiplier * multiplier);
   }
@@ -34,8 +33,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     let drunkFactor = isWasted ? 1 : partyLevel / 100;
     let expoFactor = Math.pow(drunkFactor, 3);
 
-    // BILANCIAMENTO: Abbiamo alzato il limite minimo da 0.02 a 0.15.
-    // Sei scivoloso, ma il personaggio risponde ancora ai tuoi comandi!
     const lerpFactor = Phaser.Math.Linear(1, 0.15, expoFactor);
 
     const currentSpeed = this.body.velocity.x;
