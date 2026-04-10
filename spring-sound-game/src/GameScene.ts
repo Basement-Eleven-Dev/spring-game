@@ -11,13 +11,16 @@ export class GameScene extends Phaser.Scene {
   private highestPlatformY!: number;
   private highestYReached!: number;
 
-  private score: number = 0;
+  private currentLevel: number = 1;
+  private distance: number = 0; // Tracciamo i metri reali
+  private score: number = 0; // Tracciamo i punti moltiplicati
   private scoreText!: Phaser.GameObjects.Text;
+
   private partyLevel: number = 0;
   private partyBarGraphics!: Phaser.GameObjects.Graphics;
   private isWasted: boolean = false;
 
-  private lastFallingDrinkTime: number = 0;
+  private lastDrinkSpawnY: number = 600;
 
   constructor() {
     super("GameScene");
@@ -37,10 +40,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
+    this.currentLevel = 1;
+    this.distance = 0;
     this.score = 0;
     this.partyLevel = 0;
     this.isWasted = false;
-    this.lastFallingDrinkTime = 0;
+
     this.cameras.main.setBackgroundColor("#87CEEB");
 
     this.createTexture("playerTexture", 0xff0000, 40, 40);
@@ -50,12 +55,15 @@ export class GameScene extends Phaser.Scene {
     this.createTexture("subwooferTexture", 0xffff00, 80, 15);
     this.createTexture("drinkTexture", 0xffa500, 20, 20);
 
-    this.scoreText = this.add.text(10, 10, "0 m", {
-      fontSize: "28px",
-      color: "#000",
-      fontStyle: "bold",
-    });
-    this.scoreText.setScrollFactor(0).setDepth(10);
+    // UI AGGIORNATA: Metri + Punti + Livello
+    this.scoreText = this.add
+      .text(10, 10, "0m | 0 pts | Lvl 1", {
+        fontSize: "18px",
+        color: "#000",
+        fontStyle: "bold",
+      })
+      .setScrollFactor(0)
+      .setDepth(10);
 
     this.partyBarGraphics = this.add.graphics();
     this.partyBarGraphics.setScrollFactor(0).setDepth(10);
@@ -73,19 +81,19 @@ export class GameScene extends Phaser.Scene {
       "standardTexture",
     ) as Platform;
     basePlatform.isBasePlatform = true;
-    basePlatform.initPlatform("standard", "standardTexture");
+    basePlatform.initPlatform("standard", "standardTexture", this.currentLevel);
     basePlatform.setDisplaySize(400, 15);
     if (basePlatform.body) basePlatform.body.setSize(400, 15);
 
     let currentY = 680;
     for (let i = 1; i <= 12; i++) {
       currentY -= Phaser.Math.Between(80, 220);
-      // Inizialmente la difficoltà è 1
-      this.spawnPlatform(currentY, 1);
+      this.spawnPlatform(currentY);
     }
 
     this.highestPlatformY = currentY;
     this.highestYReached = 600;
+    this.lastDrinkSpawnY = 600;
 
     this.player = new Player(this, 200, 600, "playerTexture");
 
@@ -97,15 +105,12 @@ export class GameScene extends Phaser.Scene {
         const plat = platformObj as Platform;
         if (p.body && p.body.touching.down && plat.body.touching.up) {
           if (plat.platformType === "subwoofer") p.jump(1.6);
-          else p.jump(1);
+          else p.jump(1, this.currentLevel);
 
           if (plat.platformType === "fragile") {
             plat.destroy();
-            // Ricrea la piattaforma usando l'attuale moltiplicatore di difficoltà
-            const diffMult = Math.min(1 + this.score / 2000, 2.5);
             this.spawnPlatform(
               this.highestPlatformY - Phaser.Math.Between(80, 220),
-              diffMult,
             );
           }
         }
@@ -142,7 +147,6 @@ export class GameScene extends Phaser.Scene {
   private collectDrink() {
     if (this.isWasted) return;
 
-    // BILANCIAMENTO: Solo 5% a Drink. Ne servono 20 per sbronzarsi del tutto!
     this.partyLevel += 5;
     if (this.partyLevel >= 100) {
       this.partyLevel = 100;
@@ -154,29 +158,60 @@ export class GameScene extends Phaser.Scene {
   private triggerWasted() {
     this.isWasted = true;
     const blurFx = this.cameras.main.postFX.addBlur(2, 0, 0, 1, 0xffffff, 4);
-    this.cameras.main.setRotation(0);
 
-    this.time.delayedCall(5000, () => {
+    // BILANCIAMENTO: Tempo ridotto a 4.5 secondi. Tosto ma affrontabile.
+    this.time.delayedCall(4500, () => {
       this.partyLevel = 0;
       this.isWasted = false;
+      this.currentLevel++;
+      const newGravity = 800 * (1 + (this.currentLevel - 1) * 0.15);
+      this.physics.world.gravity.y = newGravity;
+
       this.cameras.main.postFX.remove(blurFx);
       this.drawPartyBar();
+      this.showLevelUpVisual();
     });
   }
 
-  // Aggiunto parametro difficultyMultiplier
-  private spawnPlatform(y: number, difficultyMultiplier: number) {
+  private showLevelUpVisual() {
+    const lvlText = this.add
+      .text(200, 350, `LEVEL ${this.currentLevel}!`, {
+        fontSize: "48px",
+        color: "#ff00ff",
+        fontStyle: "bold",
+        stroke: "#fff",
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(20);
+
+    this.tweens.add({
+      targets: lvlText,
+      y: 300,
+      alpha: 0,
+      duration: 1500,
+      ease: "Cubic.easeOut",
+      onComplete: () => lvlText.destroy(),
+    });
+  }
+
+  private spawnPlatform(y: number) {
     const randomX = Phaser.Math.Between(40, 360);
     const plat = this.platforms.get(randomX, y) as Platform;
 
-    const rand = Math.random();
-    if (rand < 0.1)
-      plat.initPlatform("moving", "movingTexture", difficultyMultiplier);
-    else if (rand < 0.2) plat.initPlatform("fragile", "fragileTexture");
-    else if (rand < 0.3) plat.initPlatform("subwoofer", "subwooferTexture");
-    else plat.initPlatform("standard", "standardTexture");
+    let movingProb = Math.min(0.1 + this.currentLevel * 0.05, 0.35);
+    let fragileProb = Math.min(0.1 + this.currentLevel * 0.05, 0.3);
 
-    // Probabilità statica scesa al 5%
+    const rand = Math.random();
+    if (rand < movingProb)
+      plat.initPlatform("moving", "movingTexture", this.currentLevel);
+    else if (rand < movingProb + fragileProb)
+      plat.initPlatform("fragile", "fragileTexture", this.currentLevel);
+    else if (rand < movingProb + fragileProb + 0.1)
+      plat.initPlatform("subwoofer", "subwooferTexture", this.currentLevel);
+    else plat.initPlatform("standard", "standardTexture", this.currentLevel);
+
     if (Math.random() < 0.05) {
       const drink = this.drinks.get(randomX, y - 25, "drinkTexture") as Drink;
       if (drink) drink.initDrink("static");
@@ -196,9 +231,8 @@ export class GameScene extends Phaser.Scene {
     if (drink) drink.initDrink("falling");
   }
 
-  update(time: number) {
-    // Passiamo il partyLevel al Player per calcolare l'inerzia in tempo reale
-    this.player.updateMovement(this.partyLevel);
+  update() {
+    this.player.updateMovement(this.partyLevel, this.isWasted);
 
     const cam = this.cameras.main;
 
@@ -211,31 +245,34 @@ export class GameScene extends Phaser.Scene {
       let multiplier = 1;
       if (this.partyLevel >= 34 && this.partyLevel < 67) multiplier = 1.5;
       if (this.partyLevel >= 67 && this.partyLevel < 100) multiplier = 2;
+      if (this.isWasted) multiplier = 3;
 
-      this.score += (heightGained / 10) * multiplier;
+      // Incrementiamo Metri e Punti separatamente
+      const metersGained = heightGained / 10;
+      this.distance += metersGained;
+      this.score += metersGained * this.currentLevel * multiplier;
+
       this.highestYReached = this.player.y;
-      this.scoreText.setText(`${Math.floor(this.score)} m`);
+      this.scoreText.setText(
+        `${Math.floor(this.distance)}m | ${Math.floor(this.score)} pts | Lvl ${this.currentLevel}`,
+      );
     }
 
-    // GESTIONE PROGRESSIVA DELLA SBRONZA (Wobble anticipato)
-    // Inizia in modo invisibile al 34% (Brillo) e cresce matematicamente fino al 100%
-    if (this.partyLevel >= 34 && !this.isWasted) {
-      const drunkIntensity = Phaser.Math.Percent(this.partyLevel, 34, 100);
-      const amplitude = drunkIntensity * 0.08;
-      cam.setRotation(Math.sin(this.time.now / 250) * amplitude);
-    } else if (!this.isWasted) {
+    // BILANCIAMENTO WOBBLE: Ampiezza massima ridotta (da 0.1 a 0.06)
+    if (this.partyLevel >= 34 || this.isWasted) {
+      let drunkIntensity = this.isWasted
+        ? 1.0
+        : Phaser.Math.Percent(this.partyLevel, 34, 100);
+      const amplitude = Math.pow(drunkIntensity, 2) * 0.06;
+      cam.setRotation(Math.sin(this.time.now / 200) * amplitude);
+    } else {
       cam.setRotation(0);
     }
 
-    // Caduta Drink: 1 ogni 8 secondi (dilatato)
-    if (time > this.lastFallingDrinkTime + 8000) {
+    if (this.highestYReached < this.lastDrinkSpawnY - 400) {
       this.spawnFallingDrink();
-      this.lastFallingDrinkTime = time;
+      this.lastDrinkSpawnY = this.highestYReached;
     }
-
-    // RICICLO E DIFFICOLTÀ:
-    // Il moltiplicatore cresce con il punteggio (es: a 2000m la difficoltà è raddoppiata) fino a un cap di 2.5x
-    const currentDifficulty = Math.min(1 + this.score / 2000, 2.5);
 
     this.platforms.getChildren().forEach((child) => {
       const platform = child as Platform;
@@ -247,9 +284,7 @@ export class GameScene extends Phaser.Scene {
         const randomDistance = Phaser.Math.Between(80, 220);
         const newY = this.highestPlatformY - randomDistance;
         platform.destroy();
-
-        // Passiamo la difficoltà calcolata
-        this.spawnPlatform(newY, currentDifficulty);
+        this.spawnPlatform(newY);
       }
     });
 

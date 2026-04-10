@@ -12,12 +12,8 @@ export class Platform extends Phaser.Physics.Arcade.Sprite {
     super(scene, x, y, texture);
   }
 
-  // Aggiunto il parametro difficultyMultiplier (di default a 1)
-  public initPlatform(
-    type: PlatformType,
-    texture: string,
-    difficultyMultiplier: number = 1,
-  ) {
+  // Riceviamo il Livello Corrente come parametro
+  public initPlatform(type: PlatformType, texture: string, level: number = 1) {
     this.platformType = type;
     this.setTexture(texture);
     this.setDisplaySize(80, 15);
@@ -36,10 +32,10 @@ export class Platform extends Phaser.Physics.Arcade.Sprite {
       this.setVelocityX(0);
 
       if (type === "moving") {
-        // Le piattaforme diventano più veloci man mano che scali!
-        const baseSpeed = Phaser.Math.Between(60, 120) * difficultyMultiplier;
-        const speed = baseSpeed * (Math.random() < 0.5 ? 1 : -1);
-        this.setVelocityX(speed);
+        // Aumenta la velocità delle piattaforme del 20% per ogni livello superato
+        const speedMultiplier = 1 + (level - 1) * 0.2;
+        const baseSpeed = Phaser.Math.Between(60, 120) * speedMultiplier;
+        this.setVelocityX(baseSpeed * (Math.random() < 0.5 ? 1 : -1));
       }
     }
   }

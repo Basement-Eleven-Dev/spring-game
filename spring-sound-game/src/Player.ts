@@ -15,42 +15,36 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (scene.input.keyboard) {
       this.cursors = scene.input.keyboard.createCursorKeys();
     } else {
-      throw new Error("Tastiera non rilevata dal motore.");
+      throw new Error("Tastiera non rilevata.");
     }
   }
 
-  public jump(multiplier: number = 1): void {
-    this.setVelocityY(-this.jumpForce * multiplier);
+  // Modifica il metodo jump così:
+  public jump(multiplier: number = 1, currentLevel: number = 1): void {
+    // Aumenta la forza base del 15% per ogni livello extra
+    const levelSpeedMultiplier = 1 + (currentLevel - 1) * 0.15;
+    this.setVelocityY(-this.jumpForce * levelSpeedMultiplier * multiplier);
   }
 
-  // Abbiamo rinominato il metodo e gli passiamo il partyLevel per calcolare l'inerzia
-  public updateMovement(partyLevel: number): void {
+  public updateMovement(partyLevel: number, isWasted: boolean): void {
     let targetSpeed = 0;
+    if (this.cursors.left.isDown) targetSpeed = -this.moveSpeed;
+    else if (this.cursors.right.isDown) targetSpeed = this.moveSpeed;
 
-    // Determiniamo la velocità bersaglio in base al tasto premuto
-    if (this.cursors.left.isDown) {
-      targetSpeed = -this.moveSpeed;
-    } else if (this.cursors.right.isDown) {
-      targetSpeed = this.moveSpeed;
-    }
+    let drunkFactor = isWasted ? 1 : partyLevel / 100;
+    let expoFactor = Math.pow(drunkFactor, 3);
 
-    // LA MATEMATICA DELL'INERZIA:
-    // Se sei a 0% sbronza, il fattore è 1 (movimento istantaneo, super reattivo).
-    // Se sei a 100% sbronza, il fattore è 0.05 (scivoli come se fossi sul ghiaccio).
-    const lerpFactor = Phaser.Math.Linear(1, 0.05, partyLevel / 100);
+    // BILANCIAMENTO: Abbiamo alzato il limite minimo da 0.02 a 0.15.
+    // Sei scivoloso, ma il personaggio risponde ancora ai tuoi comandi!
+    const lerpFactor = Phaser.Math.Linear(1, 0.15, expoFactor);
 
-    // Applichiamo l'interpolazione lineare tra la velocità attuale e quella bersaglio
     const currentSpeed = this.body.velocity.x;
     this.setVelocityX(
       Phaser.Math.Linear(currentSpeed, targetSpeed, lerpFactor),
     );
 
-    // Wrap orizzontale
     const halfWidth = this.width / 2;
-    if (this.x < -halfWidth) {
-      this.x = 400 + halfWidth;
-    } else if (this.x > 400 + halfWidth) {
-      this.x = -halfWidth;
-    }
+    if (this.x < -halfWidth) this.x = 400 + halfWidth;
+    else if (this.x > 400 + halfWidth) this.x = -halfWidth;
   }
 }
