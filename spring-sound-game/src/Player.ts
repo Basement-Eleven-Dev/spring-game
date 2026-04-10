@@ -12,6 +12,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
+    this.setDisplaySize(40, 40);
+
     if (scene.input.keyboard) {
       this.cursors = scene.input.keyboard.createCursorKeys();
     } else {
@@ -40,7 +42,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       Phaser.Math.Linear(currentSpeed, targetSpeed, lerpFactor),
     );
 
-    const halfWidth = this.width / 2;
+    const halfWidth = this.displayWidth / 2;
     if (this.x < -halfWidth) this.x = 400 + halfWidth;
     else if (this.x > 400 + halfWidth) this.x = -halfWidth;
   }

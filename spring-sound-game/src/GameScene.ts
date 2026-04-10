@@ -44,6 +44,18 @@ export class GameScene extends Phaser.Scene {
     gfx.destroy();
   }
 
+  preload() {
+    // Il primo parametro è la chiave (la stessa che usavamo nei rettangoli),
+    // il secondo è il percorso del file partendo dalla cartella public/
+    this.load.image("playerTexture", "/assets/player.png");
+    this.load.image("standardTexture", "/assets/pedana_standard.png");
+    this.load.image("fragileTexture", "/assets/pedana_rotta.png");
+    this.load.image("subwooferTexture", "/assets/trampolino.png");
+    this.load.image("drinkTexture", "/assets/drink.png");
+    this.load.image("movingTexture", "/assets/pedana_scorrevole.png");
+    this.load.image("bouncerTexture", "/assets/buttafuori.png");
+  }
+
   create() {
     this.currentLevel = 1;
     this.distance = 0;
@@ -55,15 +67,7 @@ export class GameScene extends Phaser.Scene {
     this.physics.world.gravity.y = 800;
     this.cameras.main.setBackgroundColor("#87CEEB");
 
-    this.createTexture("playerTexture", 0xff0000, 40, 40);
-    this.createTexture("standardTexture", 0x00ff00, 80, 15);
-    this.createTexture("movingTexture", 0x0000ff, 80, 15);
-    this.createTexture("fragileTexture", 0x8b4513, 80, 15);
-    this.createTexture("subwooferTexture", 0xffff00, 80, 15);
-    this.createTexture("drinkTexture", 0xffa500, 20, 20);
-
     this.createTexture("mudTexture", 0x654321, 40, 10);
-    this.createTexture("bouncerTexture", 0x000000, 60, 60);
     this.createTexture("djStageTexture", 0xff00ff, 400, 20);
 
     this.scoreText = this.add
@@ -101,7 +105,8 @@ export class GameScene extends Phaser.Scene {
     basePlatform.isBasePlatform = true;
     basePlatform.initPlatform("standard", "standardTexture", this.currentLevel);
     basePlatform.setDisplaySize(400, 15);
-    if (basePlatform.body) basePlatform.body.setSize(400, 15);
+    if (basePlatform.body)
+      basePlatform.body.setSize(basePlatform.width, basePlatform.height);
 
     let currentY = 680;
     for (let i = 1; i <= 12; i++) {
@@ -261,7 +266,7 @@ export class GameScene extends Phaser.Scene {
       djStage.isBasePlatform = true;
 
       if (djStage.body) {
-        djStage.body.setSize(400, 20);
+        djStage.body.setSize(djStage.width, djStage.height);
         (djStage as any).isDJStage = true;
       }
 
@@ -373,11 +378,18 @@ export class GameScene extends Phaser.Scene {
       y,
       "bouncerTexture",
     ) as Phaser.Physics.Arcade.Sprite;
+
     if (bouncer && bouncer.body) {
+      // 1. FORZIAMO LA GRANDEZZA VISIVA (es. 60x60 pixel)
+      bouncer.setDisplaySize(80, 80);
+
+      // 2. FORZIAMO LA HITBOX FISICA (basata sull'originale, così scala bene)
+      bouncer.body.setSize(80, 80);
+
+      // La velocità di caduta che avevamo già impostato
       bouncer.setVelocityY(250 + this.currentLevel * 20);
     }
   }
-
   update() {
     this.player.updateMovement(this.partyLevel, this.isWasted);
 
@@ -419,7 +431,7 @@ export class GameScene extends Phaser.Scene {
       this.lastDrinkSpawnY = this.highestYReached;
     }
 
-    if (this.currentLevel >= 3) {
+    if (this.currentLevel >= 1) {
       const bouncerInterval = Math.max(700 - this.currentLevel * 50, 350);
       if (this.highestYReached < this.lastBouncerSpawnY - bouncerInterval) {
         this.spawnBouncerTelegraph();

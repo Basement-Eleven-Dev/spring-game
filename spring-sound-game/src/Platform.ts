@@ -16,10 +16,14 @@ export class Platform extends Phaser.Physics.Arcade.Sprite {
   public initPlatform(type: PlatformType, texture: string, level: number = 1) {
     this.platformType = type;
     this.setTexture(texture);
-    this.setDisplaySize(80, 15);
+    if (type === "subwoofer") {
+      this.setDisplaySize(60, 60); // Puoi cambiare 60 con la grandezza che preferisci
+    } else {
+      this.setDisplaySize(80, 20);
+    }
 
     if (this.body) {
-      this.body.setSize(80, 15);
+      this.body.setSize(this.width, this.height);
       this.body.setOffset(0, 0);
 
       this.body.allowGravity = false;
@@ -42,7 +46,9 @@ export class Platform extends Phaser.Physics.Arcade.Sprite {
 
   public update() {
     if (this.platformType === "moving" && this.body) {
-      const halfWidth = this.width / 2;
+      // FIX: Usiamo displayWidth e non width!
+      const halfWidth = this.displayWidth / 2;
+
       if (this.x < halfWidth) {
         this.x = halfWidth;
         this.setVelocityX(Math.abs(this.body.velocity.x));
