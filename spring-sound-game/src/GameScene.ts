@@ -395,8 +395,12 @@ export class GameScene extends Phaser.Scene {
 
     const cam = this.cameras.main;
 
-    if (this.player.y < cam.scrollY + cam.height / 2) {
-      cam.scrollY = this.player.y - cam.height / 2;
+    const targetY = this.player.y - cam.height / 2;
+    // Se il giocatore sta salendo oltre la metà dello schermo...
+    if (targetY < cam.scrollY) {
+      // Invece dello scatto secco, usiamo l'ammortizzatore!
+      // Il valore 0.15 è la fluidità (1 = scatto rigido, 0.05 = lentissimo)
+      cam.scrollY = Phaser.Math.Linear(cam.scrollY, targetY, 0.15);
     }
 
     const heightGained = this.highestYReached - this.player.y;
