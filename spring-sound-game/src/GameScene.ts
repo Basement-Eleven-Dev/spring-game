@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { GAME, PHYSICS, BOUNCER, JUMP_MULTIPLIERS, LEVEL } from "./GameConfig";
+import { GAME, INITIAL, PHYSICS, BOUNCER, JUMP_MULTIPLIERS, LEVEL } from "./GameConfig";
 import { Player } from "./Player";
 import { Platform } from "./Platform";
 import { CameraManager } from "./managers/CameraManager";
@@ -68,7 +68,7 @@ export class GameScene extends Phaser.Scene {
     // --- Creazione Manager ---
     this.cameraManager = new CameraManager(this);
     this.levelManager = new LevelManager(this);
-    this.scoreManager = new ScoreManager(this, 600);
+    this.scoreManager = new ScoreManager(this, INITIAL.PLAYER_START_Y);
     this.spawnManager = new SpawnManager(this);
     this.partyManager = new PartyManager(this, this.cameraManager);
 
@@ -76,7 +76,7 @@ export class GameScene extends Phaser.Scene {
     this.spawnManager.spawnInitialPlatforms(this.levelManager.level);
 
     // --- Giocatore ---
-    this.player = new Player(this, GAME.WIDTH / 2, 600, "playerTexture");
+    this.player = new Player(this, GAME.WIDTH / 2, INITIAL.PLAYER_START_Y, "playerTexture");
 
     // --- Collisioni ---
     this.setupColliders();

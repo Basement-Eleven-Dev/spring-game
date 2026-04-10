@@ -15,13 +15,14 @@ export class GameOverScene extends Phaser.Scene {
   create(data: { score: number; distance: number; level: number }) {
     const { score, distance, level } = data;
     const centerX = GAME.WIDTH / 2;
+    const centerY = GAME.HEIGHT / 2;
 
     // Sfondo scuro
     this.cameras.main.setBackgroundColor("#111118");
 
     // --- Titolo "GAME OVER" con animazione d'entrata ---
     const titleText = this.add
-      .text(centerX, 120, "GAME OVER", {
+      .text(centerX, centerY - 200, "GAME OVER", {
         fontSize: "48px",
         color: "#ff4444",
         fontStyle: "bold",
@@ -34,7 +35,7 @@ export class GameOverScene extends Phaser.Scene {
     this.tweens.add({
       targets: titleText,
       alpha: 1,
-      y: 150,
+      y: centerY - 170,
       duration: 800,
       ease: "Back.easeOut",
     });
@@ -47,9 +48,9 @@ export class GameOverScene extends Phaser.Scene {
     };
 
     const stats = [
-      { y: 280, text: `${Math.floor(distance)} metri` },
-      { y: 320, text: `${Math.floor(score)} punti` },
-      { y: 360, text: `Livello ${level}` },
+      { y: centerY - 50, text: `${Math.floor(distance)} metri` },
+      { y: centerY - 10, text: `${Math.floor(score)} punti` },
+      { y: centerY + 30, text: `Livello ${level}` },
     ];
 
     // Animazione sfalsata per ogni riga di statistiche
@@ -71,7 +72,7 @@ export class GameOverScene extends Phaser.Scene {
 
     // --- Pulsante "RIPROVA" ---
     const retryButton = this.add
-      .text(centerX, 500, "RIPROVA", {
+      .text(centerX, centerY + 150, "RIPROVA", {
         fontSize: "32px",
         color: "#00ff88",
         fontStyle: "bold",

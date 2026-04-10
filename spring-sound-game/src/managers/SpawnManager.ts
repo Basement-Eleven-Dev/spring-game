@@ -1,6 +1,7 @@
 import * as Phaser from "phaser";
 import {
   GAME,
+  INITIAL,
   PLATFORM,
   MUD,
   DRINK,
@@ -35,8 +36,8 @@ export class SpawnManager {
   // --- Tracking per lo spawning ---
   private _highestPlatformY: number = 0;
   private lastPlatformX: number = GAME.WIDTH / 2;
-  private lastDrinkSpawnY: number = 600;
-  private lastBouncerSpawnY: number = 600;
+  private lastDrinkSpawnY: number = INITIAL.PLAYER_START_Y;
+  private lastBouncerSpawnY: number = INITIAL.PLAYER_START_Y;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -90,7 +91,7 @@ export class SpawnManager {
     // Piattaforma base larga quanto lo schermo
     const basePlatform = this.platforms.get(
       GAME.WIDTH / 2,
-      680,
+      INITIAL.BASE_PLATFORM_Y,
       "standardTexture",
     ) as Platform;
     basePlatform.isBasePlatform = true;
@@ -101,7 +102,7 @@ export class SpawnManager {
     }
 
     // Genera le piattaforme verso l'alto
-    let currentY = 680;
+    let currentY = INITIAL.BASE_PLATFORM_Y;
     for (let i = 1; i <= PLATFORM.INITIAL_COUNT; i++) {
       currentY -= Phaser.Math.Between(PLATFORM.SPACING_MIN, PLATFORM.SPACING_MAX);
       this.spawnPlatform(currentY, level);
@@ -109,8 +110,8 @@ export class SpawnManager {
 
     this._highestPlatformY = currentY;
     this.lastPlatformX = GAME.WIDTH / 2;
-    this.lastDrinkSpawnY = 600;
-    this.lastBouncerSpawnY = 600;
+    this.lastDrinkSpawnY = INITIAL.PLAYER_START_Y;
+    this.lastBouncerSpawnY = INITIAL.PLAYER_START_Y;
   }
 
   /**

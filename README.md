@@ -291,15 +291,15 @@ START
 ### Miglioramenti Necessari
 
 - [ ] **🟡 #3 — Responsive design / dimensioni adattive**: attualmente le dimensioni del canvas sono fisse (400×700). Su schermi di dimensioni diverse la percezione del gioco cambia drasticamente. Serve una soluzione che adatti le dimensioni di gioco (piattaforme, player, spacing) al dispositivo, mantenendo le proporzioni coerenti. Possibili approcci:
-  - Ricalcolo dinamico di tutti i valori in `GameConfig.ts` basato sull'aspect ratio
-  - Utilizzo di coordinate normalizzate (percentuali) invece di pixel assoluti
-  - Mantenere il canvas fisso ma adattare `Scale.FIT` con bande nere
+- [x] **🟡 #3 — Responsive design / dimensioni adattive** ✅ FIXATO
+  - **Soluzione**: l'altezza del canvas viene calcolata dinamicamente in `GameConfig.ts` basandosi sull'aspect ratio del dispositivo (`window.innerHeight / window.innerWidth`), clampato tra 1.5 e 2.3.
+  - La larghezza resta fissa a 400px (gameplay orizzontale coerente), solo l'altezza varia.
+  - Tutte le posizioni iniziali (player, piattaforma base) sono ora derivate da `INITIAL.PLAYER_START_Y` e `INITIAL.BASE_PLATFORM_Y`.
+  - Esempi: iPhone 14 → 400×864, iPhone SE → 400×711, Pixel 7 → 400×888.
+  - `Scale.FIT` + `CENTER_BOTH` gestiscono lo scaling al viewport.
 
-- [ ] **🟡 #4 — Supporto giroscopio completo**: il codice per `deviceorientation` è già presente in `Player.ts` ma necessita di verifica su dispositivi reali. In particolare:
-  - Testare la richiesta permessi su iOS Safari
-  - Calibrare deadzone e sensibilità (`TILT_DEADZONE`, `TILT_MAX_ANGLE` in `GameConfig.ts`)
-  - Aggiungere feedback visivo che indichi se il giroscopio è attivo
-  - Considerare se usare `DeviceMotionEvent` in combinazione/alternativa
+- [ ] **🟡 #4 — Supporto giroscopio** ⏸️ RIMANDATO
+  - iOS 13+ richiede HTTPS + permesso esplicito via `DeviceOrientationEvent.requestPermission()`. Troppo complesso per lo sviluppo locale. Da implementare dopo il deploy in produzione (HTTPS).
 
 - [ ] **🟠 #5 — Ridefinire la UI**: l'HUD attuale è minimale e poco leggibile. Da rifare:
   - Score/distanza/livello con font custom (Google Fonts) e sfondo semi-trasparente

@@ -5,11 +5,47 @@
  * risiedono qui. Modifica questi valori per calibrare il gameplay.
  */
 
-// --- Dimensioni del gioco ---
+// --- Dimensioni del gioco (responsive) ---
+
+/**
+ * Calcola l'altezza del canvas in base all'aspect ratio del dispositivo.
+ * Su smartphone moderni (19.5:9) il gioco riempie lo schermo verticalmente.
+ * Su tablet/desktop viene clampato a un ratio ragionevole.
+ *
+ * Esempi:
+ * - iPhone 14 (390×844): ratio 2.16 → 400×864
+ * - iPhone SE (375×667): ratio 1.78 → 400×711
+ * - Pixel 7 (412×915):  ratio 2.22 → 400×888
+ * - iPad (768×1024):    ratio 1.33 → 400×600 (clamped)
+ * - Desktop:            ratio variabile → 400×600-700
+ */
+function calculateGameHeight(width: number): number {
+  if (typeof window === "undefined") return 700; // Fallback per SSR/build
+  const ratio = window.innerHeight / window.innerWidth;
+  // Clamp tra 1.5 (tablet landscape) e 2.3 (telefono ultra-tall)
+  const clampedRatio = Math.max(1.5, Math.min(ratio, 2.3));
+  return Math.round(width * clampedRatio);
+}
+
+const GAME_WIDTH = 400;
+const GAME_HEIGHT = calculateGameHeight(GAME_WIDTH);
+
 export const GAME = {
-  WIDTH: 400,
-  HEIGHT: 700,
-} as const;
+  WIDTH: GAME_WIDTH,
+  HEIGHT: GAME_HEIGHT,
+};
+
+/**
+ * Posizioni iniziali calcolate in base all'altezza reale del canvas.
+ * Queste assicurano che il giocatore e le piattaforme partano sempre
+ * dalla stessa distanza relativa dal fondo, su qualsiasi dispositivo.
+ */
+export const INITIAL = {
+  /** Y della piattaforma base (pavimento) — 20px dal fondo */
+  BASE_PLATFORM_Y: GAME_HEIGHT - 20,
+  /** Y iniziale del giocatore — 100px dal fondo */
+  PLAYER_START_Y: GAME_HEIGHT - 100,
+};
 
 // --- Fisica ---
 export const PHYSICS = {
@@ -33,10 +69,6 @@ export const PLAYER = {
   SIZE: 40,
   MOVE_SPEED: 250,
   JUMP_FORCE: 600,
-  /** Gradi minimi di inclinazione per attivare il giroscopio (deadzone) */
-  TILT_DEADZONE: 3,
-  /** Gradi massimi di inclinazione per raggiungere la velocità massima */
-  TILT_MAX_ANGLE: 30,
 } as const;
 
 // --- Piattaforme ---
