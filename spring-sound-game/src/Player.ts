@@ -1,12 +1,24 @@
 import * as Phaser from "phaser";
+import { GAME, PLAYER } from "./GameConfig";
 
+/**
+ * Player
+ * ======
+ * Sprite del giocatore con tre sistemi di input:
+ * 1. Tastiera (frecce) — per giocare su PC
+ * 2. Touch (tap sx/dx dello schermo) — per smartphone
+ * 3. Giroscopio (inclinazione del telefono) — per smartphone con sensore
+ *
+ * Il movimento orizzontale è soggetto a inerzia crescente
+ * con il party level (effetto "ubriachezza").
+ */
 export class Player extends Phaser.Physics.Arcade.Sprite {
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys;
-  private moveSpeed: number = 250;
-  private jumpForce: number = 600;
 
-  // Variabile per salvare l'inclinazione del telefono
+  /** Inclinazione corrente del telefono (gradi, da deviceorientation) */
   private tiltX: number = 0;
+  /** Riferimento al handler del giroscopio per poterlo rimuovere al destroy */
+  private orientationHandler: ((event: DeviceOrientationEvent) => void) | null = null;
 
   declare public body: Phaser.Physics.Arcade.Body;
 
@@ -15,7 +27,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
-    this.setDisplaySize(40, 40);
+    this.setDisplaySize(PLAYER.SIZE, PLAYER.SIZE);
 
     if (scene.input.keyboard) {
       this.cursors = scene.input.keyboard.createCursorKeys();
@@ -23,54 +35,104 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       throw new Error("Tastiera non rilevata.");
     }
 
-    // GESTIONE ACCELEROMETRO (Sensore di movimento mobile)
-    // Ascoltiamo l'evento nativo del browser per l'orientamento del dispositivo
-    window.addEventListener(
-      "deviceorientation",
-      (event) => {
-        // event.gamma rappresenta l'inclinazione destra/sinistra (da -90 a +90)
-        if (event.gamma !== null) {
-          this.tiltX = event.gamma;
-        }
-      },
-      true,
-    );
+    // Inizializza il giroscopio (con gestione permessi iOS)
+    this.setupGyroscope();
   }
 
+  /**
+   * Configura il listener per il giroscopio.
+   * Su iOS 13+ è necessario richiedere il permesso tramite un gesto utente
+   * (tap/click). Il permesso viene richiesto automaticamente al primo tocco.
+   */
+  private setupGyroscope(): void {
+    this.orientationHandler = (event: DeviceOrientationEvent) => {
+      // event.gamma = inclinazione destra/sinistra (da -90 a +90 gradi)
+      if (event.gamma !== null) {
+        this.tiltX = event.gamma;
+      }
+    };
+
+    // Controlla se serve richiedere il permesso (iOS 13+)
+    const DOE = DeviceOrientationEvent as any;
+    if (typeof DOE.requestPermission === "function") {
+      // Su iOS, il permesso va richiesto in risposta a un gesto utente
+      const requestOnTap = () => {
+        DOE.requestPermission()
+          .then((response: string) => {
+            if (response === "granted") {
+              window.addEventListener(
+                "deviceorientation",
+                this.orientationHandler!,
+                true,
+              );
+            }
+          })
+          .catch(console.error);
+      };
+      // Registra il listener una sola volta (si auto-rimuove dopo il primo tap)
+      document.addEventListener("click", requestOnTap, { once: true });
+      document.addEventListener("touchend", requestOnTap, { once: true });
+    } else {
+      // Android e browser desktop — il giroscopio funziona direttamente
+      window.addEventListener("deviceorientation", this.orientationHandler, true);
+    }
+  }
+
+  /**
+   * Fa saltare il giocatore verso l'alto.
+   * La forza del salto è proporzionale al livello e al moltiplicatore
+   * (es. 1.6 per subwoofer, 0.8 per fango, 1.3 per DJ Stage).
+   */
   public jump(multiplier: number = 1, currentLevel: number = 1): void {
     const levelSpeedMultiplier = 1 + (currentLevel - 1) * 0.15;
-    this.setVelocityY(-this.jumpForce * levelSpeedMultiplier * multiplier);
+    this.setVelocityY(-PLAYER.JUMP_FORCE * levelSpeedMultiplier * multiplier);
   }
 
+  /**
+   * Aggiorna il movimento orizzontale del giocatore ogni frame.
+   *
+   * Priorità degli input:
+   * 1. Tastiera (frecce sx/dx)
+   * 2. Touch (tap nella metà sx/dx dello schermo)
+   * 3. Giroscopio (inclinazione fisica del telefono) — sovrascrive gli altri
+   *
+   * L'inerzia aumenta col party level: più sei ubriaco, più il personaggio
+   * è lento a cambiare direzione (lerp factor scende da 1 a 0.15).
+   */
   public updateMovement(partyLevel: number, isWasted: boolean): void {
     let targetSpeed = 0;
 
-    // 1. INPUT TASTIERA (Mantiene la compatibilità su PC)
-    if (this.cursors.left.isDown) targetSpeed = -this.moveSpeed;
-    else if (this.cursors.right.isDown) targetSpeed = this.moveSpeed;
+    // 1. INPUT TASTIERA (PC)
+    if (this.cursors.left.isDown) targetSpeed = -PLAYER.MOVE_SPEED;
+    else if (this.cursors.right.isDown) targetSpeed = PLAYER.MOVE_SPEED;
 
-    // 2. INPUT TOUCH (Tap lato sinistro o destro dello schermo)
+    // 2. INPUT TOUCH (tap lato sinistro/destro dello schermo)
     const pointer = this.scene.input.activePointer;
     if (pointer.isDown) {
       if (pointer.x < this.scene.cameras.main.width / 2) {
-        targetSpeed = -this.moveSpeed; // Tap a sinistra
+        targetSpeed = -PLAYER.MOVE_SPEED;
       } else {
-        targetSpeed = this.moveSpeed; // Tap a destra
+        targetSpeed = PLAYER.MOVE_SPEED;
       }
     }
 
-    // 3. INPUT TILT (Sovrascrive tutto se si inclina il telefono fisicamente)
-    // Usiamo Math.abs > 3 per creare una "deadzone", così se hai le mani che tremano poco il pg non impazzisce
-    if (Math.abs(this.tiltX) > 3) {
-      // Mappiamo l'inclinazione (fino a 30 gradi circa) per dare velocità proporzionale
-      const tiltFactor = Phaser.Math.Clamp(this.tiltX / 30, -1, 1);
-      targetSpeed = this.moveSpeed * tiltFactor;
+    // 3. INPUT GIROSCOPIO (inclinazione fisica del telefono)
+    // Ha la priorità: sovrascrive tastiera e touch se il tilt supera la deadzone
+    if (Math.abs(this.tiltX) > PLAYER.TILT_DEADZONE) {
+      const tiltFactor = Phaser.Math.Clamp(
+        this.tiltX / PLAYER.TILT_MAX_ANGLE,
+        -1,
+        1,
+      );
+      targetSpeed = PLAYER.MOVE_SPEED * tiltFactor;
     }
 
-    // --- APPLICAZIONE SBRONZA E INERZIA ---
-    let drunkFactor = isWasted ? 1 : partyLevel / 100;
-    let expoFactor = Math.pow(drunkFactor, 3);
-
+    // --- EFFETTO INERZIA DA UBRIACHEZZA ---
+    // drunkFactor va da 0 (sobrio) a 1 (wasted)
+    // expoFactor è cubico per rendere l'effetto graduale ai livelli bassi
+    // lerpFactor controlla quanto rapidamente la velocità raggiunge il target
+    const drunkFactor = isWasted ? 1 : partyLevel / 100;
+    const expoFactor = Math.pow(drunkFactor, 3);
     const lerpFactor = Phaser.Math.Linear(1, 0.15, expoFactor);
 
     const currentSpeed = this.body.velocity.x;
@@ -79,8 +141,21 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     );
 
     // --- EFFETTO PAC-MAN AI BORDI ---
+    // Se il giocatore esce da un lato, rientra dall'altro
     const halfWidth = this.displayWidth / 2;
-    if (this.x < -halfWidth) this.x = 400 + halfWidth;
-    else if (this.x > 400 + halfWidth) this.x = -halfWidth;
+    if (this.x < -halfWidth) this.x = GAME.WIDTH + halfWidth;
+    else if (this.x > GAME.WIDTH + halfWidth) this.x = -halfWidth;
+  }
+
+  /**
+   * Pulizia: rimuove il listener del giroscopio quando il giocatore viene distrutto.
+   * Importante per evitare memory leak quando la scena viene riavviata.
+   */
+  public destroy(fromScene?: boolean): void {
+    if (this.orientationHandler) {
+      window.removeEventListener("deviceorientation", this.orientationHandler, true);
+      this.orientationHandler = null;
+    }
+    super.destroy(fromScene);
   }
 }

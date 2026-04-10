@@ -1,5 +1,14 @@
 import * as Phaser from "phaser";
+import { DRINK } from "./GameConfig";
 
+/**
+ * Drink
+ * =====
+ * Collezionabile che alza il party level del giocatore.
+ * Può essere:
+ * - "static":  fermo su una piattaforma (gravità disattivata)
+ * - "falling": cade dall'alto dello schermo con velocità costante
+ */
 export class Drink extends Phaser.Physics.Arcade.Sprite {
   declare public body: Phaser.Physics.Arcade.Body;
 
@@ -8,15 +17,18 @@ export class Drink extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
-    this.setDisplaySize(20, 30);
+    this.setDisplaySize(DRINK.WIDTH, DRINK.HEIGHT);
   }
 
-  public initDrink(type: "static" | "falling") {
+  /**
+   * Inizializza il drink come statico o cadente.
+   * Chiamato dopo group.get() per configurare l'istanza.
+   */
+  public initDrink(type: "static" | "falling"): void {
     if (this.body) {
       this.body.allowGravity = false;
       if (type === "falling") {
-        // VELOCITÀ AUMENTATA: da 50 a 120 per una caduta più decisa
-        this.setVelocityY(120);
+        this.setVelocityY(DRINK.FALLING_SPEED);
       } else {
         this.setVelocityY(0);
       }

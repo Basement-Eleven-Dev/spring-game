@@ -1,21 +1,26 @@
 import * as Phaser from "phaser";
 import { GameScene } from "./GameScene";
-// Importiamo il CSS direttamente qui, è una best practice con Vite (il bundler lo gestirà in build)
+import { GameOverScene } from "./GameOverScene";
+import { GAME, PHYSICS } from "./GameConfig";
 import "./style.css";
 
+/**
+ * Configurazione principale di Phaser.
+ * Le dimensioni e la gravità base vengono da GameConfig.
+ */
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
-  width: 400,
-  height: 700,
+  width: GAME.WIDTH,
+  height: GAME.HEIGHT,
   parent: "game-container",
   physics: {
     default: "arcade",
     arcade: {
-      gravity: { x: 0, y: 800 },
+      gravity: { x: 0, y: PHYSICS.BASE_GRAVITY },
       debug: false,
     },
   },
-  scene: [GameScene],
+  scene: [GameScene, GameOverScene],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
