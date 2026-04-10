@@ -103,21 +103,32 @@ export class GameScene extends Phaser.Scene {
         const p = playerObj as Player;
         const plat = platformObj as Platform;
 
-        // Il salto si attiva solo se il giocatore sta atterrando (tocca il lato superiore)
-        if (p.body && p.body.touching.down && plat.body.touching.up) {
-          // --- Checkpoint DJ Stage ---
-          if (plat.isDJStage) {
-            plat.isDJStage = false;
+        // --- FIX BUG #2: DJ Stage si attiva a QUALSIASI contatto ---
+        // Il DJ Stage ha collisione da tutte le direzioni, quindi il giocatore
+        // non può attraversarlo. Al tocco (da qualsiasi angolo) scatta il level up.
+        if (plat.isDJStage && p.body) {
+          plat.isDJStage = false;
 
-            // Level up!
-            this.levelManager.levelUp();
-            this.scoreManager.addBonus(this.levelManager.getLevelUpBonus());
-            this.partyManager.resetForNewLevel();
-            p.jump(LEVEL.JUMP_BOOST_ON_STAGE, this.levelManager.level);
-            return;
+          // Ripristina collisione solo dall'alto, così il giocatore
+          // può saltare attraverso la piattaforma dopo il level up
+          if (plat.body) {
+            plat.body.checkCollision.down = false;
+            plat.body.checkCollision.left = false;
+            plat.body.checkCollision.right = false;
+            plat.body.checkCollision.up = true;
           }
 
-          // --- Salto normale con modificatori ---
+          // Level up!
+          this.levelManager.levelUp();
+          this.scoreManager.addBonus(this.levelManager.getLevelUpBonus());
+          this.partyManager.resetForNewLevel();
+          p.jump(LEVEL.JUMP_BOOST_ON_STAGE, this.levelManager.level);
+          return;
+        }
+
+        // --- Piattaforme normali: il salto si attiva solo atterrando dall'alto ---
+        if (p.body && p.body.touching.down && plat.body.touching.up) {
+          // Determina il tipo di salto
           const isTouchingMud = this.physics.overlap(p, this.spawnManager.muds);
 
           if (plat.platformType === "subwoofer") {

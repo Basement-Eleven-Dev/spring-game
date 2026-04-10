@@ -185,8 +185,12 @@ export class SpawnManager {
   /**
    * Mostra un warning "!" lampeggiante nella posizione dove sta per
    * apparire il bouncer. Dopo N lampeggi, spawna il bouncer.
+   *
+   * NOTA: la posizione di spawn usa la scrollY CORRENTE della camera
+   * (non quella catturata all'inizio del telegraph), perché durante
+   * il flash (~900ms) la camera si muove col giocatore.
    */
-  public spawnBouncerTelegraph(level: number, camScrollY: number): void {
+  public spawnBouncerTelegraph(level: number, _camScrollY: number): void {
     const randomX = Phaser.Math.Between(40, GAME.WIDTH - 40);
 
     const warningText = this.scene.add
@@ -207,7 +211,9 @@ export class SpawnManager {
       repeat: BOUNCER.TELEGRAPH_REPEATS,
       onComplete: () => {
         warningText.destroy();
-        this.spawnBouncer(randomX, camScrollY - 30, level);
+        // FIX BUG #1: leggiamo la scrollY ATTUALE, non quella di ~900ms fa
+        const currentScrollY = this.scene.cameras.main.scrollY;
+        this.spawnBouncer(randomX, currentScrollY - 30, level);
       },
     });
   }
@@ -247,6 +253,14 @@ export class SpawnManager {
 
     if (djStage.body) {
       djStage.body.setSize(djStage.width, djStage.height);
+
+      // FIX BUG #2: il DJ Stage ha collisione da TUTTE le direzioni.
+      // Senza questo, il giocatore lo attraversa dal basso e salta il livello.
+      // Dopo il level-up, la collisione viene resettata a "solo dall'alto"
+      // in GameScene.setupColliders() per permettere il salto successivo.
+      djStage.body.checkCollision.down = true;
+      djStage.body.checkCollision.left = true;
+      djStage.body.checkCollision.right = true;
     }
 
     // Genera nuove piattaforme sopra il DJ Stage

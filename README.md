@@ -280,9 +280,13 @@ START
 
 ### Bug Critici
 
-- [ ] **🔴 BUG #1 — Bouncer spawna a metà schermo**: il bouncer non piove correttamente dal bordo superiore, ma appare a metà viewport. Il calcolo della posizione Y nello spawn va rivisto per garantire che il bouncer parta fuori dallo schermo visibile e cada verso il basso.
+- [x] **🔴 BUG #1 — Bouncer spawna a metà schermo** ✅ FIXATO
+  - **Causa**: `camScrollY` veniva catturato quando partiva il telegraph "!" (~900ms prima dello spawn). Durante l'animazione la camera saliva col giocatore, rendendo la posizione salvata ormai a metà schermo.
+  - **Fix**: in `SpawnManager.spawnBouncerTelegraph()`, la scrollY viene letta nel callback `onComplete` del tween (non al momento del trigger).
 
-- [ ] **🔴 BUG #2 — Il livello non scatta senza toccare il DJ Stage**: se il giocatore non atterra sulla piattaforma DJ Stage, il livello non avanza. Va valutata una meccanica alternativa o un modo per "forzare" l'interazione col DJ Stage (es. renderlo più grande, aggiungere un magnete, o far avanzare il livello automaticamente dopo un timeout).
+- [x] **🔴 BUG #2 — Il livello non scatta senza toccare il DJ Stage** ✅ FIXATO
+  - **Causa**: il DJ Stage aveva collisione solo dall'alto (`checkCollision.down = false`). Il giocatore lo attraversava dal basso e atterrava sulle piattaforme sopra, saltando il livello.
+  - **Fix**: in `SpawnManager.spawnDJStage()`, il DJ Stage ora ha collisione da tutte le direzioni. In `GameScene.setupColliders()`, il level-up scatta a qualsiasi contatto col DJ Stage, poi la collisione viene resettata a "solo dall'alto" per permettere il salto successivo.
 
 ### Miglioramenti Necessari
 
