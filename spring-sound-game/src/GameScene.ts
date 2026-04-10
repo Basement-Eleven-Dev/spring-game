@@ -13,6 +13,7 @@ export class GameScene extends Phaser.Scene {
 
   private highestPlatformY!: number;
   private highestYReached!: number;
+  private lastPlatformX: number = 200;
 
   private currentLevel: number = 1;
   private distance: number = 0;
@@ -110,7 +111,7 @@ export class GameScene extends Phaser.Scene {
 
     let currentY = 680;
     for (let i = 1; i <= 12; i++) {
-      currentY -= Phaser.Math.Between(80, 220);
+      currentY -= Phaser.Math.Between(50, 130);
       this.spawnPlatform(currentY);
     }
 
@@ -118,6 +119,7 @@ export class GameScene extends Phaser.Scene {
     this.highestYReached = 600;
     this.lastDrinkSpawnY = 600;
     this.lastBouncerSpawnY = 600;
+    this.lastPlatformX = 200;
 
     this.player = new Player(this, 200, 600, "playerTexture");
 
@@ -159,7 +161,7 @@ export class GameScene extends Phaser.Scene {
           if (plat.platformType === "subwoofer") {
             p.jump(1.6, this.currentLevel);
           } else if (isTouchingMud) {
-            p.jump(0.5, this.currentLevel);
+            p.jump(0.8, this.currentLevel);
           } else {
             p.jump(1, this.currentLevel);
           }
@@ -167,7 +169,7 @@ export class GameScene extends Phaser.Scene {
           if (plat.platformType === "fragile") {
             plat.destroy();
             this.spawnPlatform(
-              this.highestPlatformY - Phaser.Math.Between(80, 220),
+              this.highestPlatformY - Phaser.Math.Between(50, 130),
             );
           }
         }
@@ -302,7 +304,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   private spawnPlatform(y: number) {
-    const randomX = Phaser.Math.Between(40, 360);
+    // Calcoliamo un raggio d'azione sicuro (es. max 180 pixel a destra o sinistra)
+    const minX = Math.max(40, this.lastPlatformX - 140);
+    const maxX = Math.min(360, this.lastPlatformX + 140);
+
+    const randomX = Phaser.Math.Between(minX, maxX);
+    this.lastPlatformX = randomX;
     const plat = this.platforms.get(randomX, y) as Platform;
 
     let movingProb = Math.min(0.1 + this.currentLevel * 0.05, 0.35);
@@ -450,7 +457,7 @@ export class GameScene extends Phaser.Scene {
           platform.destroy();
           return;
         }
-        const randomDistance = Phaser.Math.Between(80, 220);
+        const randomDistance = Phaser.Math.Between(50, 130);
         const newY = this.highestPlatformY - randomDistance;
         platform.destroy();
         this.spawnPlatform(newY);
