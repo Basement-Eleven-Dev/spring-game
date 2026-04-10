@@ -4,7 +4,8 @@ import { Platform } from "./Platform";
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
-  private platforms!: Phaser.Physics.Arcade.StaticGroup; // Trasformato in gruppo Statico puro
+  private platforms!: Phaser.Physics.Arcade.StaticGroup;
+  private highestPlatformY!: number;
 
   constructor() {
     super("GameScene");
@@ -25,39 +26,40 @@ export class GameScene extends Phaser.Scene {
     playerGraphics.generateTexture("playerTexture", 40, 40);
     playerGraphics.destroy();
 
-    // Creazione del gruppo fisico STATICO
     this.platforms = this.physics.add.staticGroup({
       classType: Platform,
     });
 
-    // Generazione base sicura
     const basePlatform = this.platforms.get(
       200,
       680,
       "platformTexture",
     ) as Platform;
     basePlatform.setDisplaySize(400, 15);
-    basePlatform.body.updateFromGameObject(); // FONDAMENTALE: aggiorna la hitbox statica dopo un ridimensionamento visivo
+    basePlatform.isBasePlatform = true;
+    basePlatform.body.updateFromGameObject();
 
-    // Generazione procedurale delle 5 piattaforme
-    for (let i = 1; i <= 5; i++) {
+    // MODIFICA 1: Aumentiamo a 12 piattaforme e calcoliamo la distanza in modo dinamico fin da subito
+    let currentY = 680;
+    for (let i = 1; i <= 12; i++) {
       const randomX = Phaser.Math.Between(40, 360);
-      const y = 680 - 120 * i;
+      // MODIFICA 2: Distanza aumentata tra 150 e 200 pixel
+      currentY -= Phaser.Math.Between(150, 200);
 
       const plat = this.platforms.get(
         randomX,
-        y,
+        currentY,
         "platformTexture",
       ) as Platform;
       plat.setOneWayCollision();
     }
 
+    this.highestPlatformY = currentY;
+
     this.player = new Player(this, 200, 600, "playerTexture");
 
-    // Collisione sicura, tipizzata e gestita a monte
     this.physics.add.collider(this.player, this.platforms, (playerObj) => {
       const p = playerObj as Player;
-      // Esegue il salto solo se il body esiste e se sta effettivamente toccando la piattaforma dal basso
       if (p.body && p.body.touching.down) {
         p.jump();
       }
@@ -68,8 +70,32 @@ export class GameScene extends Phaser.Scene {
     this.player.update();
 
     const cam = this.cameras.main;
+
     if (this.player.y < cam.scrollY + cam.height / 2) {
       cam.scrollY = this.player.y - cam.height / 2;
+    }
+
+    this.platforms.getChildren().forEach((child) => {
+      const platform = child as Platform;
+
+      if (platform.y > cam.scrollY + cam.height) {
+        if (platform.isBasePlatform) {
+          platform.destroy();
+          return;
+        }
+
+        // MODIFICA 3: Manteniamo la nuova distanza aumentata anche durante il riciclo
+        const randomDistance = Phaser.Math.Between(150, 200);
+        platform.y = this.highestPlatformY - randomDistance;
+        platform.x = Phaser.Math.Between(40, 360);
+
+        platform.body.updateFromGameObject();
+        this.highestPlatformY = platform.y;
+      }
+    });
+
+    if (this.player.y > cam.scrollY + cam.height) {
+      this.scene.restart();
     }
   }
 }

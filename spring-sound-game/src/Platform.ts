@@ -1,14 +1,15 @@
 import * as Phaser from "phaser";
 
 export class Platform extends Phaser.Physics.Arcade.Sprite {
-  // Tipizzazione rigorosa per i corpi statici
   declare public body: Phaser.Physics.Arcade.StaticBody;
+
+  // NUOVA PROPRIETÀ: Ci serve per riconoscere se è il pavimento iniziale
+  public isBasePlatform: boolean = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string) {
     super(scene, x, y, texture);
   }
 
-  // Metodo per impostare le collisioni One-Way richiamabile dall'esterno
   public setOneWayCollision() {
     if (this.body) {
       this.body.checkCollision.down = false;
