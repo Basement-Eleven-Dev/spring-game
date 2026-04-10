@@ -22,6 +22,7 @@ export class GameScene extends Phaser.Scene {
   private partyLevel: number = 0;
   private partyBarGraphics!: Phaser.GameObjects.Graphics;
   private isWasted: boolean = false;
+  private currentBlurFx: Phaser.FX.Blur | null = null;
 
   private lastDrinkSpawnY: number = 600;
   private lastBouncerSpawnY: number = 600;
@@ -49,9 +50,9 @@ export class GameScene extends Phaser.Scene {
     this.score = 0;
     this.partyLevel = 0;
     this.isWasted = false;
+    this.currentBlurFx = null;
 
     this.physics.world.gravity.y = 800;
-
     this.cameras.main.setBackgroundColor("#87CEEB");
 
     this.createTexture("playerTexture", 0xff0000, 40, 40);
@@ -61,10 +62,9 @@ export class GameScene extends Phaser.Scene {
     this.createTexture("subwooferTexture", 0xffff00, 80, 15);
     this.createTexture("drinkTexture", 0xffa500, 20, 20);
 
-    // TEXTURE OSTACOLI E PALCO DJ
     this.createTexture("mudTexture", 0x654321, 40, 10);
     this.createTexture("bouncerTexture", 0x000000, 60, 60);
-    this.createTexture("djStageTexture", 0xff00ff, 400, 20); // Palco fucsia enorme
+    this.createTexture("djStageTexture", 0xff00ff, 400, 20);
 
     this.scoreText = this.add
       .text(10, 10, "0m | 0 pts | Lvl 1", {
@@ -84,7 +84,6 @@ export class GameScene extends Phaser.Scene {
       runChildUpdate: true,
     });
     this.drinks = this.physics.add.group({ classType: Drink });
-
     this.muds = this.physics.add.group({
       allowGravity: false,
       immovable: true,
@@ -117,7 +116,6 @@ export class GameScene extends Phaser.Scene {
 
     this.player = new Player(this, 200, 600, "playerTexture");
 
-    // GESTIONE DEL SALTO, FANGO E PALCO DJ
     this.physics.add.collider(
       this.player,
       this.platforms,
@@ -126,19 +124,28 @@ export class GameScene extends Phaser.Scene {
         const plat = platformObj as Platform;
 
         if (p.body && p.body.touching.down && plat.body.touching.up) {
-          // CONTROLLO CHECKPOINT (PALCO DJ)
           if ((plat as any).isDJStage) {
-            (plat as any).isDJStage = false; // Disattiva per non ri-triggerarlo se ci rimbalza
+            (plat as any).isDJStage = false;
 
             this.currentLevel++;
-            this.score += 1000 * this.currentLevel; // Bonus sostanzioso per la sopravvivenza
+            this.score += 1000 * this.currentLevel;
 
-            // Aumentiamo la difficoltà fisica
             const newGravity = 800 * (1 + (this.currentLevel - 1) * 0.15);
             this.physics.world.gravity.y = newGravity;
 
+            this.partyLevel = 0;
+            this.isWasted = false;
+
+            if (this.currentBlurFx) {
+              this.cameras.main.postFX.remove(this.currentBlurFx);
+              this.currentBlurFx = null;
+            }
+
+            this.cameras.main.setRotation(0);
+            this.drawPartyBar();
+
             this.showLevelUpVisual();
-            p.jump(1.3, this.currentLevel); // Salto bonus per festeggiare
+            p.jump(1.3, this.currentLevel);
             return;
           }
 
@@ -162,19 +169,21 @@ export class GameScene extends Phaser.Scene {
       },
     );
 
+    // FIX TS: Aggiunto underscore per indicare a TS che playerObj è intenzionalmente inutilizzato
     this.physics.add.overlap(
       this.player,
       this.drinks,
-      (playerObj, drinkObj) => {
+      (_playerObj, drinkObj) => {
         (drinkObj as Phaser.Physics.Arcade.Sprite).destroy();
         this.collectDrink();
       },
     );
 
+    // FIX TS: Aggiunto underscore per bouncerObj
     this.physics.add.collider(
       this.player,
       this.bouncers,
-      (playerObj, bouncerObj) => {
+      (playerObj, _bouncerObj) => {
         const p = playerObj as Player;
         if (p.body) {
           p.setVelocityY(800);
@@ -213,17 +222,35 @@ export class GameScene extends Phaser.Scene {
 
   private triggerWasted() {
     this.isWasted = true;
-    const blurFx = this.cameras.main.postFX.addBlur(2, 0, 0, 1, 0xffffff, 4);
 
-    // Quando finisce il timer Wasted, spawna il Palco DJ!
+    this.currentBlurFx = this.cameras.main.postFX.addBlur(
+      2,
+      0,
+      0,
+      1,
+      0xffffff,
+      4,
+    );
+
     this.time.delayedCall(4500, () => {
-      this.partyLevel = 0;
-      this.isWasted = false;
-      this.cameras.main.postFX.remove(blurFx);
-      this.drawPartyBar();
+      const cam = this.cameras.main;
+      const nextY = cam.scrollY - 150;
 
-      // SPAWN DEL PALCO DJ COME SAFE ZONE
-      const nextY = this.highestPlatformY - 200;
+      const clearAbove = (group: Phaser.Physics.Arcade.Group) => {
+        const children = [...group.getChildren()];
+        children.forEach((child) => {
+          const sprite = child as Phaser.Physics.Arcade.Sprite;
+          if (sprite.y < nextY + 50) {
+            sprite.destroy();
+          }
+        });
+      };
+
+      clearAbove(this.platforms);
+      clearAbove(this.drinks);
+      clearAbove(this.muds);
+      clearAbove(this.bouncers);
+
       const djStage = this.platforms.get(
         200,
         nextY,
@@ -231,15 +258,18 @@ export class GameScene extends Phaser.Scene {
       ) as Platform;
       djStage.initPlatform("standard", "djStageTexture", this.currentLevel);
       djStage.setDisplaySize(400, 20);
-      djStage.isBasePlatform = true; // Lo eliminiamo invece di riciclarlo
+      djStage.isBasePlatform = true;
 
       if (djStage.body) {
         djStage.body.setSize(400, 20);
-        // Flag dinamico per far capire al collider che questo è il traguardo
         (djStage as any).isDJStage = true;
       }
 
       this.highestPlatformY = nextY;
+      for (let i = 0; i < 8; i++) {
+        this.highestPlatformY -= Phaser.Math.Between(120, 220);
+        this.spawnPlatform(this.highestPlatformY);
+      }
     });
   }
 
@@ -311,31 +341,25 @@ export class GameScene extends Phaser.Scene {
     if (drink) drink.initDrink("falling");
   }
 
-  // NUOVA FUNZIONE: Pre-allarme visivo per il Buttafuori
   private spawnBouncerTelegraph() {
-    const cam = this.cameras.main;
     const randomX = Phaser.Math.Between(40, 360);
 
-    // Crea un alert testuale rosso che segue la telecamera in alto
     const warningText = this.add
-      .text(randomX, cam.scrollY + 20, "!", {
-        fontSize: "40px",
+      .text(randomX, 80, "!", {
+        fontSize: "60px",
         color: "#ff0000",
         fontStyle: "bold",
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(20);
 
-    // Animazione di lampeggio rapido (Telegraphing)
     this.tweens.add({
       targets: warningText,
       alpha: 0,
       duration: 150,
       yoyo: true,
-      repeat: 3, // Lampeggia per circa mezzo secondo
-      onUpdate: () => {
-        // Tienilo incollato alla cima dello schermo anche se la telecamera sale
-        warningText.y = this.cameras.main.scrollY + 30;
-      },
+      repeat: 3,
       onComplete: () => {
         warningText.destroy();
         this.spawnBouncer(randomX, this.cameras.main.scrollY - 30);
@@ -343,7 +367,6 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  // Modificato per accettare le coordinate dal Telegraph
   private spawnBouncer(x: number, y: number) {
     const bouncer = this.bouncers.get(
       x,
@@ -399,7 +422,6 @@ export class GameScene extends Phaser.Scene {
     if (this.currentLevel >= 3) {
       const bouncerInterval = Math.max(700 - this.currentLevel * 50, 350);
       if (this.highestYReached < this.lastBouncerSpawnY - bouncerInterval) {
-        // Ora chiamiamo il Telegraph, non il bouncer diretto!
         this.spawnBouncerTelegraph();
         this.lastBouncerSpawnY = this.highestYReached;
       }
