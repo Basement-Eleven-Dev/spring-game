@@ -8,12 +8,16 @@ export class GameScene extends Phaser.Scene {
   private platforms!: Phaser.Physics.Arcade.Group;
   private drinks!: Phaser.Physics.Arcade.Group;
 
+  // NUOVI GRUPPI PER GLI OSTACOLI
+  private muds!: Phaser.Physics.Arcade.Group;
+  private bouncers!: Phaser.Physics.Arcade.Group;
+
   private highestPlatformY!: number;
   private highestYReached!: number;
 
   private currentLevel: number = 1;
-  private distance: number = 0; // Tracciamo i metri reali
-  private score: number = 0; // Tracciamo i punti moltiplicati
+  private distance: number = 0;
+  private score: number = 0;
   private scoreText!: Phaser.GameObjects.Text;
 
   private partyLevel: number = 0;
@@ -21,6 +25,7 @@ export class GameScene extends Phaser.Scene {
   private isWasted: boolean = false;
 
   private lastDrinkSpawnY: number = 600;
+  private lastBouncerSpawnY: number = 600; // Traccia quando spawnare il Buttafuori
 
   constructor() {
     super("GameScene");
@@ -46,6 +51,9 @@ export class GameScene extends Phaser.Scene {
     this.partyLevel = 0;
     this.isWasted = false;
 
+    // Reset della gravità al livello base
+    this.physics.world.gravity.y = 800;
+
     this.cameras.main.setBackgroundColor("#87CEEB");
 
     this.createTexture("playerTexture", 0xff0000, 40, 40);
@@ -55,7 +63,10 @@ export class GameScene extends Phaser.Scene {
     this.createTexture("subwooferTexture", 0xffff00, 80, 15);
     this.createTexture("drinkTexture", 0xffa500, 20, 20);
 
-    // UI AGGIORNATA: Metri + Punti + Livello
+    // TEXTURE OSTACOLI
+    this.createTexture("mudTexture", 0x654321, 40, 10); // Fango (Marrone scuro, largo mezza piattaforma)
+    this.createTexture("bouncerTexture", 0x000000, 60, 60); // Buttafuori (Nero, grosso)
+
     this.scoreText = this.add
       .text(10, 10, "0m | 0 pts | Lvl 1", {
         fontSize: "18px",
@@ -74,6 +85,16 @@ export class GameScene extends Phaser.Scene {
       runChildUpdate: true,
     });
     this.drinks = this.physics.add.group({ classType: Drink });
+
+    // Inizializziamo i gruppi degli ostacoli (entrambi senza gravità)
+    this.muds = this.physics.add.group({
+      allowGravity: false,
+      immovable: true,
+    });
+    this.bouncers = this.physics.add.group({
+      allowGravity: false,
+      immovable: true,
+    });
 
     const basePlatform = this.platforms.get(
       200,
@@ -94,18 +115,29 @@ export class GameScene extends Phaser.Scene {
     this.highestPlatformY = currentY;
     this.highestYReached = 600;
     this.lastDrinkSpawnY = 600;
+    this.lastBouncerSpawnY = 600;
 
     this.player = new Player(this, 200, 600, "playerTexture");
 
+    // GESTIONE DEL SALTO (con logica Fango integrata)
     this.physics.add.collider(
       this.player,
       this.platforms,
       (playerObj, platformObj) => {
         const p = playerObj as Player;
         const plat = platformObj as Platform;
+
         if (p.body && p.body.touching.down && plat.body.touching.up) {
-          if (plat.platformType === "subwoofer") p.jump(1.6);
-          else p.jump(1, this.currentLevel);
+          // Verifichiamo se il giocatore sta toccando una pozza di fango proprio mentre salta
+          const isTouchingMud = this.physics.overlap(p, this.muds);
+
+          if (plat.platformType === "subwoofer") {
+            p.jump(1.6, this.currentLevel);
+          } else if (isTouchingMud) {
+            p.jump(0.5, this.currentLevel); // SALTO DIMEZZATO DAL FANGO!
+          } else {
+            p.jump(1, this.currentLevel);
+          }
 
           if (plat.platformType === "fragile") {
             plat.destroy();
@@ -121,8 +153,21 @@ export class GameScene extends Phaser.Scene {
       this.player,
       this.drinks,
       (playerObj, drinkObj) => {
-        (drinkObj as Drink).destroy();
+        (drinkObj as Phaser.Physics.Arcade.Sprite).destroy();
         this.collectDrink();
+      },
+    );
+
+    // COLLISIONE COL BUTTAFUORI: La schiacciata (RISOLTA!)
+    this.physics.add.collider(
+      this.player,
+      this.bouncers,
+      (playerObj, bouncerObj) => {
+        const p = playerObj as Player;
+        if (p.body) {
+          // Ti martella giù a velocità massima, a prescindere da come o quando lo colpisci!
+          p.setVelocityY(800);
+        }
       },
     );
   }
@@ -147,7 +192,8 @@ export class GameScene extends Phaser.Scene {
   private collectDrink() {
     if (this.isWasted) return;
 
-    this.partyLevel += 5;
+    // BILANCIAMENTO AUMENTATO: 8% a drink. Livelli molto più veloci da scalare!
+    this.partyLevel += 8;
     if (this.partyLevel >= 100) {
       this.partyLevel = 100;
       this.triggerWasted();
@@ -159,11 +205,12 @@ export class GameScene extends Phaser.Scene {
     this.isWasted = true;
     const blurFx = this.cameras.main.postFX.addBlur(2, 0, 0, 1, 0xffffff, 4);
 
-    // BILANCIAMENTO: Tempo ridotto a 4.5 secondi. Tosto ma affrontabile.
     this.time.delayedCall(4500, () => {
       this.partyLevel = 0;
       this.isWasted = false;
       this.currentLevel++;
+
+      // AUMENTO DIFFICOLTÀ: Aumentiamo la gravità base (si cade più veloci!)
       const newGravity = 800 * (1 + (this.currentLevel - 1) * 0.15);
       this.physics.world.gravity.y = newGravity;
 
@@ -204,15 +251,26 @@ export class GameScene extends Phaser.Scene {
     let fragileProb = Math.min(0.1 + this.currentLevel * 0.05, 0.3);
 
     const rand = Math.random();
-    if (rand < movingProb)
+    if (rand < movingProb) {
       plat.initPlatform("moving", "movingTexture", this.currentLevel);
-    else if (rand < movingProb + fragileProb)
+    } else if (rand < movingProb + fragileProb) {
       plat.initPlatform("fragile", "fragileTexture", this.currentLevel);
-    else if (rand < movingProb + fragileProb + 0.1)
+    } else if (rand < movingProb + fragileProb + 0.1) {
       plat.initPlatform("subwoofer", "subwooferTexture", this.currentLevel);
-    else plat.initPlatform("standard", "standardTexture", this.currentLevel);
+    } else {
+      plat.initPlatform("standard", "standardTexture", this.currentLevel);
 
-    if (Math.random() < 0.05) {
+      // GESTIONE FANGO (Solo sulle piattaforme standard)
+      // 20% di probabilità di avere del fango, ma aumenta con i livelli
+      if (Math.random() < Math.min(0.2 + this.currentLevel * 0.05, 0.5)) {
+        // Decidiamo se metterlo a destra o sinistra della piattaforma (offset di 20 pixel)
+        const offset = Math.random() < 0.5 ? -20 : 20;
+        this.muds.get(randomX + offset, y - 7, "mudTexture");
+      }
+    }
+
+    // BILANCIAMENTO AUMENTATO: 10% di avere un drink statico
+    if (Math.random() < 0.1) {
       const drink = this.drinks.get(randomX, y - 25, "drinkTexture") as Drink;
       if (drink) drink.initDrink("static");
     }
@@ -231,6 +289,20 @@ export class GameScene extends Phaser.Scene {
     if (drink) drink.initDrink("falling");
   }
 
+  private spawnBouncer() {
+    const cam = this.cameras.main;
+    const randomX = Phaser.Math.Between(40, 360);
+    // Il buttafuori è un po' più grosso e cade decisamente più in fretta (velocità 250)
+    const bouncer = this.bouncers.get(
+      randomX,
+      cam.scrollY - 30,
+      "bouncerTexture",
+    ) as Phaser.Physics.Arcade.Sprite;
+    if (bouncer && bouncer.body) {
+      bouncer.setVelocityY(250 + this.currentLevel * 20); // Diventa più veloce ai livelli alti
+    }
+  }
+
   update() {
     this.player.updateMovement(this.partyLevel, this.isWasted);
 
@@ -247,7 +319,6 @@ export class GameScene extends Phaser.Scene {
       if (this.partyLevel >= 67 && this.partyLevel < 100) multiplier = 2;
       if (this.isWasted) multiplier = 3;
 
-      // Incrementiamo Metri e Punti separatamente
       const metersGained = heightGained / 10;
       this.distance += metersGained;
       this.score += metersGained * this.currentLevel * multiplier;
@@ -258,7 +329,6 @@ export class GameScene extends Phaser.Scene {
       );
     }
 
-    // BILANCIAMENTO WOBBLE: Ampiezza massima ridotta (da 0.1 a 0.06)
     if (this.partyLevel >= 34 || this.isWasted) {
       let drunkIntensity = this.isWasted
         ? 1.0
@@ -269,11 +339,20 @@ export class GameScene extends Phaser.Scene {
       cam.setRotation(0);
     }
 
-    if (this.highestYReached < this.lastDrinkSpawnY - 400) {
+    // BILANCIAMENTO AUMENTATO: Cade un drink ogni 250 metri (anziché 400)
+    if (this.highestYReached < this.lastDrinkSpawnY - 250) {
       this.spawnFallingDrink();
       this.lastDrinkSpawnY = this.highestYReached;
     }
 
+    // SPAWN BUTTAFUORI: Ne cade uno ogni 700 metri circa (più frequente salendo di livello)
+    const bouncerInterval = Math.max(700 - this.currentLevel * 50, 350);
+    if (this.highestYReached < this.lastBouncerSpawnY - bouncerInterval) {
+      this.spawnBouncer();
+      this.lastBouncerSpawnY = this.highestYReached;
+    }
+
+    // PULIZIA OSTACOLI e PIATTAFORME FUORI SCHERMO
     this.platforms.getChildren().forEach((child) => {
       const platform = child as Platform;
       if (platform.y > cam.scrollY + cam.height) {
@@ -288,12 +367,17 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    this.drinks.getChildren().forEach((child) => {
-      const drink = child as Drink;
-      if (drink.y > cam.scrollY + cam.height + 50) {
-        drink.destroy();
-      }
-    });
+    // Helper per pulire oggetti che cadono o restano indietro
+    const cleanupGroup = (group: Phaser.Physics.Arcade.Group) => {
+      group.getChildren().forEach((child) => {
+        const sprite = child as Phaser.Physics.Arcade.Sprite;
+        if (sprite.y > cam.scrollY + cam.height + 50) sprite.destroy();
+      });
+    };
+
+    cleanupGroup(this.drinks);
+    cleanupGroup(this.muds);
+    cleanupGroup(this.bouncers);
 
     if (this.player.y > cam.scrollY + cam.height) {
       this.scene.restart();
