@@ -1,14 +1,14 @@
 import * as Phaser from "phaser";
-import { PHYSICS, LEVEL } from "../GameConfig";
+import { GAME, PHYSICS, LEVEL } from "../GameConfig";
 
 /**
  * LevelManager
  * =============
  * Gestisce la progressione tra livelli:
  * - Incremento del livello
- * - Aumento della gravità per ogni livello
+ * - Aumento LOGARITMICO della gravità per ogni livello
  * - Calcolo dei bonus punti
- * - Animazione visiva "LEVEL X!"
+ * - Animazione visiva "LEVEL X!" con effetto premium
  */
 export class LevelManager {
   private scene: Phaser.Scene;
@@ -21,7 +21,7 @@ export class LevelManager {
   /**
    * Avanza al livello successivo:
    * - Incrementa il contatore
-   * - Aggiorna la gravità del mondo fisico
+   * - Aggiorna la gravità del mondo fisico (curva logaritmica)
    * - Mostra l'animazione di level up
    */
   public levelUp(): void {
@@ -30,43 +30,75 @@ export class LevelManager {
     this.showLevelUpVisual();
   }
 
-  /** Calcola la gravità per il livello corrente (cresce del 15% per livello) */
+  /**
+   * Calcola la gravità per il livello corrente.
+   * Usa una curva LOGARITMICA: cresce veloce ai primi livelli,
+   * poi si stabilizza. Meno punitiva del lineare ai livelli alti.
+   *
+   * Formula: BASE × (1 + SCALE × ln(level))
+   * Lvl 1: 750 | 2: 866 | 3: 931 | 5: 1016 | 10: 1130
+   */
   public getGravity(): number {
     return (
       PHYSICS.BASE_GRAVITY *
-      (1 + (this._level - 1) * PHYSICS.GRAVITY_SCALE_PER_LEVEL)
+      (1 + PHYSICS.GRAVITY_SCALE_PER_LEVEL * Math.log(this._level))
     );
   }
 
-  /** Ritorna i punti bonus per aver completato il livello (1000 × livello) */
+  /** Ritorna i punti bonus per aver completato il livello */
   public getLevelUpBonus(): number {
     return LEVEL.LEVEL_UP_BONUS * this._level;
   }
 
   /**
-   * Mostra un testo "LEVEL X!" al centro dello schermo
-   * con animazione verso l'alto + fade out.
+   * Mostra "LEVEL X!" al centro dello schermo con animazione premium:
+   * - Scale in con bounce
+   * - Glow tramite stroke
+   * - Fade out verso l'alto
    */
   private showLevelUpVisual(): void {
+    const centerX = GAME.WIDTH / 2;
+    const centerY = GAME.HEIGHT / 2;
+
+    // Testo principale
     const lvlText = this.scene.add
-      .text(200, 350, `LEVEL ${this._level}!`, {
-        fontSize: "48px",
-        color: "#ff00ff",
+      .text(centerX, centerY, `LEVEL ${this._level}!`, {
+        fontFamily: "Outfit, sans-serif",
+        fontSize: "42px",
+        color: "#ffd700",
         fontStyle: "bold",
-        stroke: "#fff",
-        strokeThickness: 4,
+        stroke: "#b8860b",
+        strokeThickness: 5,
+        shadow: {
+          offsetX: 0,
+          offsetY: 0,
+          color: "#ffd700",
+          blur: 20,
+          fill: true,
+        },
       })
       .setOrigin(0.5)
       .setScrollFactor(0)
-      .setDepth(20);
+      .setDepth(25)
+      .setScale(0);
 
+    // Animazione: scala in con bounce → pausa → fade out verso l'alto
     this.scene.tweens.add({
       targets: lvlText,
-      y: 300,
-      alpha: 0,
-      duration: 1500,
-      ease: "Cubic.easeOut",
-      onComplete: () => lvlText.destroy(),
+      scale: 1,
+      duration: 400,
+      ease: "Back.easeOut",
+      onComplete: () => {
+        this.scene.tweens.add({
+          targets: lvlText,
+          y: centerY - 80,
+          alpha: 0,
+          duration: 1000,
+          delay: 600,
+          ease: "Cubic.easeIn",
+          onComplete: () => lvlText.destroy(),
+        });
+      },
     });
   }
 

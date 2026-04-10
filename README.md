@@ -301,27 +301,39 @@ START
 - [ ] **🟡 #4 — Supporto giroscopio** ⏸️ RIMANDATO
   - iOS 13+ richiede HTTPS + permesso esplicito via `DeviceOrientationEvent.requestPermission()`. Troppo complesso per lo sviluppo locale. Da implementare dopo il deploy in produzione (HTTPS).
 
-- [ ] **🟠 #5 — Ridefinire la UI**: l'HUD attuale è minimale e poco leggibile. Da rifare:
-  - Score/distanza/livello con font custom (Google Fonts) e sfondo semi-trasparente
-  - Party bar con design migliore (gradiente, icone, etichetta)
-  - Indicatori visivi per i power-up attivi (moltiplicatore punteggio corrente)
-  - Schermata di start / titolo con istruzioni
-  - Mobile-friendly: pulsanti e testi dimensionati per touch
+- [x] **🟠 #5 — Ridefinire la UI** ✅ COMPLETATO
+  - **HUD premium**: barra scura semitrasparente in alto, distanza/punteggio a sinistra, livello/moltiplicatore a destra
+  - **Font custom**: Google Fonts "Outfit" importato nel CSS
+  - **Party bar**: centrata sotto l'HUD, angoli arrotondati, sfondo scuro, percentuale dinamica, flash bianco al raccoglimento drink, etichetta "🍺 WASTED"
+  - **Moltiplicatore visibile**: il moltiplicatore punteggio attivo è mostrato con colore corrispondente (verde/giallo/arancio/rosso)
+  - **Level Up**: animazione gold con glow, scale-in con bounce + fade out
+  - **Game Over premium**: sfondo scuro con particelle viola animate, statistiche con layout label/valore, pulsante viola con hover interattivo
+  - **Mobile-friendly**: touch-action: manipulation (no zoom), user-select: none, viewport 100dvh
 
-- [ ] **🟠 #6 — Bilanciamento elementi e punteggio**: tutti i valori sono in `GameConfig.ts`, da calibrare:
-  - Frequenza dei drink (troppi? troppo pochi?)
-  - Guadagno party per drink (`PARTY_GAIN = 8` → servono ~13 drink per wasted)
-  - Moltiplicatori punteggio per soglia party
-  - Velocità e frequenza dei bouncer
-  - Probabilità fango vs altri tipi di piattaforma
-  - Distanza tra piattaforme (`SPACING_MIN/MAX`)
+- [x] **🟠 #6 — Bilanciamento elementi e punteggio** ✅ COMPLETATO
+  - Party gain: 10 per drink (servono 10 drink per wasted, prima erano 13)
+  - Drink su piattaforma: 12% (prima 10%)
+  - Drink cadenti: ogni 300px (prima 250px) — meno spam
+  - Moltiplicatori punteggio: ×1 / ×1.5 / ×2.5 / ×4 (prima ×1/1.5/2/3)
+  - Bouncer: appare dal livello 2 (prima dal 1), knockback ridotto a 700 (prima 800)
+  - Bouncer intervallo base: 800px (prima 700px), riduzione più lenta per livello
+  - Piattaforme fragili: 0% al livello 1, crescono dal 2 (+6%/lvl, max 25%)
+  - Fango: appare dal livello 3 (prima dal 2)
+  - Piattaforme mobili: 5% al livello 1 (prima 10%), crescita più graduale
+  - Spacing: 55-115px (prima 50-130px) — range più coerente
+  - 14 piattaforme iniziali (prima 12) — inizio meno claustrofobico
+  - DJ Stage: più lontano (180px offset vs 150), più piattaforme dopo (10 vs 8)
+  - Bonus level up: 1500 × livello (prima 1000)
 
-- [ ] **🟠 #7 — Curva di difficoltà**: attualmente la difficoltà cresce linearmente col livello, ma va affinata:
-  - La gravità sale del 15% per livello → potrebbe essere troppo aggressiva ai livelli alti
-  - Le piattaforme mobili diventano troppo veloci?
-  - I bouncer sono troppo frequenti ai livelli alti?
-  - Valutare una curva logaritmica invece che lineare per la difficoltà
-  - Introdurre nuove meccaniche ai livelli superiori (nuovi tipi di piattaforme, power-up, ecc.)
+- [x] **🟠 #7 — Curva di difficoltà** ✅ COMPLETATO
+  - **Gravità logaritmica**: `BASE × (1 + 0.22 × ln(livello))` invece che lineare +15%/livello
+    - Lvl 1: 750 → 2: 866 → 3: 931 → 5: 1016 → 10: 1130
+    - Cresce veloce ai primi livelli, poi si stabilizza — molto meno punitiva ai livelli alti
+  - **Introduzione graduale degli ostacoli**:
+    - Livello 1: solo piattaforme standard + mobili (rare) + subwoofer
+    - Livello 2: si aggiungono bouncer e piattaforme fragili
+    - Livello 3: si aggiunge il fango
+  - **Velocità piattaforme mobili**: +15%/livello (prima +20%) con cap più basso
 
 ---
 

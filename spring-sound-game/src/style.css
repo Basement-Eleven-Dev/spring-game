@@ -1,16 +1,32 @@
 /* src/style.css */
-body {
+
+/* Google Font — Outfit per UI moderna e leggibile */
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap");
+
+* {
   margin: 0;
   padding: 0;
-  background-color: #222;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #0a0a12;
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
+  height: 100dvh; /* Per mobile: tiene conto della barra di navigazione */
   overflow: hidden;
+  font-family: "Outfit", sans-serif;
+  /* Previene lo zoom su iOS al doppio tap */
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 #game-container {
-  /* Questo assicura che il canvas generato da Phaser non abbia comportamenti strani */
   display: block;
+  /* Ombra esterna per dare profondità al canvas */
+  filter: drop-shadow(0 0 30px rgba(100, 60, 255, 0.15));
 }

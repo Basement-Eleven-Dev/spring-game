@@ -2,10 +2,9 @@ import * as Phaser from "phaser";
 import { GAME } from "./GameConfig";
 
 /**
- * Schermata di Game Over
- * =======================
- * Mostra le statistiche finali (distanza, punteggio, livello)
- * e un pulsante per ricominciare.
+ * Schermata di Game Over — Design Premium
+ * =========================================
+ * Layout centrato con animazioni sfalsate e pulsante interattivo.
  */
 export class GameOverScene extends Phaser.Scene {
   constructor() {
@@ -14,96 +13,172 @@ export class GameOverScene extends Phaser.Scene {
 
   create(data: { score: number; distance: number; level: number }) {
     const { score, distance, level } = data;
-    const centerX = GAME.WIDTH / 2;
-    const centerY = GAME.HEIGHT / 2;
+    const cx = GAME.WIDTH / 2;
+    const cy = GAME.HEIGHT / 2;
 
-    // Sfondo scuro
-    this.cameras.main.setBackgroundColor("#111118");
+    // Sfondo gradiente scuro
+    this.cameras.main.setBackgroundColor("#0a0a18");
 
-    // --- Titolo "GAME OVER" con animazione d'entrata ---
+    // --- Particelle decorative (sfondo) ---
+    for (let i = 0; i < 20; i++) {
+      const particle = this.add
+        .circle(
+          Phaser.Math.Between(20, GAME.WIDTH - 20),
+          Phaser.Math.Between(20, GAME.HEIGHT - 20),
+          Phaser.Math.Between(1, 3),
+          0x6633ff,
+          Phaser.Math.FloatBetween(0.1, 0.4),
+        )
+        .setDepth(0);
+
+      this.tweens.add({
+        targets: particle,
+        y: particle.y - Phaser.Math.Between(20, 60),
+        alpha: 0,
+        duration: Phaser.Math.Between(2000, 4000),
+        yoyo: true,
+        repeat: -1,
+        delay: Phaser.Math.Between(0, 2000),
+      });
+    }
+
+    // --- Titolo "GAME OVER" ---
     const titleText = this.add
-      .text(centerX, centerY - 200, "GAME OVER", {
-        fontSize: "48px",
-        color: "#ff4444",
+      .text(cx, cy - 180, "GAME OVER", {
+        fontFamily: "Outfit, sans-serif",
+        fontSize: "44px",
+        color: "#ff4455",
         fontStyle: "bold",
-        stroke: "#000",
+        stroke: "#220011",
         strokeThickness: 6,
+        shadow: {
+          offsetX: 0,
+          offsetY: 0,
+          color: "#ff4455",
+          blur: 25,
+          fill: true,
+        },
       })
       .setOrigin(0.5)
-      .setAlpha(0);
+      .setAlpha(0)
+      .setScale(0.5);
 
     this.tweens.add({
       targets: titleText,
       alpha: 1,
-      y: centerY - 170,
-      duration: 800,
+      scale: 1,
+      duration: 600,
       ease: "Back.easeOut",
     });
 
     // --- Statistiche finali ---
-    const statsStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: "22px",
-      color: "#ffffff",
-      fontStyle: "bold",
-    };
-
-    const stats = [
-      { y: centerY - 50, text: `${Math.floor(distance)} metri` },
-      { y: centerY - 10, text: `${Math.floor(score)} punti` },
-      { y: centerY + 30, text: `Livello ${level}` },
+    const statsConfig = [
+      {
+        y: cy - 60,
+        label: "DISTANZA",
+        value: `${Math.floor(distance)} m`,
+        color: "#88ccff",
+      },
+      {
+        y: cy - 15,
+        label: "PUNTEGGIO",
+        value: `${Math.floor(score)} pts`,
+        color: "#ffd700",
+      },
+      {
+        y: cy + 30,
+        label: "LIVELLO",
+        value: `${level}`,
+        color: "#66ffaa",
+      },
     ];
 
-    // Animazione sfalsata per ogni riga di statistiche
-    stats.forEach((stat, index) => {
-      const txt = this.add
-        .text(centerX, stat.y, stat.text, statsStyle)
-        .setOrigin(0.5)
+    statsConfig.forEach((stat, index) => {
+      // Label piccola
+      const label = this.add
+        .text(cx - 60, stat.y, stat.label, {
+          fontFamily: "Outfit, sans-serif",
+          fontSize: "11px",
+          color: "#666688",
+          fontStyle: "bold",
+        })
+        .setOrigin(0, 0.5)
         .setAlpha(0);
 
-      this.tweens.add({
-        targets: txt,
-        alpha: 1,
-        x: centerX,
-        duration: 500,
-        delay: 400 + index * 200,
-        ease: "Power2",
-      });
+      // Valore grande
+      const value = this.add
+        .text(cx + 60, stat.y, stat.value, {
+          fontFamily: "Outfit, sans-serif",
+          fontSize: "20px",
+          color: stat.color,
+          fontStyle: "bold",
+        })
+        .setOrigin(1, 0.5)
+        .setAlpha(0);
+
+      // Linea separatrice sotto ogni stat
+      const line = this.add
+        .rectangle(cx, stat.y + 18, 160, 1, 0x333355, 0.4)
+        .setAlpha(0);
+
+      const delay = 400 + index * 200;
+      this.tweens.add({ targets: label, alpha: 1, x: cx - 70, duration: 400, delay, ease: "Power2" });
+      this.tweens.add({ targets: value, alpha: 1, x: cx + 70, duration: 400, delay, ease: "Power2" });
+      this.tweens.add({ targets: line, alpha: 1, duration: 300, delay: delay + 100 });
     });
 
     // --- Pulsante "RIPROVA" ---
-    const retryButton = this.add
-      .text(centerX, centerY + 150, "RIPROVA", {
-        fontSize: "32px",
-        color: "#00ff88",
+    const btnBg = this.add
+      .rectangle(cx, cy + 140, 180, 50, 0x6633ff, 1)
+      .setStrokeStyle(2, 0x9966ff)
+      .setInteractive({ useHandCursor: true })
+      .setAlpha(0);
+
+    const btnText = this.add
+      .text(cx, cy + 140, "RIPROVA", {
+        fontFamily: "Outfit, sans-serif",
+        fontSize: "22px",
+        color: "#ffffff",
         fontStyle: "bold",
-        backgroundColor: "#333333",
-        padding: { x: 30, y: 15 },
       })
       .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
+      .setAlpha(0);
 
-    // Effetti hover
-    retryButton.on("pointerover", () => {
-      retryButton.setStyle({ color: "#ffffff", backgroundColor: "#555555" });
-    });
-    retryButton.on("pointerout", () => {
-      retryButton.setStyle({ color: "#00ff88", backgroundColor: "#333333" });
+    // Animazione entrata pulsante
+    this.tweens.add({
+      targets: [btnBg, btnText],
+      alpha: 1,
+      duration: 500,
+      delay: 1200,
     });
 
-    // Click/Tap → riavvia il gioco
-    retryButton.on("pointerdown", () => {
+    // Effetto hover
+    btnBg.on("pointerover", () => {
+      btnBg.setFillStyle(0x8855ff);
+      btnBg.setScale(1.05);
+      btnText.setScale(1.05);
+    });
+    btnBg.on("pointerout", () => {
+      btnBg.setFillStyle(0x6633ff);
+      btnBg.setScale(1);
+      btnText.setScale(1);
+    });
+
+    // Click → riavvia il gioco
+    btnBg.on("pointerdown", () => {
       this.scene.start("GameScene");
     });
 
-    // Animazione pulsante pulsante (pulsing)
+    // Pulsing leggero
     this.tweens.add({
-      targets: retryButton,
-      scaleX: 1.05,
-      scaleY: 1.05,
-      duration: 800,
+      targets: [btnBg, btnText],
+      scaleX: 1.03,
+      scaleY: 1.03,
+      duration: 1200,
       yoyo: true,
       repeat: -1,
       ease: "Sine.easeInOut",
+      delay: 1500,
     });
   }
 }
