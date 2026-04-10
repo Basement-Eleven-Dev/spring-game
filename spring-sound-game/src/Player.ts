@@ -3,14 +3,12 @@ import * as Phaser from "phaser";
 export class Player extends Phaser.Physics.Arcade.Sprite {
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys;
   private moveSpeed: number = 250;
-  private jumpForce: number = 600; // Leggermente aumentato per saltare i gradini in modo più fluido
+  private jumpForce: number = 600;
 
-  // Diciamo a TypeScript in modo rigoroso che questo è un body dinamico
   declare public body: Phaser.Physics.Arcade.Body;
 
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string) {
     super(scene, x, y, texture);
-
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
@@ -25,16 +23,29 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setVelocityY(-this.jumpForce * multiplier);
   }
 
-  public update(): void {
+  // Abbiamo rinominato il metodo e gli passiamo il partyLevel per calcolare l'inerzia
+  public updateMovement(partyLevel: number): void {
+    let targetSpeed = 0;
+
+    // Determiniamo la velocità bersaglio in base al tasto premuto
     if (this.cursors.left.isDown) {
-      this.setVelocityX(-this.moveSpeed);
+      targetSpeed = -this.moveSpeed;
     } else if (this.cursors.right.isDown) {
-      this.setVelocityX(this.moveSpeed);
-    } else {
-      this.setVelocityX(0);
+      targetSpeed = this.moveSpeed;
     }
 
-    // Wrap MANUALE e controllato solo sull'asse X
+    // LA MATEMATICA DELL'INERZIA:
+    // Se sei a 0% sbronza, il fattore è 1 (movimento istantaneo, super reattivo).
+    // Se sei a 100% sbronza, il fattore è 0.05 (scivoli come se fossi sul ghiaccio).
+    const lerpFactor = Phaser.Math.Linear(1, 0.05, partyLevel / 100);
+
+    // Applichiamo l'interpolazione lineare tra la velocità attuale e quella bersaglio
+    const currentSpeed = this.body.velocity.x;
+    this.setVelocityX(
+      Phaser.Math.Linear(currentSpeed, targetSpeed, lerpFactor),
+    );
+
+    // Wrap orizzontale
     const halfWidth = this.width / 2;
     if (this.x < -halfWidth) {
       this.x = 400 + halfWidth;
