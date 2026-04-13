@@ -101,13 +101,13 @@ export const PLAYER = {
   /** Soglia di gamma (gradi) sotto cui il tilt viene ignorato — elimina il rumore del sensore */
   GYRO_DEADZONE: 2,
   /** Angolo di gamma (gradi) a cui si raggiunge la velocità orizzontale massima */
-  GYRO_MAX_TILT: 28,
+  GYRO_MAX_TILT: 23,
 } as const;
 
 // --- Piattaforme ---
 export const PLATFORM = {
   WIDTH: 85,
-  HEIGHT: 18,
+  HEIGHT: 25,
   SUBWOOFER_SIZE: 55,
 
   SPACING_MIN: 55,

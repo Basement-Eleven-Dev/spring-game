@@ -336,7 +336,7 @@ START
   - **HTTPS in LAN**: `vite.config.ts` con `@vitejs/plugin-basic-ssl` genera un certificato self-signed. Basta avviare con `npm run dev -- --host` per servire in HTTPS su tutta la rete locale. Necessario per Safari iOS anche in sviluppo.
   - **Permesso iOS**: gestito da un `<button>` HTML puro nell'overlay di `main.ts` — fuori da Phaser. Safari richiede che `DeviceOrientationEvent.requestPermission()` venga chiamato sincronicamente dall'handler nativo di un gesto utente; Phaser bufferizza tutto nel game loop rompendo questo requisito.
   - **Overlay start screen**: blocca l'avvio di Phaser finché l'utente non preme GIOCA. Su Android avvia direttamente; su iOS richiede prima il permesso sensore.
-  - **Player.ts**: aggiunge il listener `deviceorientation` direttamente. Deadzone 8°, velocità piena a 28°. Listener rimosso su `destroy()`.
+  - **Player.ts**: aggiunge il listener `deviceorientation` direttamente. Deadzone 2°, velocità piena a 28°. Listener rimosso su `destroy()`.
   - **File toccati**: `vite.config.ts` (nuovo), `main.ts`, `Player.ts`, `GameConfig.ts`
 
 - [x] **🟠 #5 — Ridefinire la UI** ✅ COMPLETATO
