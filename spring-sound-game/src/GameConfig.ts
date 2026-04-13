@@ -92,11 +92,58 @@ export const PHYSICS = {
 } as const;
 
 // --- Camera ---
+
+/**
+ * Costanti per lo scrolling e gli effetti di ubriachezza progressiva.
+ *
+ * Gli effetti si attivano a partire dalla soglia gialla del party level (30%)
+ * e crescono fino al massimo a wasted (100%):
+ *
+ *   Rotazione     — oscillazione sinusoidale con ampiezza interpolata (lerp).
+ *                   Non passa mai di scatto a 0: l'ampiezza si riduce gradualmente
+ *                   anche al reset del livello.
+ *
+ *   Vista doppia  — a wasted viene aggiunta una seconda camera (ghost) che clona
+ *                   la scena con offset orizzontale e alpha ridotta.
+ *                   Crea il classico ghosting/sdoppiamento da ubriachezza
+ *                   senza sfocatura né pixelazione.
+ */
 export const CAMERA = {
-  /** Fluidità dello scrolling verticale (0 = lento, 1 = scatto) */
+  /** Fluidità dello scrolling verticale (0 = lento, 1 = scatto immediato) */
   LERP: 0.1,
-  DRUNK_ROTATION_SPEED: 200,
-  DRUNK_MAX_AMPLITUDE: 0.05,
+
+  /** Frequenza di oscillazione in ms — valore più basso = movimento più rapido */
+  DRUNK_ROTATION_SPEED: 180,
+  /** Ampiezza massima rotazione a wasted in radianti (~8.6°) */
+  DRUNK_MAX_AMPLITUDE: 0.15,
+
+  /**
+   * Offset orizzontale in px della ghost camera rispetto alla camera principale.
+   * Valori 10-18: ghosting percettibile ma non disorientante.
+   */
+  DRUNK_GHOST_OFFSET: 14,
+
+  /**
+   * Opacità di picco della ghost camera durante l'oscillazione.
+   * Il valore effettivo oscilla tra 0 e questo massimo con cadenza naturale.
+   * 0.30-0.35 è il range consigliato: ghosting leggibile senza sovrastare la scena.
+   */
+  DRUNK_GHOST_ALPHA: 0.32,
+
+  /**
+   * Divisore temporale dell'oscillazione dell'alpha della ghost camera.
+   * La funzione usata è max(0, sin(time/period)):
+   * - ciclo completo ~4.4s (2π × 700ms)
+   * - visibile ~2.2s, invisibile ~2.2s, cadenza naturale non tribale
+   */
+  DRUNK_GHOST_PERIOD: 700,
+
+  /**
+   * Fattore lerp per frame dell'alpha della ghost camera.
+   * 0.035 è ~45 frame per raggiungere il target a 60fps (≈01.5s),
+   * abbastanza morbido da non sentire click tra visibile e invisibile.
+   */
+  DRUNK_GHOST_LERP: 0.035,
 } as const;
 
 // --- Giocatore ---

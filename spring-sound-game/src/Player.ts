@@ -118,11 +118,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     // --- EFFETTO INERZIA DA UBRIACHEZZA ---
-    // drunkFactor va da 0 (sobrio) a 1 (wasted)
-    // expoFactor è cubico per rendere l'effetto graduale ai livelli bassi
-    // lerpFactor controlla quanto rapidamente la velocità raggiunge il target
+    // drunkFactor va da 0 (sobrio) a 1 (wasted).
+    // expoFactor quadratico: si sente già al 50% invece di sparire fino all'80%+
+    // con la curva cubica. lerpFactor: quanto rapidamente la velocità raggiunge il target.
     const drunkFactor = isWasted ? 1 : partyLevel / 100;
-    const expoFactor = Math.pow(drunkFactor, 3);
+    const expoFactor = Math.pow(drunkFactor, 2);
     const lerpFactor = Phaser.Math.Linear(1, 0.15, expoFactor);
 
     const currentSpeed = this.body.velocity.x;

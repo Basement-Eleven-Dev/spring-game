@@ -140,12 +140,12 @@ export class PartyManager {
 
   /**
    * Attiva lo stato "wasted":
-   * - Effetto blur sulla camera
+   * - Il blur e gli altri effetti wasted vengono gestiti automaticamente
+   *   da CameraManager.updateDrunkEffects() nel loop di update
    * - Dopo WASTED_DELAY ms, emette l'evento 'wasted-ready'
    */
   private triggerWasted(): void {
     this._isWasted = true;
-    this.cameraManager.applyBlur();
 
     this.scene.time.delayedCall(LEVEL.WASTED_DELAY, () => {
       this.scene.events.emit("wasted-ready");

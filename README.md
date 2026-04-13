@@ -167,7 +167,7 @@ Orchestratore che:
   3. **Device orientation** (`deviceorientation` → valore `gamma`) — sovrascrive gli altri se il tilt supera la deadzone
 - **Mappatura gamma → velocità**: `clamp((|gamma| - DEADZONE) / (MAX_TILT - DEADZONE), 0, 1) × MOVE_SPEED × sign(gamma)`. Tra 0° e 8° (deadzone) non si muove nulla; a 28° si raggiunge la velocità piena.
 - **Permessi**: la logica di `requestPermission()` è gestita interamente dall'overlay in `main.ts`, non qui. `Player` si limita ad aggiungere il listener `deviceorientation`: su iOS riceve eventi solo dopo il permesso, su Android funziona subito.
-- **Effetto inerzia**: il party level rende il movimento più "pesante" (lerp factor cubico)
+- **Effetto inerzia**: il party level rende il movimento più "scivoloso" — il player è lento a cambiare direzione (lerp factor quadratico, percettibile già al 50% del party level)
 - **Wrap ai bordi**: effetto Pac-Man (esce da un lato, rientra dall'altro)
 - **Cleanup**: rimuove il listener `deviceorientation` su `destroy()` per evitare memory leak tra un game over e l'altro
 
@@ -222,9 +222,10 @@ Proprietà speciali:
 
 - **Smooth scroll**: segue il giocatore verso l'alto con lerp 0.1 (non scende mai)
 - **Background giorno/notte**: un rettangolo fixed (`scrollFactor 0`, `depth -1`) parte con il colore giorno. Al primo level up dopo le 21:00, `switchToNight()` anima un tween di 2s verso blu notte.
-- **Rotazione ubriachezza**: oscillazione sinusoidale con ampiezza esponenziale (si attiva sopra la soglia gialla del party)
-- **Blur post-processing**: effetto sfocatura attivato nello stato wasted
-- **`clearEffects()`**: rimuove blur e rotazione al reset del livello
+- **Effetto ubriachezza progressivo** — si attiva a partire dal 30% del party level:
+  - _Rotazione sinusoidale_: oscillazione della camera con ampiezza quadratica (percettibile già al 50%, massima a wasted ~8.6°)
+  - _Blur crescente_: sfocatura leggera che cresce linearmente dal 30% al 100%; mantenuta lieve per non compromettere la leggibilità, ma chiaramente visibile avvicinandosi al wasted
+- **`clearEffects()`**: chiamato al reset del livello. La rotazione si azzera subito; il blur sfuma gradualmente in 1.5s via tween invece di sparire di scatto
 
 ### `ScoreManager` — Punteggio + HUD
 
@@ -312,7 +313,7 @@ START
 │                                             │
 │  PARTY LEVEL:                               │
 │  - Drink raccolti alzano il party (0-100)   │
-│  - A 100 → WASTED (blur + inerzia)         │
+│  - A 100 → WASTED (blur leggero + rotazione + inerzia)│
 │  - Dopo 4.5s → appare DJ Stage             │
 │  - Atterrando sul DJ Stage → LEVEL UP      │
 │  - Party resetta a 0, si ricomincia        │
