@@ -71,12 +71,15 @@ src/
 public/
 └── assets/                ← Sprite di gioco (caricati da Phaser)
     ├── player.png
-    ├── pedana_standard.png
-    ├── pedana_rotta.png
-    ├── pedana_scorrevole.png
-    ├── trampolino.png
     ├── drink.png
-    └── buttafuori.png
+    ├── buttafuori.png
+    └── platforms/          ← Asset piattaforme (varianti + spritesheet)
+        ├── platform erba.png           ← standard/moving, wide
+        ├── platform_ubriaco.png        ← standard/moving, wide
+        ├── platform_cassa.png          ← standard/moving, compact
+        ├── platform_cassa_erba.png     ← standard/moving, compact
+        ├── platform_cassa_rotta_sheet.png  ← fragile, 2 frame (intera → rotta)
+        └── subwoofer_sheet.png         ← subwoofer, 4 frame (cassa che pompa)
 ```
 
 ### Diagramma delle dipendenze
@@ -122,7 +125,9 @@ main.ts
 - `minutesToClockString()` — helper esportato: converte minuti trascorsi in stringa "HH:MM"
 - `CAMERA` — lerp dello scrolling, parametri oscillazione ubriachezza
 - `PLAYER` — velocità, forza salto, `GYRO_DEADZONE` (8°) e `GYRO_MAX_TILT` (28°) per il controllo via device orientation
-- `PLATFORM` — dimensioni, spacing, probabilità di spawn per tipo
+- `PLATFORM` — dimensioni per categoria (wide/compact/subwoofer), spacing, probabilità di spawn per tipo, parametri animazione spritesheet
+- `PLATFORM_TEXTURE_CATEGORY` — mappa texture → categoria dimensionale
+- `PLATFORM_STANDARD_TEXTURES` — lista texture per varianti standard/mobili
 - `MUD` — probabilità e dimensioni del fango
 - `DRINK` — intervallo spawn, velocità caduta, guadagno party
 - `BOUNCER` — dimensioni, velocità, intervallo spawn, knockback
@@ -168,14 +173,26 @@ Orchestratore che:
 
 ### `Platform.ts` — Piattaforme
 
-4 tipi con comportamenti diversi:
+4 tipi con comportamenti diversi, con varianti grafiche e due categorie dimensionali:
 
-| Tipo        | Texture                 | Comportamento                                |
-| ----------- | ----------------------- | -------------------------------------------- |
-| `standard`  | `pedana_standard.png`   | Ferma. Può avere fango sopra (dal livello 2) |
-| `moving`    | `pedana_scorrevole.png` | Si muove orizzontalmente, rimbalza ai bordi  |
-| `fragile`   | `pedana_rotta.png`      | Si distrugge al primo tocco del giocatore    |
-| `subwoofer` | `trampolino.png`        | Dà un salto potenziato (×1.6)                |
+| Tipo        | Asset                                             | Dimensione gioco           | Comportamento                                              |
+| ----------- | ------------------------------------------------- | -------------------------- | ---------------------------------------------------------- |
+| `standard`  | 4 varianti PNG (erba, ubriaco, cassa, cassa_erba) | wide 90×34 / compact 70×32 | Ferma. Può avere fango sopra (dal livello 3)               |
+| `moving`    | stesse 4 varianti                                 | wide 90×34 / compact 70×32 | Si muove orizzontalmente, rimbalza ai bordi                |
+| `fragile`   | `platform_cassa_rotta_sheet.png` (2 frame)        | compact 70×32              | Animazione di rottura al contatto, poi distruzione         |
+| `subwoofer` | `subwoofer_sheet.png` (4 frame)                   | 60×32                      | Loop animazione "cassa che pompa", salto potenziato (×1.7) |
+
+**Categorie dimensionali:**
+
+- **Wide** (erba, ubriaco) — piattaforme più larghe e piatte, ratio ~2.65:1
+- **Compact** (cassa, cassa_erba, fragile) — piattaforme più strette, ratio ~2.18:1
+
+La texture viene scelta casualmente allo spawn → varietà visiva senza cambiare la meccanica.
+
+**Animazioni:**
+
+- `subwooferPump` — loop 4 frame a 8 fps, parte automaticamente all'init
+- `fragileBreak` — 2 frame one-shot (intera → rotta), il body viene disabilitato subito e la piattaforma distrutta al completamento dell'animazione
 
 Proprietà speciali:
 
@@ -390,6 +407,16 @@ START
   - Rimossi: telegraph "!", velocità di caduta, `lastBouncerSpawnY`, `spawnBouncerTelegraph()`
   - Probabilità spawn: `15% + 4%/livello` (max 40%) — le piattaforme mobili e subwoofer non hanno bouncer
   - **File toccati**: `GameConfig.ts`, `Bouncer.ts`, `SpawnManager.ts`
+
+- [x] **🟣 #10 — Asset piattaforme + animazioni spritesheet** ✅ COMPLETATO
+  - Sostituiti i 4 PNG generici con **6 asset dedicati** in `public/assets/platforms/`
+  - **4 varianti standard/mobili** (PNG singoli): erba, ubriaco, cassa, cassa_erba — scelta casuale allo spawn
+  - **2 categorie dimensionali**: _wide_ (90×34 — erba, ubriaco) e _compact_ (70×32 — cassa, cassa_erba, fragile)
+  - **Piattaforma fragile animata**: spritesheet 2 frame (`platform_cassa_rotta_sheet.png`). Al contatto: body disabilitato → animazione rottura → destroy al completamento
+  - **Subwoofer animato**: spritesheet 4 frame (`subwoofer_sheet.png`), loop continuo a 8 fps ("cassa che pompa")
+  - Bouncer offset calcolato **dinamicamente** dalla larghezza effettiva della piattaforma (non più costante fissa)
+  - Rimossa `BOUNCER.PLATFORM_OFFSET` (ora calcolato come `platWidth/2 - SIZE/2 - 4`)
+  - **File toccati**: `GameConfig.ts`, `GameScene.ts`, `Platform.ts`, `SpawnManager.ts`
 
 ---
 

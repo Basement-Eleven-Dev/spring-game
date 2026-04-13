@@ -105,10 +105,58 @@ export const PLAYER = {
 } as const;
 
 // --- Piattaforme ---
+
+/**
+ * Categorie visive delle piattaforme.
+ *
+ * Le piattaforme standard e mobili usano 4 varianti grafiche raggruppate
+ * in due categorie di dimensioni diverse (ricavate dal bounding-box reale
+ * degli asset senza trasparenza):
+ *
+ *   WIDE    → "erba" e "ubriaco"      — aspetto largo e piatto  (~2.65:1)
+ *   COMPACT → "cassa" e "cassa_erba"  — aspetto più stretto     (~2.18:1)
+ *
+ * Le dimensioni displaySize nel gioco vengono scelte in base alla categoria
+ * così che ogni variante abbia proporzioni corrette.
+ */
+export type PlatformSizeCategory = "wide" | "compact";
+
+/**
+ * Mappa texture → categoria dimensionale.
+ * Usata da Platform.initPlatform() per scegliere la displaySize corretta.
+ */
+export const PLATFORM_TEXTURE_CATEGORY: Record<string, PlatformSizeCategory> = {
+  platformErbaTexture: "wide",
+  platformUbriacoTexture: "wide",
+  platformCassaTexture: "compact",
+  platformCassaErbaTexture: "compact",
+};
+
+/**
+ * Lista delle texture disponibili per piattaforme standard e mobili.
+ * Lo SpawnManager ne sceglie una a caso ad ogni spawn.
+ */
+export const PLATFORM_STANDARD_TEXTURES: string[] = [
+  "platformErbaTexture",
+  "platformUbriacoTexture",
+  "platformCassaTexture",
+  "platformCassaErbaTexture",
+];
+
 export const PLATFORM = {
-  WIDTH: 85,
-  HEIGHT: 25,
-  SUBWOOFER_SIZE: 55,
+  // --- Dimensioni per categoria (larghezza × altezza in px di gioco) ---
+
+  /** Piattaforme "wide": erba, ubriaco — più larghe e piatte */
+  WIDE_WIDTH: 90,
+  WIDE_HEIGHT: 34,
+
+  /** Piattaforme "compact": cassa, cassa_erba — più strette e alte */
+  COMPACT_WIDTH: 70,
+  COMPACT_HEIGHT: 32,
+
+  /** Subwoofer (trampolino): dimensione del singolo frame */
+  SUBWOOFER_WIDTH: 60,
+  SUBWOOFER_HEIGHT: 32,
 
   SPACING_MIN: 55,
   SPACING_MAX: 115,
@@ -138,6 +186,21 @@ export const PLATFORM = {
   MOVING_SPEED_MIN: 50,
   MOVING_SPEED_MAX: 100,
   MOVING_SPEED_SCALE_PER_LEVEL: 0.15,
+
+  // --- Animazioni ---
+
+  /** Spritesheet cassa rotta: 2 frame orizzontali, 800×400 per frame */
+  FRAGILE_FRAME_WIDTH: 800,
+  FRAGILE_FRAME_HEIGHT: 400,
+
+  /** Spritesheet subwoofer: 4 frame orizzontali, 800×400 per frame */
+  SUBWOOFER_FRAME_WIDTH: 800,
+  SUBWOOFER_FRAME_HEIGHT: 400,
+
+  /** Frame rate dell'animazione subwoofer (loop) */
+  SUBWOOFER_ANIM_FPS: 8,
+  /** Durata dell'animazione di rottura della piattaforma fragile (ms) */
+  FRAGILE_BREAK_DURATION_MS: 300,
 } as const;
 
 // --- Fango (rallenta il salto) ---
@@ -168,16 +231,10 @@ export const DRINK = {
 // --- Bouncer (buttafuori) ---
 export const BOUNCER = {
   /**
-   * Dimensione del bouncer. Deve essere < PLATFORM.WIDTH per stare
-   * interamente sulla pedana: 40px lascia ~22px liberi sul lato opposto.
+   * Dimensione del bouncer. Deve essere < della piattaforma più stretta
+   * (COMPACT_WIDTH = 70) per stare interamente sulla pedana.
    */
   SIZE: 40,
-  /**
-   * Distanza del centro del bouncer dal bordo della piattaforma.
-   * Formula: (PLATFORM.WIDTH / 2) - (SIZE / 2) - margine
-   * = 42 - 20 - 4 = 18px — il bouncer resta dentro la pedana.
-   */
-  PLATFORM_OFFSET: 18,
   /** Probabilità base che una piattaforma idonea abbia un bouncer */
   BASE_PROB: 0.15,
   PROB_PER_LEVEL: 0.04,

@@ -6,6 +6,7 @@ import {
   BOUNCER,
   JUMP_MULTIPLIERS,
   LEVEL,
+  PLATFORM,
   TIME,
 } from "./GameConfig";
 import { Player } from "./Player";
@@ -58,16 +59,55 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * Preload: caricamento di tutti gli asset grafici.
+   *
+   * Le piattaforme standard/mobili usano 4 varianti PNG singole, scelte
+   * casualmente allo spawn. I tipi animati (fragile e subwoofer) usano
+   * spritesheet orizzontali tagliati in frame di dimensione fissa.
+   *
    * I file risiedono nella cartella public/assets/.
    */
   preload(): void {
     this.load.image("playerTexture", "/assets/player.png");
-    this.load.image("standardTexture", "/assets/pedana_standard.png");
-    this.load.image("fragileTexture", "/assets/pedana_rotta.png");
-    this.load.image("subwooferTexture", "/assets/trampolino.png");
     this.load.image("drinkTexture", "/assets/drink.png");
-    this.load.image("movingTexture", "/assets/pedana_scorrevole.png");
     this.load.image("bouncerTexture", "/assets/buttafuori.png");
+
+    // --- Varianti piattaforma standard/mobile (4 PNG singole) ---
+    this.load.image(
+      "platformErbaTexture",
+      "/assets/platforms/platform erba.png",
+    );
+    this.load.image(
+      "platformUbriacoTexture",
+      "/assets/platforms/platform_ubriaco.png",
+    );
+    this.load.image(
+      "platformCassaTexture",
+      "/assets/platforms/platform_cassa.png",
+    );
+    this.load.image(
+      "platformCassaErbaTexture",
+      "/assets/platforms/platform_cassa_erba.png",
+    );
+
+    // --- Piattaforma fragile: spritesheet 2 frame (intera → rotta) ---
+    this.load.spritesheet(
+      "fragileSheet",
+      "/assets/platforms/platform_cassa_rotta_sheet.png",
+      {
+        frameWidth: PLATFORM.FRAGILE_FRAME_WIDTH,
+        frameHeight: PLATFORM.FRAGILE_FRAME_HEIGHT,
+      },
+    );
+
+    // --- Subwoofer: spritesheet 4 frame (cassa che pompa) ---
+    this.load.spritesheet(
+      "subwooferSheet",
+      "/assets/platforms/subwoofer_sheet.png",
+      {
+        frameWidth: PLATFORM.SUBWOOFER_FRAME_WIDTH,
+        frameHeight: PLATFORM.SUBWOOFER_FRAME_HEIGHT,
+      },
+    );
   }
 
   /**
@@ -81,6 +121,9 @@ export class GameScene extends Phaser.Scene {
     // --- Reset orologio e flag notte ---
     this.clockMinutes = 0;
     this.nightPending = false;
+
+    // --- Animazioni spritesheet ---
+    this.createAnimations();
 
     // --- Fisica ---
     this.physics.world.gravity.y = PHYSICS.BASE_GRAVITY;
@@ -113,6 +156,40 @@ export class GameScene extends Phaser.Scene {
         this.levelManager.level,
       );
     });
+  }
+
+  /**
+   * Definisce le animazioni spritesheet.
+   * Chiamato una volta in create() — Phaser condivide le animazioni tra tutti gli sprite.
+   *
+   * - fragileBreak: 2 frame (intera → rotta), play singolo al contatto
+   * - subwooferPump: 4 frame (cassa che pompa), loop continuo
+   */
+  private createAnimations(): void {
+    // Evita duplicati se la scena viene riavviata
+    if (!this.anims.exists("fragileBreak")) {
+      this.anims.create({
+        key: "fragileBreak",
+        frames: this.anims.generateFrameNumbers("fragileSheet", {
+          start: 0,
+          end: 1,
+        }),
+        frameRate: 1000 / PLATFORM.FRAGILE_BREAK_DURATION_MS,
+        repeat: 0,
+      });
+    }
+
+    if (!this.anims.exists("subwooferPump")) {
+      this.anims.create({
+        key: "subwooferPump",
+        frames: this.anims.generateFrameNumbers("subwooferSheet", {
+          start: 0,
+          end: 3,
+        }),
+        frameRate: PLATFORM.SUBWOOFER_ANIM_FPS,
+        repeat: -1, // loop infinito
+      });
+    }
   }
 
   /**
@@ -174,9 +251,18 @@ export class GameScene extends Phaser.Scene {
             p.jump(JUMP_MULTIPLIERS.NORMAL, this.levelManager.level);
           }
 
-          // Le piattaforme fragili si distruggono al contatto
+          // Le piattaforme fragili: animazione di rottura, poi distruzione
           if (plat.platformType === "fragile") {
-            plat.destroy();
+            // Disabilita subito il body fisico per evitare collisioni ripetute
+            if (plat.body) {
+              plat.body.enable = false;
+            }
+            // Avvia l'animazione di rottura (frame 0 → 1)
+            plat.play("fragileBreak");
+            plat.once("animationcomplete", () => {
+              plat.destroy();
+            });
+            // Genera una nuova piattaforma in alto per mantenere la densità
             this.spawnManager.spawnPlatform(
               this.spawnManager.highestPlatformY - Phaser.Math.Between(50, 130),
               this.levelManager.level,

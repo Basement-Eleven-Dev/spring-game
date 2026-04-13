@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { GAME, PLATFORM } from "./GameConfig";
+import { GAME, PLATFORM, PLATFORM_TEXTURE_CATEGORY } from "./GameConfig";
 
 /**
  * Tipi di piattaforma disponibili nel gioco:
@@ -34,17 +34,38 @@ export class Platform extends Phaser.Physics.Arcade.Sprite {
   /**
    * Inizializza la piattaforma con tipo, texture e parametri basati sul livello.
    * Chiamato dopo group.get() per configurare l'istanza.
+   *
+   * Le dimensioni vengono scelte in base al tipo:
+   * - subwoofer: SUBWOOFER_WIDTH × SUBWOOFER_HEIGHT (spritesheet animato)
+   * - fragile:   COMPACT_WIDTH × COMPACT_HEIGHT (spritesheet animato)
+   * - standard/moving: dipende dalla variante grafica (wide o compact),
+   *   determinata dalla mappa PLATFORM_TEXTURE_CATEGORY
    */
-  public initPlatform(type: PlatformType, texture: string, level: number = 1): void {
+  public initPlatform(
+    type: PlatformType,
+    texture: string,
+    level: number = 1,
+  ): void {
     this.platformType = type;
     this.isDJStage = false;
     this.setTexture(texture);
 
-    // Dimensioni: il subwoofer è quadrato, le altre sono rettangolari
+    // --- Dimensioni in base al tipo e alla variante grafica ---
     if (type === "subwoofer") {
-      this.setDisplaySize(PLATFORM.SUBWOOFER_SIZE, PLATFORM.SUBWOOFER_SIZE);
+      this.setDisplaySize(PLATFORM.SUBWOOFER_WIDTH, PLATFORM.SUBWOOFER_HEIGHT);
+      this.play("subwooferPump");
+    } else if (type === "fragile") {
+      this.setDisplaySize(PLATFORM.COMPACT_WIDTH, PLATFORM.COMPACT_HEIGHT);
+      // Imposta il frame iniziale (intera, non rotta)
+      this.setFrame(0);
     } else {
-      this.setDisplaySize(PLATFORM.WIDTH, PLATFORM.HEIGHT);
+      // Standard e moving: dimensione basata sulla categoria della texture
+      const category = PLATFORM_TEXTURE_CATEGORY[texture] ?? "wide";
+      if (category === "compact") {
+        this.setDisplaySize(PLATFORM.COMPACT_WIDTH, PLATFORM.COMPACT_HEIGHT);
+      } else {
+        this.setDisplaySize(PLATFORM.WIDE_WIDTH, PLATFORM.WIDE_HEIGHT);
+      }
     }
 
     if (this.body) {
@@ -66,10 +87,13 @@ export class Platform extends Phaser.Physics.Arcade.Sprite {
 
       if (type === "moving") {
         // Velocità orizzontale crescente col livello (+20% per livello)
-        const speedMultiplier = 1 + (level - 1) * PLATFORM.MOVING_SPEED_SCALE_PER_LEVEL;
+        const speedMultiplier =
+          1 + (level - 1) * PLATFORM.MOVING_SPEED_SCALE_PER_LEVEL;
         const baseSpeed =
-          Phaser.Math.Between(PLATFORM.MOVING_SPEED_MIN, PLATFORM.MOVING_SPEED_MAX) *
-          speedMultiplier;
+          Phaser.Math.Between(
+            PLATFORM.MOVING_SPEED_MIN,
+            PLATFORM.MOVING_SPEED_MAX,
+          ) * speedMultiplier;
         this.setVelocityX(baseSpeed * (Math.random() < 0.5 ? 1 : -1));
       }
     }

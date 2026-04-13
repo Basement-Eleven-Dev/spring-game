@@ -3,6 +3,8 @@ import {
   GAME,
   INITIAL,
   PLATFORM,
+  PLATFORM_STANDARD_TEXTURES,
+  PLATFORM_TEXTURE_CATEGORY,
   MUD,
   DRINK,
   BOUNCER,
@@ -87,14 +89,15 @@ export class SpawnManager {
    * Chiamato una volta sola in GameScene.create().
    */
   public spawnInitialPlatforms(level: number): void {
-    // Piattaforma base larga quanto lo schermo
+    // Piattaforma base larga quanto lo schermo (usa la prima variante standard)
+    const baseTexture = PLATFORM_STANDARD_TEXTURES[0];
     const basePlatform = this.platforms.get(
       GAME.WIDTH / 2,
       INITIAL.BASE_PLATFORM_Y,
-      "standardTexture",
+      baseTexture,
     ) as Platform;
     basePlatform.isBasePlatform = true;
-    basePlatform.initPlatform("standard", "standardTexture", level);
+    basePlatform.initPlatform("standard", baseTexture, level);
     basePlatform.setDisplaySize(PLATFORM.BASE_WIDTH, PLATFORM.BASE_HEIGHT);
     if (basePlatform.body) {
       basePlatform.body.setSize(basePlatform.width, basePlatform.height);
@@ -122,6 +125,9 @@ export class SpawnManager {
    * - Fragile:   0% + 6%/lvl (max 25%) — può avere bouncer
    * - Subwoofer: 8% fisso — nessun bouncer
    * - Standard:  il resto — può avere fango e/o bouncer
+   *
+   * Le piattaforme standard e mobili scelgono una variante grafica casuale
+   * tra le 4 disponibili (erba, ubriaco, cassa, cassa_erba).
    *
    * I bouncer vengono piazzati su un bordo (sx o dx) della piattaforma,
    * così da lasciare spazio al giocatore sul lato opposto.
@@ -152,17 +158,32 @@ export class SpawnManager {
     const rand = Math.random();
     let canHaveBouncer = false;
 
+    /** Larghezza effettiva della piattaforma — usata per il posizionamento del bouncer */
+    let platWidth: number;
+
     if (rand < movingProb) {
-      plat.initPlatform("moving", "movingTexture", level);
+      // Variante grafica casuale per la piattaforma mobile
+      const texture = Phaser.Utils.Array.GetRandom(PLATFORM_STANDARD_TEXTURES);
+      plat.initPlatform("moving", texture, level);
+      const cat = PLATFORM_TEXTURE_CATEGORY[texture] ?? "wide";
+      platWidth =
+        cat === "compact" ? PLATFORM.COMPACT_WIDTH : PLATFORM.WIDE_WIDTH;
       // Le piattaforme mobili non hanno bouncer (complessità fisica da evitare)
     } else if (rand < movingProb + fragileProb) {
-      plat.initPlatform("fragile", "fragileTexture", level);
+      plat.initPlatform("fragile", "fragileSheet", level);
+      platWidth = PLATFORM.COMPACT_WIDTH;
       canHaveBouncer = true;
     } else if (rand < movingProb + fragileProb + PLATFORM.SUBWOOFER_PROB) {
-      plat.initPlatform("subwoofer", "subwooferTexture", level);
+      plat.initPlatform("subwoofer", "subwooferSheet", level);
+      platWidth = PLATFORM.SUBWOOFER_WIDTH;
       // Il subwoofer è un bonus: senza bouncer per non penalizzare chi lo usa
     } else {
-      plat.initPlatform("standard", "standardTexture", level);
+      // Variante grafica casuale per la piattaforma standard
+      const texture = Phaser.Utils.Array.GetRandom(PLATFORM_STANDARD_TEXTURES);
+      plat.initPlatform("standard", texture, level);
+      const cat = PLATFORM_TEXTURE_CATEGORY[texture] ?? "wide";
+      platWidth =
+        cat === "compact" ? PLATFORM.COMPACT_WIDTH : PLATFORM.WIDE_WIDTH;
       canHaveBouncer = true;
 
       // Fango sulle piattaforme standard (dal livello 3)
@@ -186,10 +207,15 @@ export class SpawnManager {
           BOUNCER.MAX_PROB,
         )
     ) {
-      // Sinistra o destra casualmente — il bouncer resta dentro la pedana
+      // Offset calcolato dalla larghezza effettiva della piattaforma
+      const bouncerOffset = platWidth / 2 - BOUNCER.SIZE / 2 - 4;
       const side = Math.random() < 0.5 ? -1 : 1;
-      const bouncerX = randomX + side * BOUNCER.PLATFORM_OFFSET;
-      const bouncerY = y - BOUNCER.SIZE / 2 - PLATFORM.HEIGHT / 2;
+      const bouncerX = randomX + side * bouncerOffset;
+      const platHeight =
+        platWidth === PLATFORM.COMPACT_WIDTH
+          ? PLATFORM.COMPACT_HEIGHT
+          : PLATFORM.WIDE_HEIGHT;
+      const bouncerY = y - BOUNCER.SIZE / 2 - platHeight / 2;
       const bouncer = this.bouncers.get(
         bouncerX,
         bouncerY,
