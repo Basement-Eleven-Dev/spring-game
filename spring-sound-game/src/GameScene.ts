@@ -253,15 +253,20 @@ export class GameScene extends Phaser.Scene {
 
           // Le piattaforme fragili: animazione di rottura, poi distruzione
           if (plat.platformType === "fragile") {
-            // Disabilita subito il body fisico per evitare collisioni ripetute
+            // Disabilita collisione subito — il giocatore non ci atterra più
             if (plat.body) {
               plat.body.enable = false;
             }
-            // Avvia l'animazione di rottura (frame 0 → 1)
-            plat.play("fragileBreak");
-            plat.once("animationcomplete", () => {
-              plat.destroy();
-            });
+            // Mostra immediatamente il frame "rotta" e falla cadere giù
+            plat.setFrame(1);
+            plat.body!.enable = true;
+            plat.body!.allowGravity = true;
+            plat.body!.immovable = false;
+            plat.body!.checkCollision.up = false;
+            plat.body!.checkCollision.down = false;
+            plat.body!.checkCollision.left = false;
+            plat.body!.checkCollision.right = false;
+            plat.setVelocityY(300);
             // Genera una nuova piattaforma in alto per mantenere la densità
             this.spawnManager.spawnPlatform(
               this.spawnManager.highestPlatformY - Phaser.Math.Between(50, 130),

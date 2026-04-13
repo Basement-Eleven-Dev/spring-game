@@ -19,7 +19,13 @@ function calculateGameHeight(width: number): number {
   return Math.round(width * clampedRatio);
 }
 
-const GAME_WIDTH = 400;
+/**
+ * Larghezza logica del mondo di gioco.
+ * Phaser scala il canvas al device via Scale.FIT, quindi un valore più basso
+ * = tutto appare più grande sullo schermo senza zoom né clipping.
+ * 350 (anziché 400) dà un ingrandimento ~14%, equivalente a un 1.15× zoom.
+ */
+const GAME_WIDTH = 350;
 const GAME_HEIGHT = calculateGameHeight(GAME_WIDTH);
 
 export const GAME = {
