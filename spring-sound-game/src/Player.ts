@@ -41,14 +41,20 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   /**
    * Registra il listener deviceorientation.
    *
-   * Su iOS il permesso viene richiesto da main.ts tramite un bottone HTML
-   * puro (l'unico modo affidabile per soddisfare il requisito "user gesture"
-   * di Safari). Qui aggiungiamo semplicemente il listener: su iOS rimarrà
-   * silenzioso finché il permesso non viene concesso; su Android funziona
-   * subito senza permessi.
+   * Il listener viene aggiunto SOLO su dispositivi touch (smartphone/tablet).
+   * Su desktop (MacBook incluso) Chrome e Safari possono esporre
+   * DeviceOrientationEvent con dati dal sensore della macchina: qualsiasi
+   * inclinazione > deadzone sovrascriveva la tastiera causando stuttering.
+   * navigator.maxTouchPoints > 0 esclude tutti i desktop non-touch.
+   *
+   * Su iOS il permesso viene richiesto da main.ts tramite bottone HTML puro.
+   * Qui il listener è silenzioso finché il permesso non viene concesso;
+   * su Android funziona subito senza permessi.
    */
   private setupOrientationListener(): void {
     if (typeof DeviceOrientationEvent === "undefined") return;
+    // Non registrare su desktop: evita interferenza con tastiera
+    if (!(navigator.maxTouchPoints > 0)) return;
 
     const handler = (e: DeviceOrientationEvent) => {
       if (e.gamma !== null) this.gyroGamma = e.gamma;
@@ -71,9 +77,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    * Aggiorna il movimento orizzontale del giocatore ogni frame.
    *
    * Priorità degli input:
-   * 1. Tastiera (frecce sx/dx)
-   * 2. Touch (tap nella metà sx/dx dello schermo)
-   * 3. Device orientation (gamma) — sovrascrive i precedenti se tilt > deadzone
+   * 1. Touch attivo (tap nella metà sx/dx dello schermo) — priorità assoluta
+   * 2. Device orientation (gamma, solo su mobile) — solo quando non si tocca
+   * 3. Tastiera (frecce sx/dx) — per PC (mai gyro su desktop)
+   *
+   * Touch ha priorità sul gyro: se stai toccando lo schermo il sensore
+   * è ignorato, così i due controlli non si ostacolano.
    *
    * L'inerzia aumenta col party level: più sei ubriaco, più il personaggio
    * è lento a cambiare direzione (lerp factor scende da 1 a 0.15).
@@ -81,28 +90,31 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   public updateMovement(partyLevel: number, isWasted: boolean): void {
     let targetSpeed = 0;
 
-    // 1. INPUT TASTIERA (PC)
-    if (this.cursors.left.isDown) targetSpeed = -PLAYER.MOVE_SPEED;
-    else if (this.cursors.right.isDown) targetSpeed = PLAYER.MOVE_SPEED;
-
-    // 2. INPUT TOUCH (tap lato sinistro/destro dello schermo)
     const pointer = this.scene.input.activePointer;
-    if (pointer.isDown) {
-      if (pointer.x < this.scene.cameras.main.width / 2) {
-        targetSpeed = -PLAYER.MOVE_SPEED;
-      } else {
-        targetSpeed = PLAYER.MOVE_SPEED;
-      }
-    }
+    const isTouching = pointer.isDown;
 
-    // 3. INPUT DEVICE ORIENTATION (gamma = inclinazione sx/dx)
-    // Sovrascrive tastiera e touch se il tilt supera la deadzone.
-    // La velocità è proporzionale all'angolo tra DEADZONE e MAX_TILT.
-    if (Math.abs(this.gyroGamma) > PLAYER.GYRO_DEADZONE) {
+    // 1. INPUT TOUCH — priorità massima: sovrascrive tastiera e gyro
+    if (isTouching) {
+      targetSpeed =
+        pointer.x < this.scene.cameras.main.width / 2
+          ? -PLAYER.MOVE_SPEED
+          : PLAYER.MOVE_SPEED;
+    }
+    // 2. INPUT DEVICE ORIENTATION (gamma = inclinazione sx/dx)
+    // Si attiva solo se non si sta toccando lo schermo, così touch e gyro
+    // non si ostacolano. La velocità è proporzionale all'angolo tra
+    // DEADZONE e MAX_TILT.
+    else if (Math.abs(this.gyroGamma) > PLAYER.GYRO_DEADZONE) {
       const range = PLAYER.GYRO_MAX_TILT - PLAYER.GYRO_DEADZONE;
       const tilt = Math.abs(this.gyroGamma) - PLAYER.GYRO_DEADZONE;
       const ratio = Math.min(tilt / range, 1);
       targetSpeed = Math.sign(this.gyroGamma) * ratio * PLAYER.MOVE_SPEED;
+    }
+    // 3. INPUT TASTIERA (PC)
+    else if (this.cursors.left.isDown) {
+      targetSpeed = -PLAYER.MOVE_SPEED;
+    } else if (this.cursors.right.isDown) {
+      targetSpeed = PLAYER.MOVE_SPEED;
     }
 
     // --- EFFETTO INERZIA DA UBRIACHEZZA ---

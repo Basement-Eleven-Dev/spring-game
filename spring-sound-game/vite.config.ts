@@ -1,17 +1,21 @@
+/// <reference types="node" />
 import { defineConfig } from "vite";
 import basicSsl from "@vitejs/plugin-basic-ssl";
 
 /**
- * Plugin basicSsl genera un certificato self-signed in locale.
- * Necessario per DeviceOrientationEvent su iOS Safari (richiede HTTPS anche in LAN).
+ * HTTPS automatico: si attiva SOLO quando viene passato --host.
+ * Questo copre esattamente il caso "devo testare su telefono in LAN"
+ * senza impattare lo sviluppo normale su localhost.
  *
- * Avvio con accesso da rete locale:
- *   npm run dev -- --host
- * → https://<IP-del-Mac>:5173/
+ * - npm run dev             → HTTP su localhost (dev su PC, zero overhead SSL)
+ * - npm run dev -- --host   → HTTPS su LAN (serve per deviceorientation su iOS Safari)
  *
- * Al primo accesso da iPhone: Safari mostrerà "Certificato non attendibile" →
- * tocca "Mostra dettagli" → "Apri il sito web" → il gioco caricherà normalmente.
+ * Al primo accesso da iPhone: Safari → "Mostra dettagli" → "Apri il sito web".
  */
-export default defineConfig({
-  plugins: [basicSsl()],
+export default defineConfig(({ command }) => {
+  // --host viene passato solo quando si serve in LAN (test da telefono)
+  const wantsHost = command === "serve" && process.argv.includes("--host");
+  return {
+    plugins: wantsHost ? [basicSsl()] : [],
+  };
 });

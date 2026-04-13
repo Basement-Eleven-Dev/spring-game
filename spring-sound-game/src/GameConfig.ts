@@ -99,7 +99,7 @@ export const PLAYER = {
   MOVE_SPEED: 280,
   JUMP_FORCE: 580,
   /** Soglia di gamma (gradi) sotto cui il tilt viene ignorato — elimina il rumore del sensore */
-  GYRO_DEADZONE: 8,
+  GYRO_DEADZONE: 2,
   /** Angolo di gamma (gradi) a cui si raggiunge la velocità orizzontale massima */
   GYRO_MAX_TILT: 28,
 } as const;
