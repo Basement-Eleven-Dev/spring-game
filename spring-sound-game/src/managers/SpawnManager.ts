@@ -19,7 +19,7 @@ import { Bouncer } from "../Bouncer";
  * - Piattaforme (standard, mobili, fragili, subwoofer)
  * - Drink (statici su piattaforma o cadenti dall'alto)
  * - Fango (rallenta il salto)
- * - Bouncer (buttafuori che cadono dall'alto)
+ * - Bouncer (buttafuori fermi su un bordo della piattaforma)
  * - DJ Stage (checkpoint di livello)
  *
  * Possiede tutti i gruppi fisici Phaser e li espone per i collider.
@@ -37,7 +37,6 @@ export class SpawnManager {
   private _highestPlatformY: number = 0;
   private lastPlatformX: number = GAME.WIDTH / 2;
   private lastDrinkSpawnY: number = INITIAL.PLAYER_START_Y;
-  private lastBouncerSpawnY: number = INITIAL.PLAYER_START_Y;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -104,28 +103,36 @@ export class SpawnManager {
     // Genera le piattaforme verso l'alto
     let currentY = INITIAL.BASE_PLATFORM_Y;
     for (let i = 1; i <= PLATFORM.INITIAL_COUNT; i++) {
-      currentY -= Phaser.Math.Between(PLATFORM.SPACING_MIN, PLATFORM.SPACING_MAX);
+      currentY -= Phaser.Math.Between(
+        PLATFORM.SPACING_MIN,
+        PLATFORM.SPACING_MAX,
+      );
       this.spawnPlatform(currentY, level);
     }
 
     this._highestPlatformY = currentY;
     this.lastPlatformX = GAME.WIDTH / 2;
     this.lastDrinkSpawnY = INITIAL.PLAYER_START_Y;
-    this.lastBouncerSpawnY = INITIAL.PLAYER_START_Y;
   }
 
   /**
    * Genera una piattaforma alla coordinata Y specificata.
    * Il tipo viene scelto casualmente con probabilità basate sul livello:
-   * - Moving:    10% + 5%/lvl (max 35%)
-   * - Fragile:   10% + 5%/lvl (max 30%)
-   * - Subwoofer: 10% fisso
-   * - Standard:  il resto (con possibilità di fango dal livello 2)
+   * - Moving:    5% + 4%/lvl (max 30%) — nessun bouncer
+   * - Fragile:   0% + 6%/lvl (max 25%) — può avere bouncer
+   * - Subwoofer: 8% fisso — nessun bouncer
+   * - Standard:  il resto — può avere fango e/o bouncer
+   *
+   * I bouncer vengono piazzati su un bordo (sx o dx) della piattaforma,
+   * così da lasciare spazio al giocatore sul lato opposto.
    */
   public spawnPlatform(y: number, level: number): void {
     // Posizione X raggiungibile dalla piattaforma precedente
     const minX = Math.max(40, this.lastPlatformX - PLATFORM.REACH_X);
-    const maxX = Math.min(GAME.WIDTH - 40, this.lastPlatformX + PLATFORM.REACH_X);
+    const maxX = Math.min(
+      GAME.WIDTH - 40,
+      this.lastPlatformX + PLATFORM.REACH_X,
+    );
     const randomX = Phaser.Math.Between(minX, maxX);
     this.lastPlatformX = randomX;
 
@@ -143,23 +150,52 @@ export class SpawnManager {
 
     // Selezione del tipo di piattaforma
     const rand = Math.random();
+    let canHaveBouncer = false;
+
     if (rand < movingProb) {
       plat.initPlatform("moving", "movingTexture", level);
+      // Le piattaforme mobili non hanno bouncer (complessità fisica da evitare)
     } else if (rand < movingProb + fragileProb) {
       plat.initPlatform("fragile", "fragileTexture", level);
+      canHaveBouncer = true;
     } else if (rand < movingProb + fragileProb + PLATFORM.SUBWOOFER_PROB) {
       plat.initPlatform("subwoofer", "subwooferTexture", level);
+      // Il subwoofer è un bonus: senza bouncer per non penalizzare chi lo usa
     } else {
       plat.initPlatform("standard", "standardTexture", level);
+      canHaveBouncer = true;
 
-      // Fango sulle piattaforme standard (dal livello 2)
+      // Fango sulle piattaforme standard (dal livello 3)
       if (
         level >= MUD.MIN_LEVEL &&
-        Math.random() < Math.min(MUD.BASE_PROB + level * MUD.PROB_PER_LEVEL, MUD.MAX_PROB)
+        Math.random() <
+          Math.min(MUD.BASE_PROB + level * MUD.PROB_PER_LEVEL, MUD.MAX_PROB)
       ) {
         const offset = Math.random() < 0.5 ? -MUD.OFFSET : MUD.OFFSET;
         this.muds.get(randomX + offset, y - 7, "mudTexture");
       }
+    }
+
+    // Bouncer su un bordo della piattaforma (standard e fragile, dal livello 2)
+    if (
+      canHaveBouncer &&
+      level >= BOUNCER.MIN_LEVEL &&
+      Math.random() <
+        Math.min(
+          BOUNCER.BASE_PROB + level * BOUNCER.PROB_PER_LEVEL,
+          BOUNCER.MAX_PROB,
+        )
+    ) {
+      // Sinistra o destra casualmente — il bouncer resta dentro la pedana
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const bouncerX = randomX + side * BOUNCER.PLATFORM_OFFSET;
+      const bouncerY = y - BOUNCER.SIZE / 2 - PLATFORM.HEIGHT / 2;
+      const bouncer = this.bouncers.get(
+        bouncerX,
+        bouncerY,
+        "bouncerTexture",
+      ) as Bouncer;
+      if (bouncer) bouncer.initBouncer();
     }
 
     // Possibilità di drink sulla piattaforma
@@ -181,54 +217,6 @@ export class SpawnManager {
       "drinkTexture",
     ) as Drink;
     if (drink) drink.initDrink("falling");
-  }
-
-  /**
-   * Mostra un warning "!" lampeggiante nella posizione dove sta per
-   * apparire il bouncer. Dopo N lampeggi, spawna il bouncer.
-   *
-   * NOTA: la posizione di spawn usa la scrollY CORRENTE della camera
-   * (non quella catturata all'inizio del telegraph), perché durante
-   * il flash (~900ms) la camera si muove col giocatore.
-   */
-  public spawnBouncerTelegraph(level: number, _camScrollY: number): void {
-    const randomX = Phaser.Math.Between(40, GAME.WIDTH - 40);
-
-    const warningText = this.scene.add
-      .text(randomX, 80, "!", {
-        fontSize: "60px",
-        color: "#ff0000",
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(20);
-
-    this.scene.tweens.add({
-      targets: warningText,
-      alpha: 0,
-      duration: BOUNCER.TELEGRAPH_DURATION,
-      yoyo: true,
-      repeat: BOUNCER.TELEGRAPH_REPEATS,
-      onComplete: () => {
-        warningText.destroy();
-        // FIX BUG #1: leggiamo la scrollY ATTUALE, non quella di ~900ms fa
-        const currentScrollY = this.scene.cameras.main.scrollY;
-        this.spawnBouncer(randomX, currentScrollY - 30, level);
-      },
-    });
-  }
-
-  /** Genera un bouncer alla posizione specificata */
-  private spawnBouncer(x: number, y: number, level: number): void {
-    const bouncer = this.bouncers.get(
-      x,
-      y,
-      "bouncerTexture",
-    ) as Bouncer;
-    if (bouncer) {
-      bouncer.initBouncer(level);
-    }
   }
 
   /**
@@ -332,30 +320,18 @@ export class SpawnManager {
   }
 
   /**
-   * Controlla se è il momento di spawnare drink cadenti o bouncer
+   * Controlla se è il momento di spawnare drink cadenti
    * in base alla distanza percorsa dal giocatore.
    */
   public checkSpawns(
     highestYReached: number,
-    level: number,
+    _level: number,
     camScrollY: number,
   ): void {
     // Drink cadenti: ogni SPAWN_INTERVAL pixel di salita
     if (highestYReached < this.lastDrinkSpawnY - DRINK.SPAWN_INTERVAL) {
       this.spawnFallingDrink(camScrollY);
       this.lastDrinkSpawnY = highestYReached;
-    }
-
-    // Bouncer: intervallo decrescente col livello
-    if (level >= BOUNCER.MIN_LEVEL) {
-      const bouncerInterval = Math.max(
-        BOUNCER.BASE_INTERVAL - level * BOUNCER.INTERVAL_REDUCTION_PER_LEVEL,
-        BOUNCER.MIN_INTERVAL,
-      );
-      if (highestYReached < this.lastBouncerSpawnY - bouncerInterval) {
-        this.spawnBouncerTelegraph(level, camScrollY);
-        this.lastBouncerSpawnY = highestYReached;
-      }
     }
   }
 

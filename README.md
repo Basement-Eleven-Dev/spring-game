@@ -10,11 +10,12 @@ Il giocatore salta tra piattaforme salendo sempre più in alto, raccoglie drink 
 
 ## 🛠️ Tech Stack
 
-| Tecnologia | Versione | Ruolo |
-|------------|----------|-------|
-| [Phaser 3](https://phaser.io/) | ^3.90.0 | Game engine (rendering, fisica, input) |
-| TypeScript | ~6.0.2 | Type safety |
-| Vite | ^8.0.4 | Dev server + bundler |
+| Tecnologia                     | Versione | Ruolo                                  |
+| ------------------------------ | -------- | -------------------------------------- |
+| [Phaser 3](https://phaser.io/) | ^3.90.0  | Game engine (rendering, fisica, input) |
+| TypeScript                     | ~6.0.2   | Type safety                            |
+| Vite                           | ^8.0.4   | Dev server + bundler                   |
+| @vitejs/plugin-basic-ssl       | —        | Certificato HTTPS self-signed in LAN   |
 
 ---
 
@@ -25,9 +26,15 @@ Il giocatore salta tra piattaforme salendo sempre più in alto, raccoglie drink 
 cd spring-sound-game
 npm install
 
-# Avvia il dev server
+# Avvia il dev server (solo PC)
 npm run dev
-# → http://localhost:5173/
+# → https://localhost:5173/
+
+# Avvia con accesso da smartphone in LAN
+npm run dev -- --host
+# → https://<IP-del-Mac>:5173/
+# Al primo accesso da iPhone: Safari → "Mostra dettagli" → "Apri il sito web"
+# (certificato self-signed, avviso monouso per sessione)
 
 # Build per produzione
 npm run build
@@ -41,12 +48,12 @@ Il progetto segue un'architettura **Manager Pattern**: la scena principale (`Gam
 
 ```
 src/
-├── main.ts                ← Entry point, configurazione Phaser
+├── main.ts                ← Entry point + overlay start/permesso sensore
 ├── GameConfig.ts          ← Costanti centralizzate (bilanciamento)
 ├── GameScene.ts           ← Scena principale (orchestratore)
 ├── GameOverScene.ts       ← Schermata di Game Over
 │
-├── Player.ts              ← Giocatore (input: tastiera/touch/giroscopio)
+├── Player.ts              ← Giocatore (input: tastiera/touch/device orientation)
 ├── Platform.ts            ← Piattaforme (4 tipi)
 ├── Drink.ts               ← Drink collezionabili
 ├── Bouncer.ts             ← Buttafuori nemici
@@ -76,6 +83,7 @@ public/
 
 ```
 main.ts
+  ├── Overlay HTML (start screen + permesso iOS) → startGame()
   └── GameScene (orchestratore)
         ├── CameraManager ← scrolling + blur + rotazione
         ├── ScoreManager ← punteggio + HUD
@@ -86,7 +94,7 @@ main.ts
         │     ├── drinks (Drink)
         │     ├── muds (generico)
         │     └── bouncers (Bouncer)
-        └── Player ← input (tastiera/touch/giroscopio)
+        └── Player ← input (tastiera/touch/device orientation)
   └── GameOverScene ← statistiche finali + pulsante "Riprova"
 ```
 
@@ -95,26 +103,37 @@ main.ts
 ## 📁 Dettaglio File
 
 ### `main.ts` — Entry Point
+
 - Configurazione Phaser (dimensioni, fisica, scene, scaling)
 - Importa `GameConfig` per le costanti di dimensione e gravità
 - Registra `GameScene` e `GameOverScene`
+- **Overlay start screen**: un `<div>` HTML fullscreen con bottone **GIOCA** viene mostrato prima che Phaser venga inizializzato. Il gioco non parte fino al tap dell'utente.
+- **Permesso iOS**: se il browser espone `DeviceOrientationEvent.requestPermission` (iOS 13+), il click sul bottone chiama il metodo sincronicamente — unico modo affidabile per soddisfare il requisito "user gesture trusted" di Safari. Su Android/desktop il bottone avvia direttamente `startGame()` senza logica di permessi.
+- `startGame()` — funzione che istanzia `new Phaser.Game(config)` solo dopo l'interazione dell'utente.
 
 ### `GameConfig.ts` — Configurazione Centralizzata
+
 **Tutte** le costanti di bilanciamento del gioco in un unico file:
-- `GAME` — dimensioni del canvas (400×700)
+
+- `GAME` — dimensioni del canvas (400×altezza responsiva)
 - `PHYSICS` — gravità base e scaling per livello
+- `TIME` — orologio narrativo: `START_MINUTES` (960 = 16:00), `DURATION_MINUTES` (720), `NIGHT_TRIGGER_MINUTES` (300 = 21:00)
+- `SKY` — colori di sfondo giorno (`0x87CEEB`) e notte (`0x0a0a2e`)
+- `minutesToClockString()` — helper esportato: converte minuti trascorsi in stringa "HH:MM"
 - `CAMERA` — lerp dello scrolling, parametri oscillazione ubriachezza
-- `PLAYER` — velocità, forza salto, deadzone giroscopio
+- `PLAYER` — velocità, forza salto, `GYRO_DEADZONE` (8°) e `GYRO_MAX_TILT` (28°) per il controllo via device orientation
 - `PLATFORM` — dimensioni, spacing, probabilità di spawn per tipo
 - `MUD` — probabilità e dimensioni del fango
 - `DRINK` — intervallo spawn, velocità caduta, guadagno party
 - `BOUNCER` — dimensioni, velocità, intervallo spawn, knockback
 - `PARTY` — soglie colore barra, moltiplicatori punteggio
 - `LEVEL` — parametri DJ Stage, bonus level up
-- `JUMP_MULTIPLIERS` — normale (×1), subwoofer (×1.6), fango (×0.8)
+- `JUMP_MULTIPLIERS` — normale (×1), subwoofer (×1.7), fango (×0.75)
 
 ### `GameScene.ts` — Scena Principale (~170 righe)
+
 Orchestratore che:
+
 1. **`preload()`** — carica tutti gli asset da `public/assets/`
 2. **`create()`** — inizializza manager, piattaforme, player, collider
 3. **`setupColliders()`** — registra le interazioni fisiche:
@@ -125,6 +144,7 @@ Orchestratore che:
    - Input giocatore → Camera → Punteggio → Spawn → Riciclo → Cleanup → Game Over
 
 ### `GameOverScene.ts` — Schermata Game Over
+
 - Sfondo scuro con titolo animato "GAME OVER"
 - Statistiche: distanza (m), punteggio (pts), livello raggiunto
 - Pulsante "RIPROVA" con effetto hover + pulsing
@@ -135,66 +155,76 @@ Orchestratore che:
 ## 🎮 Entità di Gioco
 
 ### `Player.ts` — Giocatore
+
 - **3 sistemi di input** (in ordine di priorità):
   1. **Tastiera** (frecce sx/dx) — per PC
   2. **Touch** (tap nella metà sx/dx dello schermo) — per smartphone
-  3. **Giroscopio** (`deviceorientation`) — sovrascrive gli altri se il tilt supera la deadzone
+  3. **Device orientation** (`deviceorientation` → valore `gamma`) — sovrascrive gli altri se il tilt supera la deadzone
+- **Mappatura gamma → velocità**: `clamp((|gamma| - DEADZONE) / (MAX_TILT - DEADZONE), 0, 1) × MOVE_SPEED × sign(gamma)`. Tra 0° e 8° (deadzone) non si muove nulla; a 28° si raggiunge la velocità piena.
+- **Permessi**: la logica di `requestPermission()` è gestita interamente dall'overlay in `main.ts`, non qui. `Player` si limita ad aggiungere il listener `deviceorientation`: su iOS riceve eventi solo dopo il permesso, su Android funziona subito.
 - **Effetto inerzia**: il party level rende il movimento più "pesante" (lerp factor cubico)
 - **Wrap ai bordi**: effetto Pac-Man (esce da un lato, rientra dall'altro)
-- **Permessi iOS**: su iOS 13+ richiede `DeviceOrientationEvent.requestPermission()` al primo tap
-- **Cleanup**: rimuove il listener `deviceorientation` su `destroy()` per evitare memory leak
+- **Cleanup**: rimuove il listener `deviceorientation` su `destroy()` per evitare memory leak tra un game over e l'altro
 
 ### `Platform.ts` — Piattaforme
+
 4 tipi con comportamenti diversi:
 
-| Tipo | Texture | Comportamento |
-|------|---------|---------------|
-| `standard` | `pedana_standard.png` | Ferma. Può avere fango sopra (dal livello 2) |
-| `moving` | `pedana_scorrevole.png` | Si muove orizzontalmente, rimbalza ai bordi |
-| `fragile` | `pedana_rotta.png` | Si distrugge al primo tocco del giocatore |
-| `subwoofer` | `trampolino.png` | Dà un salto potenziato (×1.6) |
+| Tipo        | Texture                 | Comportamento                                |
+| ----------- | ----------------------- | -------------------------------------------- |
+| `standard`  | `pedana_standard.png`   | Ferma. Può avere fango sopra (dal livello 2) |
+| `moving`    | `pedana_scorrevole.png` | Si muove orizzontalmente, rimbalza ai bordi  |
+| `fragile`   | `pedana_rotta.png`      | Si distrugge al primo tocco del giocatore    |
+| `subwoofer` | `trampolino.png`        | Dà un salto potenziato (×1.6)                |
 
 Proprietà speciali:
+
 - `isBasePlatform` — piattaforme non riciclabili (pavimento iniziale, DJ Stage)
 - `isDJStage` — checkpoint di livello (atterrandoci si passa al livello successivo)
 - Collisioni solo dall'alto (il giocatore può saltare attraverso dal basso)
 
 ### `Drink.ts` — Drink Collezionabili
+
 - **Statico**: fermo su una piattaforma (10% di probabilità)
 - **Cadente**: piove dall'alto ogni 250px di salita
 - Ogni drink raccolto incrementa il party level di +8 (su 100)
 
 ### `Bouncer.ts` — Buttafuori
-- **Telegraph**: prima appare un "!" rosso lampeggiante (3 flash)
-- **Spawn**: dopo il flash, il bouncer cade dall'alto
-- **Collisione**: respinge il giocatore verso il basso con forza 800
-- **Velocità** crescente col livello: `250 + livello × 20`
+
+- Posizionato su un **bordo** (sx o dx, casuale) delle piattaforme standard e fragili
+- Dimensione ridotta (40px) per lasciare spazio al giocatore sul lato opposto
+- È immobile: non ha gravità né velocità, è solidale alla posizione della piattaforma
+- Al contatto respinge il giocatore verso il basso con forza 700
+- Appare dal livello 2, con probabilità crescente: `15% + 4%/livello` (max 40%)
 
 ---
 
 ## ⚙️ Manager
 
 ### `CameraManager` — Camera + Effetti Visivi
-- **Smooth scroll**: segue il giocatore verso l'alto con lerp 0.12 (non scende mai)
+
+- **Smooth scroll**: segue il giocatore verso l'alto con lerp 0.1 (non scende mai)
+- **Background giorno/notte**: un rettangolo fixed (`scrollFactor 0`, `depth -1`) parte con il colore giorno. Al primo level up dopo le 21:00, `switchToNight()` anima un tween di 2s verso blu notte.
 - **Rotazione ubriachezza**: oscillazione sinusoidale con ampiezza esponenziale (si attiva sopra la soglia gialla del party)
 - **Blur post-processing**: effetto sfocatura attivato nello stato wasted
 - **`clearEffects()`**: rimuove blur e rotazione al reset del livello
 
 ### `ScoreManager` — Punteggio + HUD
-- **Distanza**: 10 pixel = 1 metro
-- **Punteggio** = distanza × livello × moltiplicatore party:
 
-| Party Level | Soglia | Moltiplicatore |
-|-------------|--------|----------------|
-| 0-33 | Verde | ×1 |
-| 34-66 | Giallo | ×1.5 |
-| 67-99 | Arancio | ×2 |
-| 100 (wasted) | Rosso | ×3 |
+- **Punteggio** basato su distanza verticale percorsa (10px = 1 unità) × livello × moltiplicatore party:
 
-- **Bonus**: +1000 × livello al completamento di ogni livello
-- **HUD**: testo fisso in alto a sinistra `Xm | Y pts | Lvl Z`
+| Party Level  | Soglia  | Moltiplicatore |
+| ------------ | ------- | -------------- |
+| 0-33         | Verde   | ×1             |
+| 34-66        | Giallo  | ×1.5           |
+| 67-99        | Arancio | ×2             |
+| 100 (wasted) | Rosso   | ×3             |
+
+- **Bonus**: +1500 × livello al completamento di ogni livello
+- **HUD**: orario narrativo in alto a sinistra `HH:MM | Y pts | Lv Z`. L'orario è gestito dall'orologio indipendente di `GameScene` (1 sec reale = 1 min).
 
 ### `PartyManager` — Party System + Wasted
+
 - **Party Bar**: barra colorata in alto a destra (240, 15)
 - **Raccolta drink**: +8 party level per drink raccolto
 - **Stato Wasted** (party = 100):
@@ -204,25 +234,28 @@ Proprietà speciali:
 - **Reset**: al level up, party torna a 0, wasted si disattiva, effetti visivi rimossi
 
 ### `LevelManager` — Progressione Livelli
+
 - **Gravità crescente**: `800 × (1 + (livello - 1) × 0.15)`
   - Livello 1: 800 | Livello 2: 920 | Livello 3: 1040 | ...
 - **Level Up**: incrementa livello, aggiorna gravità, mostra animazione
 - **Animazione**: testo "LEVEL X!" che sale e sfuma in 1.5 secondi
 
 ### `SpawnManager` — Spawning/Riciclo/Pulizia
+
 Il manager più grande (~280 righe). Gestisce:
+
 - **Gruppi Phaser**: `platforms`, `drinks`, `muds`, `bouncers`
 - **Texture procedurali**: crea runtime le texture per fango e DJ Stage
 - **Spawn piattaforme**: posizione X vincolata (max ±140px dalla precedente)
 - **Probabilità spawn per livello**:
 
-| Tipo | Base | Per Livello | Max |
-|------|------|-------------|-----|
-| Moving | 10% | +5%/lvl | 35% |
-| Fragile | 10% | +5%/lvl | 30% |
-| Subwoofer | 10% | fisso | 10% |
-| Standard | resto | — | — |
-| Fango (su standard) | 20% | +5%/lvl | 50% (dal lvl 2) |
+| Tipo                | Base  | Per Livello | Max             |
+| ------------------- | ----- | ----------- | --------------- |
+| Moving              | 10%   | +5%/lvl     | 35%             |
+| Fragile             | 10%   | +5%/lvl     | 30%             |
+| Subwoofer           | 10%   | fisso       | 10%             |
+| Standard            | resto | —           | —               |
+| Fango (su standard) | 20%   | +5%/lvl     | 50% (dal lvl 2) |
 
 - **Riciclo**: piattaforme uscite dal basso vengono distrutte e rigenerate in alto
 - **Cleanup**: drink, fango e bouncer usciti dal basso vengono distrutti
@@ -298,8 +331,13 @@ START
   - Esempi: iPhone 14 → 400×864, iPhone SE → 400×711, Pixel 7 → 400×888.
   - `Scale.FIT` + `CENTER_BOTH` gestiscono lo scaling al viewport.
 
-- [ ] **🟡 #4 — Supporto giroscopio** ⏸️ RIMANDATO
-  - iOS 13+ richiede HTTPS + permesso esplicito via `DeviceOrientationEvent.requestPermission()`. Troppo complesso per lo sviluppo locale. Da implementare dopo il deploy in produzione (HTTPS).
+- [x] **🟡 #4 — Supporto device orientation (gamma)** ✅ COMPLETATO
+  - **Tecnologia corretta**: non il giroscopio grezzo ma `DeviceOrientationEvent.gamma` (sensor fusion OS) — inclinazione sinistra/destra, range -90°/+90°.
+  - **HTTPS in LAN**: `vite.config.ts` con `@vitejs/plugin-basic-ssl` genera un certificato self-signed. Basta avviare con `npm run dev -- --host` per servire in HTTPS su tutta la rete locale. Necessario per Safari iOS anche in sviluppo.
+  - **Permesso iOS**: gestito da un `<button>` HTML puro nell'overlay di `main.ts` — fuori da Phaser. Safari richiede che `DeviceOrientationEvent.requestPermission()` venga chiamato sincronicamente dall'handler nativo di un gesto utente; Phaser bufferizza tutto nel game loop rompendo questo requisito.
+  - **Overlay start screen**: blocca l'avvio di Phaser finché l'utente non preme GIOCA. Su Android avvia direttamente; su iOS richiede prima il permesso sensore.
+  - **Player.ts**: aggiunge il listener `deviceorientation` direttamente. Deadzone 8°, velocità piena a 28°. Listener rimosso su `destroy()`.
+  - **File toccati**: `vite.config.ts` (nuovo), `main.ts`, `Player.ts`, `GameConfig.ts`
 
 - [x] **🟠 #5 — Ridefinire la UI** ✅ COMPLETATO
   - **HUD premium**: barra scura semitrasparente in alto, distanza/punteggio a sinistra, livello/moltiplicatore a destra
@@ -307,7 +345,10 @@ START
   - **Party bar**: centrata sotto l'HUD, angoli arrotondati, sfondo scuro, percentuale dinamica, flash bianco al raccoglimento drink, etichetta "🍺 WASTED"
   - **Moltiplicatore visibile**: il moltiplicatore punteggio attivo è mostrato con colore corrispondente (verde/giallo/arancio/rosso)
   - **Level Up**: animazione gold con glow, scale-in con bounce + fade out
-  - **Game Over premium**: sfondo scuro con particelle viola animate, statistiche con layout label/valore, pulsante viola con hover interattivo
+  - **Game Over**: due versioni a seconda della causa:
+    - **Caduta** (`isTimeout: false`): titolo "GAME OVER" rosso, sottotitolo "Sei tornato a casa troppo presto"
+    - **Sopravvissuto** (`isTimeout: true`): titolo "04:00" oro, sottotitolo "Hai retto fino all'alba! 🌅"
+    - Statistiche: orario raggiunto (`HH:MM`), punteggio, livello — pulsante "RIPROVA" con hover interattivo
   - **Mobile-friendly**: touch-action: manipulation (no zoom), user-select: none, viewport 100dvh
 
 - [x] **🟠 #6 — Bilanciamento elementi e punteggio** ✅ COMPLETATO
@@ -335,14 +376,31 @@ START
     - Livello 3: si aggiunge il fango
   - **Velocità piattaforme mobili**: +15%/livello (prima +20%) con cap più basso
 
+- [x] **🟣 #8 — Orologio narrativo + background giorno/notte** ✅ COMPLETATO
+  - Il tempo scorre in modo **indipendente dal gameplay**: 1 secondo reale = 1 minuto narrativo
+  - La serata parte alle **16:00** e termina alle **04:00** (720 secondi = ~12 minuti reali)
+  - **HUD**: mostra l'ora corrente `HH:MM` — il punteggio rimane basato sulla salita verticale del giocatore
+  - **Background**: solo 2 stati (giorno / notte). Dopo le **21:00** (300 sec), al **prossimo level up** scatta un tween di 2s da azzurro a blu notte
+  - **Fine gioco alle 04:00**: `GameScene` intercetta il timeout e mostra la `GameOverScene` con titolo speciale "04:00" e messaggio "Hai retto fino all'alba!"
+  - **File toccati**: `GameConfig.ts`, `ScoreManager.ts`, `CameraManager.ts`, `GameScene.ts`, `GameOverScene.ts`
+
+- [x] **🟣 #9 — Bouncer su piattaforma** ✅ COMPLETATO
+  - I bouncer non cadono più dall'alto: sono **fissi su un bordo** (sx o dx, casuale) delle piattaforme standard e fragili
+  - Dimensione ridotta a **40px** (da 70px) — resta interamente dentro la pedana con ~22px liberi sul lato opposto
+  - Rimossi: telegraph "!", velocità di caduta, `lastBouncerSpawnY`, `spawnBouncerTelegraph()`
+  - Probabilità spawn: `15% + 4%/livello` (max 40%) — le piattaforme mobili e subwoofer non hanno bouncer
+  - **File toccati**: `GameConfig.ts`, `Bouncer.ts`, `SpawnManager.ts`
+
 ---
 
 ## 📝 Note per gli Sviluppatori
 
 ### Come modificare il bilanciamento
+
 Tutti i numeri che influenzano il gameplay sono in **`src/GameConfig.ts`**. Ogni costante ha un commento che spiega cosa fa. Modifica i valori lì e il cambiamento si propagherà ovunque.
 
 ### Come aggiungere un nuovo tipo di piattaforma
+
 1. Aggiungi il tipo a `PlatformType` in `Platform.ts`
 2. Aggiungi la texture al `preload()` di `GameScene.ts`
 3. Implementa il comportamento in `Platform.initPlatform()`
@@ -350,6 +408,7 @@ Tutti i numeri che influenzano il gameplay sono in **`src/GameConfig.ts`**. Ogni
 5. Aggiorna la logica in `SpawnManager.spawnPlatform()`
 
 ### Come aggiungere un nuovo nemico
+
 1. Crea una classe in `src/` che estende `Phaser.Physics.Arcade.Sprite`
 2. Aggiungi un gruppo in `SpawnManager.createGroups()`
 3. Aggiungi il metodo di spawn in `SpawnManager`
@@ -357,10 +416,11 @@ Tutti i numeri che influenzano il gameplay sono in **`src/GameConfig.ts`**. Ogni
 5. Aggiungi le costanti in `GameConfig.ts`
 
 ### Evento personalizzato usato
+
 - **`"wasted-ready"`**: emesso da `PartyManager` quando il delay dello stato wasted scade. `GameScene` lo ascolta per chiamare `SpawnManager.spawnDJStage()`.
 
 ---
 
 ## 📄 Licenza
 
-*Da definire*
+_Da definire_

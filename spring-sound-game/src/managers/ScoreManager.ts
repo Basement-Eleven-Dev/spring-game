@@ -1,14 +1,18 @@
 import * as Phaser from "phaser";
-import { GAME, PARTY } from "../GameConfig";
+import { GAME, PARTY, minutesToClockString } from "../GameConfig";
 
 /**
  * ScoreManager
  * =============
- * Gestisce il calcolo del punteggio, della distanza percorsa
- * e l'aggiornamento dell'HUD con design premium.
+ * Gestisce il calcolo del punteggio e l'aggiornamento dell'HUD.
+ *
+ * Il punteggio è basato sulla distanza verticale percorsa dal giocatore.
+ * L'orario narrativo (HH:MM) è indipendente dal gameplay e viene
+ * passato da GameScene per essere visualizzato nell'HUD.
  *
  * L'HUD mostra:
- * - Distanza (m) e punteggio in alto a sinistra
+ * - Orario narrativo (HH:MM) in alto a sinistra
+ * - Punteggio corrente sotto l'orario
  * - Livello corrente in alto a destra
  * - Moltiplicatore attivo (con colore dinamico)
  */
@@ -23,6 +27,7 @@ export class ScoreManager {
   private hudBg!: Phaser.GameObjects.Graphics;
 
   private _score: number = 0;
+  /** Distanza verticale percorsa in unità (10px = 1 unità). Usata per il calcolo del punteggio. */
   private _distance: number = 0;
   private _highestYReached: number = 0;
 
@@ -46,15 +51,19 @@ export class ScoreManager {
     this.hudBg.setScrollFactor(0).setDepth(9);
     this.drawHudBackground();
 
-    // Distanza — in alto a sinistra
+    // Orario narrativo — in alto a sinistra
     this.distanceText = this.scene.add
-      .text(12, 8, "0 m", { ...textStyle, fontSize: "16px" })
+      .text(12, 8, "16:00", { ...textStyle, fontSize: "16px" })
       .setScrollFactor(0)
       .setDepth(10);
 
     // Punteggio — sotto la distanza
     this.scoreText = this.scene.add
-      .text(12, 28, "0 pts", { ...textStyle, fontSize: "13px", color: "#bbbbbb" })
+      .text(12, 28, "0 pts", {
+        ...textStyle,
+        fontSize: "13px",
+        color: "#bbbbbb",
+      })
       .setScrollFactor(0)
       .setDepth(10);
 
@@ -86,18 +95,28 @@ export class ScoreManager {
     this.hudBg.clear();
     this.hudBg.fillStyle(0x000000, 0.45);
     // Barra orizzontale piena in alto — leggermente arrotondata in basso
-    this.hudBg.fillRoundedRect(0, 0, GAME.WIDTH, 46, { tl: 0, tr: 0, bl: 8, br: 8 });
+    this.hudBg.fillRoundedRect(0, 0, GAME.WIDTH, 46, {
+      tl: 0,
+      tr: 0,
+      bl: 8,
+      br: 8,
+    });
   }
 
   /**
-   * Aggiorna punteggio e distanza ogni frame.
-   * I punti guadagnati per metro dipendono dal livello e dal moltiplicatore party.
+   * Aggiorna punteggio e HUD ogni frame.
+   * @param playerY     Posizione verticale del giocatore
+   * @param level       Livello corrente
+   * @param partyLevel  Party level corrente
+   * @param isWasted    Stato wasted
+   * @param clockMinutes Minuti narrativi trascorsi dall'inizio (da GameScene)
    */
   public update(
     playerY: number,
     level: number,
     partyLevel: number,
     isWasted: boolean,
+    clockMinutes: number,
   ): void {
     const heightGained = this._highestYReached - playerY;
 
@@ -121,9 +140,9 @@ export class ScoreManager {
         multiplierLabel = `×${PARTY.MULTIPLIER_YELLOW}`;
       }
 
-      const metersGained = heightGained / 10;
-      this._distance += metersGained;
-      this._score += metersGained * level * multiplier;
+      const distanceGained = heightGained / 10;
+      this._distance += distanceGained;
+      this._score += distanceGained * level * multiplier;
 
       this._highestYReached = playerY;
 
@@ -133,7 +152,7 @@ export class ScoreManager {
     }
 
     // Aggiorna i testi dell'HUD
-    this.distanceText.setText(`${Math.floor(this._distance)} m`);
+    this.distanceText.setText(minutesToClockString(clockMinutes));
     this.scoreText.setText(`${Math.floor(this._score)} pts`);
     this.levelText.setText(`LV ${level}`);
   }
@@ -155,6 +174,7 @@ export class ScoreManager {
     return this._score;
   }
 
+  /** Distanza verticale percorsa (usata per lo spawn basato su altezza). */
   public get distance(): number {
     return this._distance;
   }

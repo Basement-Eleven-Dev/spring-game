@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { GAME } from "./GameConfig";
+import { GAME, minutesToClockString } from "./GameConfig";
 
 /**
  * Schermata di Game Over — Design Premium
@@ -11,8 +11,13 @@ export class GameOverScene extends Phaser.Scene {
     super("GameOverScene");
   }
 
-  create(data: { score: number; distance: number; level: number }) {
-    const { score, distance, level } = data;
+  create(data: {
+    score: number;
+    clockMinutes: number;
+    level: number;
+    isTimeout: boolean;
+  }) {
+    const { score, clockMinutes, level, isTimeout } = data;
     const cx = GAME.WIDTH / 2;
     const cy = GAME.HEIGHT / 2;
 
@@ -42,19 +47,19 @@ export class GameOverScene extends Phaser.Scene {
       });
     }
 
-    // --- Titolo "GAME OVER" ---
+    // --- Titolo ---
     const titleText = this.add
-      .text(cx, cy - 180, "GAME OVER", {
+      .text(cx, cy - 180, isTimeout ? "04:00" : "GAME OVER", {
         fontFamily: "Outfit, sans-serif",
-        fontSize: "44px",
-        color: "#ff4455",
+        fontSize: isTimeout ? "52px" : "44px",
+        color: isTimeout ? "#ffd700" : "#ff4455",
         fontStyle: "bold",
-        stroke: "#220011",
+        stroke: isTimeout ? "#332200" : "#220011",
         strokeThickness: 6,
         shadow: {
           offsetX: 0,
           offsetY: 0,
-          color: "#ff4455",
+          color: isTimeout ? "#ffd700" : "#ff4455",
           blur: 25,
           fill: true,
         },
@@ -63,20 +68,47 @@ export class GameOverScene extends Phaser.Scene {
       .setAlpha(0)
       .setScale(0.5);
 
+    // Sottotitolo contestuale
+    this.add
+      .text(
+        cx,
+        cy - 130,
+        isTimeout
+          ? "Hai retto fino all'alba! 🌅"
+          : "Sei tornato a casa troppo presto",
+        {
+          fontFamily: "Outfit, sans-serif",
+          fontSize: "13px",
+          color: isTimeout ? "#ffdd88" : "#aa8888",
+        },
+      )
+      .setOrigin(0.5)
+      .setAlpha(0)
+      .setDepth(1)
+      .setData("_anim", true);
+
     this.tweens.add({
       targets: titleText,
       alpha: 1,
       scale: 1,
       duration: 600,
       ease: "Back.easeOut",
+      onComplete: () => {
+        // Anima anche il sottotitolo
+        this.children.getAll().forEach((child) => {
+          if ((child as Phaser.GameObjects.GameObject).getData("_anim")) {
+            this.tweens.add({ targets: child, alpha: 1, duration: 400 });
+          }
+        });
+      },
     });
 
     // --- Statistiche finali ---
     const statsConfig = [
       {
         y: cy - 60,
-        label: "DISTANZA",
-        value: `${Math.floor(distance)} m`,
+        label: "ORARIO",
+        value: minutesToClockString(clockMinutes),
         color: "#88ccff",
       },
       {
@@ -122,9 +154,28 @@ export class GameOverScene extends Phaser.Scene {
         .setAlpha(0);
 
       const delay = 400 + index * 200;
-      this.tweens.add({ targets: label, alpha: 1, x: cx - 70, duration: 400, delay, ease: "Power2" });
-      this.tweens.add({ targets: value, alpha: 1, x: cx + 70, duration: 400, delay, ease: "Power2" });
-      this.tweens.add({ targets: line, alpha: 1, duration: 300, delay: delay + 100 });
+      this.tweens.add({
+        targets: label,
+        alpha: 1,
+        x: cx - 70,
+        duration: 400,
+        delay,
+        ease: "Power2",
+      });
+      this.tweens.add({
+        targets: value,
+        alpha: 1,
+        x: cx + 70,
+        duration: 400,
+        delay,
+        ease: "Power2",
+      });
+      this.tweens.add({
+        targets: line,
+        alpha: 1,
+        duration: 300,
+        delay: delay + 100,
+      });
     });
 
     // --- Pulsante "RIPROVA" ---

@@ -35,6 +35,44 @@ export const INITIAL = {
   PLAYER_START_Y: GAME_HEIGHT - 100,
 };
 
+// --- Orologio narrativo (16:00 → 04:00) ---
+
+/**
+ * Parametri dell'orologio narrativo.
+ * Il tempo scorre in modo indipendente dal gameplay:
+ * 1 secondo reale = 1 minuto narrativo.
+ * La serata dura 720 minuti (12 ore) → 720 secondi reali (~12 min).
+ */
+export const TIME = {
+  /** Ora di inizio in minuti dalla mezzanotte: 16:00 = 16×60 */
+  START_MINUTES: 960,
+  /** Durata totale della serata in minuti: 16:00 → 04:00 = 12 ore = 720 min */
+  DURATION_MINUTES: 720,
+  /**
+   * Soglia per il cambio di background notte (minuti trascorsi dall'inizio).
+   * 21:00 = 5 ore dopo le 16:00 = 300 min.
+   * Lo switch effettivo avviene al successivo level up dopo questa soglia.
+   */
+  NIGHT_TRIGGER_MINUTES: 300,
+} as const;
+
+/** Colori di sfondo: giorno (azzurro) e notte (blu scuro). */
+export const SKY = {
+  DAY: 0x87ceeb,
+  NIGHT: 0x0a0a2e,
+} as const;
+
+/**
+ * Converte i minuti trascorsi dall'inizio partita in stringa orario "HH:MM".
+ * Gestisce correttamente il passaggio di mezzanotte (es. 01:30).
+ */
+export function minutesToClockString(minutesElapsed: number): string {
+  const total = (TIME.START_MINUTES + Math.floor(minutesElapsed)) % 1440;
+  const hours = Math.floor(total / 60);
+  const mins = total % 60;
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+}
+
 // --- Fisica ---
 export const PHYSICS = {
   BASE_GRAVITY: 750,
@@ -60,6 +98,10 @@ export const PLAYER = {
   SIZE: 40,
   MOVE_SPEED: 280,
   JUMP_FORCE: 580,
+  /** Soglia di gamma (gradi) sotto cui il tilt viene ignorato — elimina il rumore del sensore */
+  GYRO_DEADZONE: 8,
+  /** Angolo di gamma (gradi) a cui si raggiunge la velocità orizzontale massima */
+  GYRO_MAX_TILT: 28,
 } as const;
 
 // --- Piattaforme ---
@@ -82,7 +124,7 @@ export const PLATFORM = {
   /** Le piattaforme mobili appaiono dal livello 1 ma sono rare all'inizio */
   MOVING_BASE_PROB: 0.05,
   MOVING_PROB_PER_LEVEL: 0.04,
-  MOVING_MAX_PROB: 0.30,
+  MOVING_MAX_PROB: 0.3,
 
   /** Le piattaforme fragili appaiono dal livello 2 */
   FRAGILE_BASE_PROB: 0.0,
@@ -104,7 +146,7 @@ export const MUD = {
   HEIGHT: 10,
   BASE_PROB: 0.15,
   PROB_PER_LEVEL: 0.04,
-  MAX_PROB: 0.40,
+  MAX_PROB: 0.4,
   /** Il fango appare solo dal livello 3 */
   MIN_LEVEL: 3,
   OFFSET: 20,
@@ -125,15 +167,21 @@ export const DRINK = {
 
 // --- Bouncer (buttafuori) ---
 export const BOUNCER = {
-  SIZE: 70,
-  BASE_SPEED: 220,
-  SPEED_PER_LEVEL: 15,
-  /** I bouncer appaiono ogni N pixel di salita */
-  MIN_INTERVAL: 400,
-  BASE_INTERVAL: 800,
-  INTERVAL_REDUCTION_PER_LEVEL: 40,
-  TELEGRAPH_DURATION: 200,
-  TELEGRAPH_REPEATS: 3,
+  /**
+   * Dimensione del bouncer. Deve essere < PLATFORM.WIDTH per stare
+   * interamente sulla pedana: 40px lascia ~22px liberi sul lato opposto.
+   */
+  SIZE: 40,
+  /**
+   * Distanza del centro del bouncer dal bordo della piattaforma.
+   * Formula: (PLATFORM.WIDTH / 2) - (SIZE / 2) - margine
+   * = 42 - 20 - 4 = 18px — il bouncer resta dentro la pedana.
+   */
+  PLATFORM_OFFSET: 18,
+  /** Probabilità base che una piattaforma idonea abbia un bouncer */
+  BASE_PROB: 0.15,
+  PROB_PER_LEVEL: 0.04,
+  MAX_PROB: 0.4,
   /** I bouncer appaiono solo dal livello 2 */
   MIN_LEVEL: 2,
   KNOCKBACK_FORCE: 700,

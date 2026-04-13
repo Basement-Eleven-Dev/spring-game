@@ -1,5 +1,13 @@
 import * as Phaser from "phaser";
-import { GAME, INITIAL, PHYSICS, BOUNCER, JUMP_MULTIPLIERS, LEVEL } from "./GameConfig";
+import {
+  GAME,
+  INITIAL,
+  PHYSICS,
+  BOUNCER,
+  JUMP_MULTIPLIERS,
+  LEVEL,
+  TIME,
+} from "./GameConfig";
 import { Player } from "./Player";
 import { Platform } from "./Platform";
 import { CameraManager } from "./managers/CameraManager";
@@ -35,6 +43,15 @@ export class GameScene extends Phaser.Scene {
   private spawnManager!: SpawnManager;
   private levelManager!: LevelManager;
 
+  // --- Orologio narrativo ---
+  /** Minuti narrativi trascorsi dall'inizio (1 secondo reale = 1 minuto narrativo). */
+  private clockMinutes: number = 0;
+  /**
+   * Flag: il tempo ha superato le 21:00 ma il background notte
+   * non è ancora scattato. Lo switch avviene al prossimo level up.
+   */
+  private nightPending: boolean = false;
+
   constructor() {
     super("GameScene");
   }
@@ -61,9 +78,12 @@ export class GameScene extends Phaser.Scene {
     // --- Pulizia di eventuali listener da run precedenti ---
     this.events.off("wasted-ready");
 
-    // --- Fisica e sfondo ---
+    // --- Reset orologio e flag notte ---
+    this.clockMinutes = 0;
+    this.nightPending = false;
+
+    // --- Fisica ---
     this.physics.world.gravity.y = PHYSICS.BASE_GRAVITY;
-    this.cameras.main.setBackgroundColor("#87CEEB");
 
     // --- Creazione Manager ---
     this.cameraManager = new CameraManager(this);
@@ -76,7 +96,12 @@ export class GameScene extends Phaser.Scene {
     this.spawnManager.spawnInitialPlatforms(this.levelManager.level);
 
     // --- Giocatore ---
-    this.player = new Player(this, GAME.WIDTH / 2, INITIAL.PLAYER_START_Y, "playerTexture");
+    this.player = new Player(
+      this,
+      GAME.WIDTH / 2,
+      INITIAL.PLAYER_START_Y,
+      "playerTexture",
+    );
 
     // --- Collisioni ---
     this.setupColliders();
@@ -122,6 +147,13 @@ export class GameScene extends Phaser.Scene {
           this.levelManager.levelUp();
           this.scoreManager.addBonus(this.levelManager.getLevelUpBonus());
           this.partyManager.resetForNewLevel();
+
+          // Cambio background notte se il tempo ha superato le 21:00
+          if (this.nightPending) {
+            this.cameraManager.switchToNight();
+            this.nightPending = false;
+          }
+
           p.jump(LEVEL.JUMP_BOOST_ON_STAGE, this.levelManager.level);
           return;
         }
@@ -146,8 +178,7 @@ export class GameScene extends Phaser.Scene {
           if (plat.platformType === "fragile") {
             plat.destroy();
             this.spawnManager.spawnPlatform(
-              this.spawnManager.highestPlatformY -
-                Phaser.Math.Between(50, 130),
+              this.spawnManager.highestPlatformY - Phaser.Math.Between(50, 130),
               this.levelManager.level,
             );
           }
@@ -182,7 +213,27 @@ export class GameScene extends Phaser.Scene {
    * Update: ciclo di gioco principale.
    * Delega tutto ai manager nell'ordine corretto.
    */
-  update(): void {
+  update(_time: number, delta: number): void {
+    // --- Orologio narrativo: 1 millisecondo reale = 1/1000 minuto narrativo ---
+    // => 1 secondo reale = 1 minuto narrativo
+    this.clockMinutes += delta / 1000;
+
+    // Sblocca il cambio notte quando il tempo supera le 21:00
+    if (!this.nightPending && this.clockMinutes >= TIME.NIGHT_TRIGGER_MINUTES) {
+      this.nightPending = true;
+    }
+
+    // Timeout alle 04:00: fine gioco con punteggio
+    if (this.clockMinutes >= TIME.DURATION_MINUTES) {
+      this.scene.start("GameOverScene", {
+        score: this.scoreManager.score,
+        clockMinutes: this.clockMinutes,
+        level: this.levelManager.level,
+        isTimeout: true,
+      });
+      return;
+    }
+
     const level = this.levelManager.level;
     const partyLevel = this.partyManager.partyLevel;
     const isWasted = this.partyManager.isWasted;
@@ -190,11 +241,17 @@ export class GameScene extends Phaser.Scene {
     // 1. Input e movimento del giocatore
     this.player.updateMovement(partyLevel, isWasted);
 
-    // 2. Camera: segue il giocatore + effetti ubriachezza
-    this.cameraManager.update(this.player.y, partyLevel, isWasted);
+    // 2. Punteggio (va prima della camera: serve highestYReached aggiornato)
+    this.scoreManager.update(
+      this.player.y,
+      level,
+      partyLevel,
+      isWasted,
+      this.clockMinutes,
+    );
 
-    // 3. Punteggio e distanza
-    this.scoreManager.update(this.player.y, level, partyLevel, isWasted);
+    // 3. Camera: scrolling + effetti ubriachezza
+    this.cameraManager.update(this.player.y, partyLevel, isWasted);
 
     // 4. Spawn di drink cadenti e bouncer (basato sulla distanza percorsa)
     this.spawnManager.checkSpawns(
@@ -217,11 +274,15 @@ export class GameScene extends Phaser.Scene {
     );
 
     // 7. Game Over: il giocatore è caduto sotto lo schermo
-    if (this.player.y > this.cameraManager.scrollY + this.cameraManager.height) {
+    if (
+      this.player.y >
+      this.cameraManager.scrollY + this.cameraManager.height
+    ) {
       this.scene.start("GameOverScene", {
         score: this.scoreManager.score,
-        distance: this.scoreManager.distance,
+        clockMinutes: this.clockMinutes,
         level: this.levelManager.level,
+        isTimeout: false,
       });
     }
   }

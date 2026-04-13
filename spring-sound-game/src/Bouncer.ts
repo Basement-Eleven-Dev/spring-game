@@ -4,7 +4,8 @@ import { BOUNCER } from "./GameConfig";
 /**
  * Bouncer (Buttafuori)
  * ====================
- * Nemico che cade dall'alto e respinge il giocatore verso il basso.
+ * Nemico posizionato su un bordo della piattaforma.
+ * È immobile e respinge il giocatore verso il basso al contatto.
  * Viene usato come classType nel gruppo Phaser, quindi NON si auto-aggiunge alla scena.
  */
 export class Bouncer extends Phaser.Physics.Arcade.Sprite {
@@ -14,21 +15,14 @@ export class Bouncer extends Phaser.Physics.Arcade.Sprite {
     super(scene, x, y, texture);
   }
 
-  /**
-   * Inizializza il bouncer con dimensioni e velocità basate sul livello.
-   * Chiamato dopo group.get() per configurare l'istanza.
-   */
-  public initBouncer(level: number): void {
-    // Dimensione visiva e hitbox
+  /** Inizializza dimensioni e hitbox. Chiamato dopo group.get() per configurare l'istanza. */
+  public initBouncer(): void {
     this.setDisplaySize(BOUNCER.SIZE, BOUNCER.SIZE);
 
     if (this.body) {
       this.body.setSize(BOUNCER.SIZE, BOUNCER.SIZE);
       this.body.allowGravity = false;
       this.body.immovable = true;
-
-      // Velocità di caduta crescente col livello
-      this.setVelocityY(BOUNCER.BASE_SPEED + level * BOUNCER.SPEED_PER_LEVEL);
     }
   }
 }
