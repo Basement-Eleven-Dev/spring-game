@@ -88,7 +88,7 @@ public/
 main.ts
   ├── Overlay HTML (start screen + permesso iOS) → startGame()
   └── GameScene (orchestratore)
-        ├── CameraManager ← scrolling + blur + rotazione
+        ├── CameraManager ← scrolling + rotazione + vista doppia
         ├── ScoreManager ← punteggio + HUD
         ├── PartyManager ← party bar + wasted → emette evento "wasted-ready"
         ├── LevelManager ← livello + gravità + visual
@@ -222,10 +222,10 @@ Proprietà speciali:
 
 - **Smooth scroll**: segue il giocatore verso l'alto con lerp 0.1 (non scende mai)
 - **Background giorno/notte**: un rettangolo fixed (`scrollFactor 0`, `depth -1`) parte con il colore giorno. Al primo level up dopo le 21:00, `switchToNight()` anima un tween di 2s verso blu notte.
-- **Effetto ubriachezza progressivo** — si attiva a partire dal 30% del party level:
-  - _Rotazione sinusoidale_: oscillazione della camera con ampiezza quadratica (percettibile già al 50%, massima a wasted ~8.6°)
-  - _Blur crescente_: sfocatura leggera che cresce linearmente dal 30% al 100%; mantenuta lieve per non compromettere la leggibilità, ma chiaramente visibile avvicinandosi al wasted
-- **`clearEffects()`**: chiamato al reset del livello. La rotazione si azzera subito; il blur sfuma gradualmente in 1.5s via tween invece di sparire di scatto
+- **Effetti ubriachezza progressivi** — gestiti ogni frame da `updateDrunkEffects()`:
+  - _Rotazione sinusoidale_ (30%+): ampiezza interpolata via lerp ogni frame (curva quadratica). La rotazione cresce gradualmente all'aumentare del party level e rientra altrettanto gradualmente al level up — nessuno snap brusco a zero.
+  - _Vista doppia_ (wasted only): una ghost camera clona la scena con offset orizzontale (`DRUNK_GHOST_OFFSET` px) e alpha variabile. L'alpha segue `max(0, sin(time/period)) × DRUNK_GHOST_ALPHA`, che la fa comparire e sparire con cadenza naturale di ~2.2s. Un ulteriore lerp (`DRUNK_GHOST_LERP`) smussa ogni transizione — zero click visivi, zero pixelazione.
+- **`clearEffects()`**: intenzionalmente vuoto. Il sistema si auto-smonta: quando `partyLevel` torna a 0 e `isWasted` diventa false, il lerp porta gradualmente a zero sia l'ampiezza della rotazione sia l'alpha della ghost camera, che viene poi rimossa automaticamente.
 
 ### `ScoreManager` — Punteggio + HUD
 
@@ -246,10 +246,10 @@ Proprietà speciali:
 - **Party Bar**: barra colorata in alto a destra (240, 15)
 - **Raccolta drink**: +8 party level per drink raccolto
 - **Stato Wasted** (party = 100):
-  1. Attiva blur tramite `CameraManager`
+  1. Imposta `isWasted = true` — `CameraManager` attiva automaticamente la ghost camera al frame successivo
   2. Dopo 4500ms emette l'evento `"wasted-ready"`
   3. `GameScene` riceve l'evento e chiede a `SpawnManager` di generare il DJ Stage
-- **Reset**: al level up, party torna a 0, wasted si disattiva, effetti visivi rimossi
+- **Reset**: al level up, party torna a 0, wasted si disattiva, gli effetti visivi si smontano gradualmente via lerp
 
 ### `LevelManager` — Progressione Livelli
 
