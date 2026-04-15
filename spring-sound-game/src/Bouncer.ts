@@ -31,8 +31,12 @@ export class Bouncer extends Phaser.Physics.Arcade.Sprite {
   /**
    * Inizializza dimensioni, hitbox e frame iniziale.
    * Chiamato dopo group.get() per configurare l'istanza.
+   *
+   * L'origine è impostata a (0.5, 1) = centro-basso, così la Y di spawn
+   * coincide con il punto dove il bouncer appoggia i piedi.
    */
   public initBouncer(): void {
+    this.setOrigin(0.5, 1);
     this.setDisplaySize(BOUNCER.WIDTH, BOUNCER.HEIGHT);
 
     if (this.body) {

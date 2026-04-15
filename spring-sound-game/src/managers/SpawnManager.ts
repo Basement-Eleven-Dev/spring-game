@@ -39,6 +39,8 @@ export class SpawnManager {
   private _highestPlatformY: number = 0;
   private lastPlatformX: number = GAME.WIDTH / 2;
   private lastDrinkSpawnY: number = INITIAL.PLAYER_START_Y;
+  /** Y dell'ultimo bouncer spawnato — per garantire distanza minima */
+  private lastBouncerSpawnY: number = -Infinity;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -198,9 +200,13 @@ export class SpawnManager {
     }
 
     // Bouncer su un bordo della piattaforma (standard e fragile, dal livello 2)
+    // Vincoli: max 1 attivo a schermo + distanza minima tra spawn consecutivi
+    const activeBouncerCount = this.bouncers.getChildren().filter(c => c.active).length;
     if (
       canHaveBouncer &&
       level >= BOUNCER.MIN_LEVEL &&
+      activeBouncerCount < 1 &&
+      Math.abs(y - this.lastBouncerSpawnY) >= BOUNCER.MIN_SPAWN_SPACING &&
       Math.random() <
         Math.min(
           BOUNCER.BASE_PROB + level * BOUNCER.PROB_PER_LEVEL,
@@ -215,15 +221,18 @@ export class SpawnManager {
         platWidth === PLATFORM.COMPACT_WIDTH
           ? PLATFORM.COMPACT_HEIGHT
           : PLATFORM.WIDE_HEIGHT;
-      // Il bouncer appoggia i piedi sul bordo superiore della piattaforma:
-      // centro bouncer = bordo superiore piattaforma - metà altezza bouncer
-      const bouncerY = y - platHeight / 2 - BOUNCER.HEIGHT / 2;
+      // Origine bouncer: (0.5, 1) = piedi al centro-basso.
+      // Y = bordo superiore della piattaforma (il bouncer ci sta in piedi sopra).
+      const bouncerY = y - platHeight / 2;
       const bouncer = this.bouncers.get(
         bouncerX,
         bouncerY,
         "bouncerSheet",
       ) as Bouncer;
-      if (bouncer) bouncer.initBouncer();
+      if (bouncer) {
+        bouncer.initBouncer();
+        this.lastBouncerSpawnY = y;
+      }
     }
 
     // Possibilità di drink sulla piattaforma

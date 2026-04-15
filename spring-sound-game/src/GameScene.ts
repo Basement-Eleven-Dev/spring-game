@@ -363,9 +363,11 @@ export class GameScene extends Phaser.Scene {
       },
     );
 
-    // --- Overlap Giocatore ↔ Bouncer (presa + lancio laterale) ---
-    // Flusso: il bouncer afferra il player (lo blocca in posizione),
-    // gioca l'animazione di presa, e al completamento lo scaglia via.
+    // --- Overlap Giocatore ↔ Bouncer (presa + lancio pinball) ---
+    // Flusso in 3 fasi:
+    // 1. PRESA — il player viene bloccato nella mano del bouncer
+    // 2. ANIMAZIONE — il bouncer esegue l'animazione di lancio (frame 0→1→2)
+    // 3. PINBALL — il player viene scaraventato e rimbalza sui bordi come un flipper
     this.physics.add.overlap(
       this.player,
       this.spawnManager.bouncers,
@@ -377,20 +379,41 @@ export class GameScene extends Phaser.Scene {
         const now = this.time.now;
         if (!b.canThrow(now)) return; // Cooldown attivo — ignora
 
-        // --- FASE 1: PRESA — blocca il player accanto al bouncer ---
+        // --- FASE 1: PRESA — blocca il player nella mano del bouncer ---
         p.stun(BOUNCER.STUN_DURATION_MS);
         p.setVelocity(0, 0);
-        p.body.allowGravity = false; // Congela in aria durante la presa
+        p.body.allowGravity = false; // Congela durante la presa
+
+        // Calcola posizione della "mano" del bouncer
+        const lateralDir = p.x < b.x ? -1 : 1;
+        const handOffsetX = lateralDir * (BOUNCER.WIDTH / 2 + 5);
+        const handY = b.y - BOUNCER.HEIGHT * 0.15;
+
+        // Sposta il player nella mano immediatamente
+        p.setPosition(b.x + handOffsetX, handY);
+
+        // Tracking: mantieni il player nella mano durante l'animazione
+        const trackingFn = () => {
+          if (p.active && b.active) {
+            p.setPosition(b.x + handOffsetX, handY);
+          }
+        };
+        this.events.on("update", trackingFn);
 
         // --- FASE 2: ANIMAZIONE di presa (frame 0→1→2) ---
-        const lateralDir = p.x < b.x ? -1 : 1;
         b.performThrow(now);
         b.once("animationcomplete", () => {
-          // --- FASE 3: LANCIO — scaglia il player GIÙ e di lato (punitivo) ---
+          // Rimuovi il tracking dalla mano
+          this.events.off("update", trackingFn);
+
+          // --- FASE 3: PINBALL — scaraventa il player e attiva il rimbalzo ---
           if (p.body) {
             p.body.allowGravity = true;
-            p.setVelocityX(lateralDir * BOUNCER.LATERAL_FORCE);
-            p.setVelocityY(BOUNCER.KNOCKBACK_FORCE); // positivo = verso il basso
+            // Lancio diagonale violento: giù + lato opposto al bouncer
+            p.setVelocityX(lateralDir * BOUNCER.PINBALL_LAUNCH_X);
+            p.setVelocityY(BOUNCER.KNOCKBACK_FORCE);
+            // Attiva la fase pinball: rimbalzi + rotazione per PINBALL_DURATION_MS
+            p.startPinball(BOUNCER.PINBALL_DURATION_MS);
           }
           b.stop();
           b.setFrame(0);

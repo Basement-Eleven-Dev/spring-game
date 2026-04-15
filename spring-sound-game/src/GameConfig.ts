@@ -318,25 +318,57 @@ export const BOUNCER = {
   /** I bouncer appaiono solo dal livello 2 */
   MIN_LEVEL: 2,
   /**
-   * Forza verticale del lancio (verso il basso = positiva in Phaser).
-   * Il buttafuori ti respinge GIÙ, è punitivo: perdi quota.
-   * Combinata con LATERAL_FORCE dà una traiettoria diagonale discendente.
+   * Forza del lancio iniziale verso il BASSO (positiva in Phaser).
+   * Il bouncer ti scaraventa giù — combinata con la velocità laterale
+   * dà una traiettoria diagonale che inizia la fase pinball.
    */
-  KNOCKBACK_FORCE: 400,
-  /** Forza laterale del lancio — il player viene spinto dal lato opposto al bouncer */
-  LATERAL_FORCE: 300,
+  KNOCKBACK_FORCE: 300,
+  /**
+   * Velocità laterale iniziale della fase pinball.
+   * Valore alto = il player schizza via come una palla da flipper.
+   */
+  PINBALL_LAUNCH_X: 650,
   /**
    * Cooldown in ms tra un lancio e l'altro (per evitare trigger multipli).
    * 600ms ≈ durata dell'animazione di lancio a 6fps.
    */
   COOLDOWN_MS: 600,
+
+  // --- Fase Pinball ---
+  // Dopo l'animazione di lancio, il player entra in modalità "pinball":
+  // rimbalza violentemente sui bordi dello schermo, gira su se stesso,
+  // e non può controllare il personaggio. Effetto spaesante e punitivo.
+
   /**
-   * Durata dello stordimento del player dopo il lancio (ms).
-   * Durante questo periodo il player non può muoversi né saltare:
-   * il buttafuori lo "tiene" e lo scaglia via.
-   * Deve essere ≥ della durata dell'animazione di lancio.
+   * Durata della fase pinball in ms.
+   * 2 secondi di caos totale prima di riprendere il controllo.
    */
-  STUN_DURATION_MS: 500,
+  PINBALL_DURATION_MS: 2000,
+  /**
+   * Durata totale dello stordimento (ms) = animazione (~500ms) + pinball.
+   * Durante tutto questo tempo il player non può muoversi né saltare.
+   */
+  STUN_DURATION_MS: 2500,
+  /**
+   * Fattore di conservazione della velocità ad ogni rimbalzo sul bordo.
+   * 0.92 = perde solo l'8% → rimbalzi violenti e sostenuti.
+   */
+  PINBALL_BOUNCE_DAMPING: 0.92,
+  /**
+   * Velocità di rotazione del player durante il pinball (gradi/frame).
+   * 15°/frame a 60fps = ~2.5 giri/secondo — effetto "sballottamento".
+   */
+  PINBALL_SPIN_SPEED: 15,
+  /**
+   * Perturbazione Y random ad ogni rimbalzo laterale.
+   * Aggiunge caos verticale: il player non segue una traiettoria prevedibile.
+   */
+  PINBALL_Y_PERTURBATION: 120,
+  /**
+   * Distanza minima verticale (px) tra bouncer consecutivi.
+   * Evita che due bouncer appaiano troppo vicini nella salita.
+   */
+  MIN_SPAWN_SPACING: 400,
 } as const;
 
 // --- Party System ---

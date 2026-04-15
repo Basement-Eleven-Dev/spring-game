@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { GAME, PLAYER } from "./GameConfig";
+import { GAME, PLAYER, BOUNCER } from "./GameConfig";
 
 /**
  * Player
@@ -39,6 +39,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    * nessun input, nessun salto, nessun override della velocità.
    */
   private stunUntil: number = 0;
+
+  /**
+   * Timestamp di fine della fase pinball.
+   * Quando scene.time.now < pinballUntil il player rimbalza sui bordi
+   * dello schermo come una palla da flipper, girando su se stesso.
+   */
+  private pinballUntil: number = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string) {
     super(scene, x, y, texture);
@@ -120,6 +127,22 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   /**
+   * Attiva la fase pinball: il player rimbalza violentemente sui bordi
+   * dello schermo come una palla da flipper, girando su se stesso.
+   * Nessun input è possibile. Dura `durationMs` millisecondi.
+   *
+   * Chiamato dal bouncer dopo l'animazione di lancio.
+   */
+  public startPinball(durationMs: number): void {
+    this.pinballUntil = this.scene.time.now + durationMs;
+  }
+
+  /** Restituisce true se il player è in fase pinball */
+  public get isPinball(): boolean {
+    return this.scene.time.now < this.pinballUntil;
+  }
+
+  /**
    * Aggiorna il movimento orizzontale del giocatore ogni frame.
    *
    * Priorità degli input:
@@ -134,15 +157,66 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    * è lento a cambiare direzione (lerp factor scende da 1 a 0.15).
    */
   public updateMovement(partyLevel: number, isWasted: boolean): void {
+    // --- FASE PINBALL: il player rimbalza sui bordi come un flipper ---
+    // Nessun input, il player è in balia della fisica.
+    // Rimbalza sui bordi laterali (no pac-man wrap), gira su se stesso,
+    // e riceve perturbazioni Y random ad ogni rimbalzo.
+    if (this.scene.time.now < this.pinballUntil) {
+      const halfW = this.displayWidth / 2;
+
+      // Rimbalzo sul bordo sinistro
+      if (this.x <= halfW) {
+        this.x = halfW + 1;
+        this.setVelocityX(
+          Math.abs(this.body.velocity.x) * BOUNCER.PINBALL_BOUNCE_DAMPING,
+        );
+        // Perturbazione Y random ad ogni rimbalzo: aggiunge caos
+        this.setVelocityY(
+          this.body.velocity.y +
+            Phaser.Math.Between(
+              -BOUNCER.PINBALL_Y_PERTURBATION,
+              BOUNCER.PINBALL_Y_PERTURBATION,
+            ),
+        );
+      }
+      // Rimbalzo sul bordo destro
+      else if (this.x >= GAME.WIDTH - halfW) {
+        this.x = GAME.WIDTH - halfW - 1;
+        this.setVelocityX(
+          -Math.abs(this.body.velocity.x) * BOUNCER.PINBALL_BOUNCE_DAMPING,
+        );
+        this.setVelocityY(
+          this.body.velocity.y +
+            Phaser.Math.Between(
+              -BOUNCER.PINBALL_Y_PERTURBATION,
+              BOUNCER.PINBALL_Y_PERTURBATION,
+            ),
+        );
+      }
+
+      // Rotazione: il player gira su se stesso nella direzione del movimento
+      const spinDir = this.body.velocity.x >= 0 ? 1 : -1;
+      this.angle += spinDir * BOUNCER.PINBALL_SPIN_SPEED;
+
+      return; // Nessun input possibile durante il pinball
+    }
+
+    // --- Reset rotazione quando si esce dalla fase pinball ---
+    if (this.angle !== 0) {
+      this.setAngle(0);
+    }
+
     // --- STORDIMENTO: input bloccato, il player subisce la traiettoria del lancio ---
     if (this.scene.time.now < this.stunUntil) {
-      // Aggiorna solo la direzione (per l'animazione) e il wrap ai bordi
+      // Aggiorna solo la direzione (per l'animazione) e impedisci il wrap
       if (this.body.velocity.x > 10) this.facingRight = true;
       else if (this.body.velocity.x < -10) this.facingRight = false;
 
+      // Durante lo stun pre-pinball il player è nella mano del bouncer:
+      // nessun wrap, nessun movimento autonomo
       const halfWidth = this.displayWidth / 2;
-      if (this.x < -halfWidth) this.x = GAME.WIDTH + halfWidth;
-      else if (this.x > GAME.WIDTH + halfWidth) this.x = -halfWidth;
+      if (this.x < halfWidth) this.x = halfWidth;
+      else if (this.x > GAME.WIDTH - halfWidth) this.x = GAME.WIDTH - halfWidth;
       return;
     }
 
