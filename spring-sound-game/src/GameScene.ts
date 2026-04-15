@@ -212,6 +212,9 @@ export class GameScene extends Phaser.Scene {
       this.handlePauseToggle(paused),
     );
 
+    // --- Riconfigura le camere per includere il menu di pausa ---
+    this.uiManager.reconfigureCameras();
+
     // --- Evento: il DJ Stage deve apparire (emesso da PartyManager dopo il wasted delay) ---
     this.events.on("wasted-ready", () => {
       this.spawnManager.spawnDJStage(

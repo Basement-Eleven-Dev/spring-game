@@ -126,14 +126,21 @@ src/
 ├── Bouncer.ts             ← Buttafuori nemici
 │
 ├── managers/
-│   ├── CameraManager.ts   ← Sistema 3 camere + effetti visivi (rotazione, ghosting)
-│   ├── UIManager.ts       ← Interfaccia SVG + camera UI dedicata
-│   ├── ScoreManager.ts    ← Calcolo punteggio (logica)
-│   ├── PartyManager.ts    ← Party level + stato wasted (logica)
-│   ├── LevelManager.ts    ← Progressione livelli + gravità
-│   └── SpawnManager.ts    ← Spawning/riciclo/pulizia entità
+│   ├── BackgroundManager.ts  ← Background scrollabile infinito
+│   ├── CameraManager.ts      ← Sistema 3 camere + effetti visivi (rotazione, ghosting)
+│   ├── UIManager.ts          ← Interfaccia SVG + camera UI dedicata
+│   ├── PauseMenuManager.ts   ← Menu di pausa con opzioni
+│   ├── ScoreManager.ts       ← Calcolo punteggio (logica)
+│   ├── PartyManager.ts       ← Party level + stato wasted (logica)
+│   ├── LevelManager.ts       ← Progressione livelli + gravità
+│   └── SpawnManager.ts       ← Spawning/riciclo/pulizia entità
 
 public/assets/
+├── background/
+│   └── day_one/
+│       ├── day_1.png         ← Background loop parte 1
+│       ├── day_2.png         ← Background loop parte 2
+│       └── day_3.png         ← Background loop parte 3
 ├── fonts/
 │   └── ChillPixels-Mono.otf  ← Font personalizzato per UI
 ├── ui/
@@ -170,9 +177,11 @@ public/assets/
 main.ts
   ├── Overlay HTML (start screen + permesso iOS) → startGame()
   └── GameScene (orchestratore)
+        ├── BackgroundManager ← background scrollabile infinito (depth -10)
         ├── CameraManager ← scrolling + rotazione + vista doppia (3 camere)
         ├── ScoreManager ← calcolo punteggio
         ├── UIManager ← interfaccia SVG + rendering dedicato
+        ├── PauseMenuManager ← menu pausa con opzioni
         ├── PartyManager ← party level + wasted
         ├── LevelManager ← livello + gravità + visual
         ├── SpawnManager ← possiede tutti i gruppi Phaser:
@@ -217,6 +226,15 @@ public/assets/ui/
 
 **Party Bar**: Sotto l'icona orario, allineata a sinistra, si aggiorna automaticamente in base al party level con 5 stati visivi.
 
+**Menu di Pausa**: Premendo il bottone pause, appare un overlay con:
+
+- Livello corrente
+- Bottone RIPRENDI (verde)
+- Toggle ACCELEROMETRO (on/off, controlla giroscopio)
+- Toggle AUDIO (on/off, controlla audio di gioco)
+
+Durante la pausa, fisica/animazioni/tween/orologio sono sospesi completamente.
+
 ### Come Modificare gli SVG
 
 1. **Dimensioni di riferimento** in `GameConfig.ts`:
@@ -249,7 +267,7 @@ public/assets/ui/
 
 ### Font Personalizzato: ChillPixels
 
-Il gioco usa **ChillPixels-Mono.otf** per tutti i testi numerici (orario, punteggio).
+Il gioco usa **ChillPixels-Mono.otf** per tutti i testi di gioco (orario, punteggio, livelli, menu di pausa, game over).
 
 **Installazione**:
 
@@ -271,7 +289,7 @@ public/assets/fonts/ChillPixels-Mono.otf
 
 ```typescript
 this.scene.add.text(x, y, "16:00", {
-  fontFamily: "ChillPixels, monospace",
+  fontFamily: "ChillPixels",
   fontSize: `${r(13)}px`,
   color: "#000000",
 });
@@ -458,13 +476,33 @@ Orchestratore che:
 - Appare dal livello 1, con probabilità crescente: `15% + 4%/livello` (max 40%)
 - **Nemico difensivo ma eludibile**:
   1.  **Super Mario Stomp**: se il giocatore cade sopra la sua testa, annulla la presa avversaria, schiaccia fisicamente il PNG e lo distrugge, ottenendo punti bonus (+300) ed uno slancio verticale salvifico.
-  2.  **Flusso Grab-Throw**:
-      - **Presa**: Se intercettato di lato/fondo ostacola il player congelandolo in aria.
-      - **Animazione Lancio**: Esegue stringa animazione `bouncerThrow` per ~500ms.
-      - **Lancio "Intelligente"**: Scaglia il giocatore impostando la fase di vulnerabilità **pinball**:
-        - Se il giocatore è nella parte alta della telecamera, lo lancia verso il basso.
-        - Se il giocatore è nella parte bassa (a serio rischio morte), lo sbalza verso l'**alto** ad altissima velocità scongiurando loop involontari.
-      - **Scomparsa**: Dopo il lancio, il Buttafuori innesca un fadeout autonomo disabilitando eventuali ulteriori blocchi al player.
+  2.  **Flusso Grab-Throw**: - **Presa**: Se intercettato di lato/fondo ostacola il player congelandolo in aria. - **Animazione Lancio**: Esegue stringa animazione `bouncerThrow` per ~500ms. - **Lancio "Intelligente"**: Scaglia il giocatore impostando la fase di vulnerabilità **pinball**: - Se il giocatore è nella parte alta della telecamera, lo lancia verso il basso. - Se il giocatore è nella parte bassa (a serio rischio morte), lo sbalza verso l'**alto** ad altissima velocità scongiurando loop involontari. - **Scomparsa**: Dopo il lancio, il Buttafuori innesca un fadeout autonomo disabilitando eventuali ulteriori blocchi al player.
+      BackgroundManager` — Background Scrollabile Infinito
+
+Gestisce il background dinamico composto da 3 immagini che si ripetono in loop:
+
+**Implementazione**:
+
+- **3 immagini**: `day_1.png`, `day_2.png`, `day_3.png` posizionate in sequenza verticale
+- **Depth -10**: renderizzate sotto tutto il mondo di gioco (depth 0-99)
+- **Loop infinito**: quando un'immagine esce dalla parte inferiore dello schermo (player sale), viene riposizionata sopra l'immagine più in alto
+- **Overlap 2px**: le immagini si sovrappongono leggermente per evitare gap dovuti ad arrotondamenti sub-pixel
+- **Dimensioni dinamiche**: scalate per matchare `GAME.WIDTH` mantenendo l'aspect ratio
+- **ScrollFactor (1,1)**: seguono normalmente la camera (non sono fixate)
+
+**TODO**:
+
+- ⚠️ Durante la rotazione estrema (effetto wasted), i bordi del background possono essere visibili ai lati. Possibili soluzioni:
+  - Scala del 1.2-1.3x (richiede test per non rompere la concatenazione)
+  - Riduzione dell'ampiezza massima di rotazione da 0.15 a 0.12 radianti
+  - Implementazione di un sistema di tiling più sofisticato
+
+**Transizione notte** (placeholder):
+
+- Il metodo `switchToNight()` è preparato per caricare `night_1.png`, `night_2.png`, `night_3.png`
+- Da implementare quando disponibili le texture notturne
+
+### `
 
 ---
 
@@ -512,6 +550,42 @@ Gestisce tutta l'interfaccia utente con elementi SVG scalabili:
   - Click handler per pausa (TODO: implementare logica pausa completa)
 
 **Party Bar** (sotto time icon):
+PauseMenuManager` — Menu di Pausa Interattivo
+
+Gestisce il menu di pausa con overlay e opzioni di gioco:
+
+**Elementi UI**:
+
+- **Overlay semi-trasparente**: rettangolo blu scuro (85% opacità) che copre tutto lo schermo
+- **Container menu**: centrato sullo schermo con animazione di entrata (scale + alpha)
+- **Titolo "PAUSA"**: font ChillPixels, colore oro, stroke nero
+- **Livello corrente**: mostra il livello attuale del giocatore
+- **Bottone RIPRENDI**: verde, riprende il gioco dalla pausa
+- **Toggle ACCELEROMETRO**: abilita/disabilita controllo giroscopio (ON/OFF)
+- **Toggle AUDIO**: abilita/disabilita audio di gioco (ON/OFF)
+
+**Comportamento**:
+
+- **Depth 200-201**: renderizzato sopra la UI normale (100+)
+- **ScrollFactor(0)**: fisso sullo schermo, non scorre con la camera
+- **Animazioni**: entrata con Back.easeOut, uscita con Back.easeIn
+- **Effetti hover**: i bottoni si ingrandiscono leggermente al passaggio del mouse
+- **Integrazione GameScene**: quando in pausa, fisica/animazioni/tween sono sospesi
+
+**Sistema di Pausa**:
+
+- Il bottone pause/play nella UI principale ora inverte correttamente (parte con icona pause)
+- Premendo pause: `physics.pause()`, `anims.pauseAll()`, `tweens.pauseAll()`, mostra menu
+- Premendo riprendi: nasconde menu, `physics.resume()`, `anims.resumeAll()`, `tweens.resumeAll()`
+- L'orologio narrativo si blocca durante la pausa
+
+**Configurazione Camere**:
+
+- Il menu viene creato dopo l'inizializzazione delle camere
+- Metodo `reconfigureCameras()` in UIManager assicura che il menu sia visibile
+- Main camera ignora il menu di pausa per evitare effetti di rotazione
+
+### `
 
 - 5 stati SVG: empty → green → yellow → orange → red
 - Switch automatici basati su party level:

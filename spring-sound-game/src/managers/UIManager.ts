@@ -83,6 +83,14 @@ export class UIManager {
   }
 
   /**
+   * Riconfigura le camere per includere nuovi elementi UI (es. menu di pausa).
+   * Da chiamare quando vengono aggiunti elementi UI dopo il finalizeSetup.
+   */
+  public reconfigureCameras(): void {
+    this.configureUICameraExclusivity();
+  }
+
+  /**
    * Calcola le posizioni degli elementi allineati perfettamente.
    * Layout: [timeIcon] --- [pointsBar] --- [controlButton]
    *
