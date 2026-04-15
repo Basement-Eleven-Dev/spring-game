@@ -69,7 +69,8 @@ export class GameScene extends Phaser.Scene {
    * I file risiedono nella cartella public/assets/.
    */
   preload(): void {
-    this.load.image("drinkTexture", "/assets/drink.png");
+    this.load.image("drinkTexture", "/assets/drinks/drink.png");
+    this.load.image("beerTexture", "/assets/drinks/beer.png");
 
     // --- Player: 2 spritesheet per direzione (4 frame salto ciascuno) ---
     this.load.spritesheet(

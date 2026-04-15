@@ -278,7 +278,7 @@ export const MUD = {
 
 // --- Drink ---
 export const DRINK = {
-  WIDTH: 20,
+  WIDTH: 30,
   HEIGHT: 30,
   /** Probabilità drink su piattaforma — più alto = party più veloce */
   SPAWN_PROB_ON_PLATFORM: 0.12,

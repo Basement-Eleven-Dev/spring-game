@@ -70,7 +70,10 @@ export class SpawnManager {
     });
 
     // Gruppo drink
-    this.drinks = this.scene.physics.add.group({ classType: Drink });
+    this.drinks = this.scene.physics.add.group({
+      classType: Drink,
+      runChildUpdate: true,
+    });
 
     // Gruppo fango — statico, immobile
     this.muds = this.scene.physics.add.group({
@@ -237,8 +240,8 @@ export class SpawnManager {
 
     // Possibilità di drink sulla piattaforma
     if (Math.random() < DRINK.SPAWN_PROB_ON_PLATFORM) {
-      const drink = this.drinks.get(randomX, y - 25, "drinkTexture") as Drink;
-      if (drink) drink.initDrink("static");
+      const drink = this.drinks.get(randomX, y - 25, "beerTexture") as Drink;
+      if (drink) drink.initDrink("static", "beerTexture", plat);
     }
 
     // Aggiorna la Y più alta dove esiste una piattaforma
@@ -253,7 +256,7 @@ export class SpawnManager {
       camScrollY - 20,
       "drinkTexture",
     ) as Drink;
-    if (drink) drink.initDrink("falling");
+    if (drink) drink.initDrink("falling", "drinkTexture");
   }
 
   /**
