@@ -53,7 +53,7 @@ export class GameOverScene extends Phaser.Scene {
     // --- Titolo ---
     const titleText = this.add
       .text(cx, cy - r(180), isTimeout ? "04:00" : "GAME OVER", {
-        fontFamily: "Outfit, sans-serif",
+        fontFamily: "ChillPixels",
         fontSize: isTimeout ? `${r(52)}px` : `${r(44)}px`,
         color: isTimeout ? "#ffd700" : "#ff4455",
         fontStyle: "bold",
@@ -80,7 +80,7 @@ export class GameOverScene extends Phaser.Scene {
           ? "Hai retto fino all'alba! 🌅"
           : "Sei tornato a casa troppo presto",
         {
-          fontFamily: "Outfit, sans-serif",
+          fontFamily: "ChillPixels",
           fontSize: `${r(13)}px`,
           color: isTimeout ? "#ffdd88" : "#aa8888",
         },
@@ -132,7 +132,7 @@ export class GameOverScene extends Phaser.Scene {
       // Label piccola
       const label = this.add
         .text(cx - r(60), stat.y, stat.label, {
-          fontFamily: "Outfit, sans-serif",
+          fontFamily: "ChillPixels",
           fontSize: `${r(11)}px`,
           color: "#666688",
           fontStyle: "bold",
@@ -143,7 +143,7 @@ export class GameOverScene extends Phaser.Scene {
       // Valore grande
       const value = this.add
         .text(cx + r(60), stat.y, stat.value, {
-          fontFamily: "Outfit, sans-serif",
+          fontFamily: "ChillPixels",
           fontSize: `${r(20)}px`,
           color: stat.color,
           fontStyle: "bold",
@@ -190,7 +190,7 @@ export class GameOverScene extends Phaser.Scene {
 
     const btnText = this.add
       .text(cx, cy + r(140), "RIPROVA", {
-        fontFamily: "Outfit, sans-serif",
+        fontFamily: "ChillPixels",
         fontSize: `${r(22)}px`,
         color: "#ffffff",
         fontStyle: "bold",

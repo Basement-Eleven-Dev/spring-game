@@ -9,6 +9,7 @@ import {
   PLATFORM,
   PLAYER,
   TIME,
+  SETTINGS,
 } from "./GameConfig";
 import { Player } from "./Player";
 import { Platform } from "./Platform";
@@ -19,6 +20,8 @@ import { PartyManager } from "./managers/PartyManager";
 import { SpawnManager } from "./managers/SpawnManager";
 import { LevelManager } from "./managers/LevelManager";
 import { UIManager } from "./managers/UIManager";
+import { PauseMenuManager } from "./managers/PauseMenuManager";
+import { BackgroundManager } from "./managers/BackgroundManager";
 
 /**
  * GameScene — Scena Principale
@@ -41,12 +44,17 @@ export class GameScene extends Phaser.Scene {
   private player!: Player;
 
   // Manager
+  private backgroundManager!: BackgroundManager;
   private cameraManager!: CameraManager;
   private scoreManager!: ScoreManager;
   private partyManager!: PartyManager;
   private spawnManager!: SpawnManager;
   private levelManager!: LevelManager;
   private uiManager!: UIManager;
+  private pauseMenuManager!: PauseMenuManager;
+
+  // --- Stato pausa ---
+  private isPaused: boolean = false;
 
   // --- Orologio narrativo ---
   /** Minuti narrativi trascorsi dall'inizio (1 secondo reale = 1 minuto narrativo). */
@@ -71,6 +79,9 @@ export class GameScene extends Phaser.Scene {
    * I file risiedono nella cartella public/assets/.
    */
   preload(): void {
+    // --- Background Assets ---
+    BackgroundManager.preloadAssets(this);
+
     // --- UI Assets (SVG) ---
     UIManager.preloadAssets(this);
 
@@ -159,6 +170,10 @@ export class GameScene extends Phaser.Scene {
     this.physics.world.gravity.y = PHYSICS.BASE_GRAVITY;
 
     // --- Creazione Manager ---
+    // Background prima di tutto (depth -1)
+    this.backgroundManager = new BackgroundManager(this);
+    this.backgroundManager.create();
+
     this.cameraManager = new CameraManager(this);
     this.levelManager = new LevelManager(this);
     this.scoreManager = new ScoreManager(this, INITIAL.PLAYER_START_Y);
@@ -180,8 +195,22 @@ export class GameScene extends Phaser.Scene {
     // --- Collisioni ---
     this.setupColliders();
 
+    // --- Menu di pausa ---
+    this.pauseMenuManager = new PauseMenuManager(this);
+    this.pauseMenuManager.create(
+      () => this.resumeGame(),
+      () => this.toggleGyro(),
+      () => this.toggleAudio(),
+    );
+
+    // Aggiorna gli stati iniziali dei toggle button
+    this.pauseMenuManager.updateGyroState(SETTINGS.gyroEnabled);
+    this.pauseMenuManager.updateAudioState(SETTINGS.audioEnabled);
+
     // --- Finalizza setup UI: configura le camere ora che tutti gli oggetti sono creati ---
-    this.uiManager.finalizeSetup();
+    this.uiManager.finalizeSetup((paused: boolean) =>
+      this.handlePauseToggle(paused),
+    );
 
     // --- Evento: il DJ Stage deve apparire (emesso da PartyManager dopo il wasted delay) ---
     this.events.on("wasted-ready", () => {
@@ -314,6 +343,7 @@ export class GameScene extends Phaser.Scene {
           // Cambio background notte se il tempo ha superato le 21:00
           if (this.nightPending) {
             this.cameraManager.switchToNight();
+            this.backgroundManager.switchToNight();
             this.nightPending = false;
           }
 
@@ -493,6 +523,11 @@ export class GameScene extends Phaser.Scene {
    * Delega tutto ai manager nell'ordine corretto.
    */
   update(_time: number, delta: number): void {
+    // Se il gioco è in pausa, non aggiornare nulla
+    if (this.isPaused) {
+      return;
+    }
+
     // --- Orologio narrativo: 1 millisecondo reale = 1/1000 minuto narrativo ---
     // => 1 secondo reale = 1 minuto narrativo
     this.clockMinutes += delta / 1000;
@@ -531,6 +566,12 @@ export class GameScene extends Phaser.Scene {
 
     // 3. Camera: scrolling + effetti ubriachezza
     this.cameraManager.update(this.player.y, partyLevel, isWasted);
+
+    // 3b. Background: aggiorna scroll infinto
+    this.backgroundManager.update(
+      this.cameraManager.scrollY,
+      this.cameraManager.height,
+    );
 
     // 4. UI: aggiorna orario, punteggio e party bar
     this.uiManager.update(
@@ -571,5 +612,55 @@ export class GameScene extends Phaser.Scene {
         isTimeout: false,
       });
     }
+  }
+
+  /**
+   * Gestisce il toggle della pausa da UIManager.
+   */
+  private handlePauseToggle(paused: boolean): void {
+    this.isPaused = paused;
+
+    if (paused) {
+      // Pausa il gioco
+      this.physics.pause();
+      this.anims.pauseAll();
+      this.tweens.pauseAll();
+
+      // Mostra il menu di pausa
+      this.pauseMenuManager.show(this.levelManager.level);
+    } else {
+      this.resumeGame();
+    }
+  }
+
+  /**
+   * Riprende il gioco dalla pausa.
+   */
+  private resumeGame(): void {
+    this.isPaused = false;
+
+    // Riprendi la fisica e le animazioni
+    this.physics.resume();
+    this.anims.resumeAll();
+    this.tweens.resumeAll();
+
+    // Nascondi il menu di pausa
+    this.pauseMenuManager.hide();
+  }
+
+  /**
+   * Toggle dell'accelerometro.
+   */
+  private toggleGyro(): void {
+    SETTINGS.gyroEnabled = !SETTINGS.gyroEnabled;
+    this.pauseMenuManager.updateGyroState(SETTINGS.gyroEnabled);
+  }
+
+  /**
+   * Toggle dell'audio.
+   */
+  private toggleAudio(): void {
+    SETTINGS.audioEnabled = !SETTINGS.audioEnabled;
+    this.pauseMenuManager.updateAudioState(SETTINGS.audioEnabled);
   }
 }

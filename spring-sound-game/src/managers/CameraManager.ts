@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { CAMERA, GAME, PARTY, SKY } from "../GameConfig";
+import { CAMERA, GAME, PARTY } from "../GameConfig";
 
 /**
  * CameraManager
@@ -43,9 +43,8 @@ export class CameraManager {
     this.scene = scene;
     this.camera = scene.cameras.main;
 
-    // Sfondo: usiamo il backgroundColor della camera principale che NON ruota
-    // anche quando la camera viene ruotata. Questo è esattamente quello che vogliamo!
-    scene.cameras.main.setBackgroundColor(SKY.DAY);
+    // Sfondo: trasparente per lasciare vedere il background scrollabile (depth -10)
+    scene.cameras.main.setBackgroundColor("rgba(0,0,0,0)");
 
     // NON creiamo più skyBg rectangle - usiamo direttamente il background della camera
     // che è più efficiente e non ruota mai
@@ -70,27 +69,14 @@ export class CameraManager {
   }
 
   /**
-   * Transizione al background notturno con un tween sul backgroundColor della camera.
+   * Transizione al background notturno.
+   * Ora il background è gestito dal BackgroundManager, non dalla camera.
    * Chiamato da GameScene al primo level up dopo le 21:00.
    */
   public switchToNight(): void {
-    this.scene.tweens.addCounter({
-      from: 0,
-      to: 1,
-      duration: 2000,
-      ease: "Sine.easeInOut",
-      onUpdate: (tween) => {
-        const t = tween.getValue() ?? 0;
-        const from = Phaser.Display.Color.IntegerToRGB(SKY.DAY);
-        const to = Phaser.Display.Color.IntegerToRGB(SKY.NIGHT);
-        const r = Math.round(from.r + (to.r - from.r) * t);
-        const g = Math.round(from.g + (to.g - from.g) * t);
-        const b = Math.round(from.b + (to.b - from.b) * t);
-        const color = Phaser.Display.Color.GetColor(r, g, b);
-        this.camera.setBackgroundColor(color);
-        // Ghost camera è trasparente, non ha backgroundColor da aggiornare
-      },
-    });
+    // Il cambio di background è gestito dal BackgroundManager
+    // La camera rimane trasparente
+    console.log("Camera: switching to night mode");
   }
 
   /**
@@ -172,7 +158,7 @@ export class CameraManager {
         this.ghostCam.setBackgroundColor("rgba(0,0,0,0)");
 
         // Configura la ghost camera per ignorare solo la UI (depth >= 100)
-        // Il mondo di gioco (depth 0-99) viene renderizzato ghostato
+        // Il mondo di gioco (depth 0-99) e il background (depth < 0) vengono renderizzati ghostati
         const allObjects = this.scene.children.list;
         const ignoreObjects = allObjects.filter(
           (obj: any) => obj.depth !== undefined && obj.depth >= 100,

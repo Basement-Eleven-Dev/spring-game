@@ -40,6 +40,9 @@ export class UIManager {
     "empty";
   private isPaused: boolean = false;
 
+  // --- Callback per la pausa ---
+  private onPauseToggle?: (paused: boolean) => void;
+
   // --- Posizioni calcolate ---
   private timeIconX!: number;
   private timeIconY!: number;
@@ -74,7 +77,8 @@ export class UIManager {
    * Configura l'exclusivity delle camere DOPO che tutti gli oggetti iniziali
    * sono stati creati. Deve essere chiamato da GameScene dopo create().
    */
-  public finalizeSetup(): void {
+  public finalizeSetup(onPauseToggle: (paused: boolean) => void): void {
+    this.onPauseToggle = onPauseToggle;
     this.configureUICameraExclusivity();
   }
 
@@ -132,7 +136,7 @@ export class UIManager {
         this.timeIconY + r(UI.TIME_ICON_HEIGHT) * 0.7,
         "16:00",
         {
-          fontFamily: "ChillPixels, monospace",
+          fontFamily: "ChillPixels",
           fontSize: `${r(13)}px`,
           color: "#000000",
         },
@@ -156,7 +160,7 @@ export class UIManager {
         this.pointsBarY + r(UI.CONTROL_BUTTON_SIZE) / 2,
         "0",
         {
-          fontFamily: "ChillPixels, monospace",
+          fontFamily: "ChillPixels",
           fontSize: `${r(15)}px`,
           color: "#000000",
         },
@@ -166,8 +170,9 @@ export class UIManager {
       .setDepth(101);
 
     // --- Controllo pause/play (altezza giusta, vicino al bordo) ---
+    // INIZIA CON ICONA PAUSE perché il gioco parte già in esecuzione
     this.controlButton = this.scene.add
-      .image(this.controlButtonX, this.controlButtonY, "playIcon")
+      .image(this.controlButtonX, this.controlButtonY, "pauseIcon")
       .setOrigin(0.5, 0)
       .setDisplaySize(r(UI.CONTROL_BUTTON_SIZE), r(UI.CONTROL_BUTTON_SIZE))
       .setScrollFactor(0)
@@ -189,7 +194,7 @@ export class UIManager {
   /**
    * Configura l'esclusività delle camere:
    * - Camera principale: ignora SOLO gli elementi UI (depth >= 100)
-   * - Camera UI: ignora SOLO il mondo di gioco (depth 0-99)
+   * - Camera UI: ignora SOLO il mondo di gioco (depth 0-99) e il background (depth < 0)
    *
    * Lo sfondo è gestito dal backgroundColor delle camere, non come oggetto.
    * Main camera ha backgroundColor colorato, UI camera ha backgroundColor trasparente.
@@ -205,13 +210,13 @@ export class UIManager {
     ];
 
     // Camera principale: ignora SOLO gli elementi UI
-    // Il mondo (depth 0-99) viene renderizzato con rotazione/blur
+    // Il mondo (depth 0-99) e il background (depth < 0) vengono renderizzati con rotazione/blur
     this.scene.cameras.main.ignore(uiElements);
 
-    // Camera UI: ignora SOLO gli oggetti del mondo di gioco (depth 0-99)
+    // Camera UI: ignora SOLO gli oggetti del mondo di gioco (depth < 100)
     // Gli elementi UI (depth >= 100) vengono renderizzati senza effetti
     const worldObjects = this.scene.children.list.filter((obj: any) => {
-      return obj.depth !== undefined && obj.depth >= 0 && obj.depth < 100;
+      return obj.depth !== undefined && obj.depth < 100;
     });
 
     if (worldObjects.length > 0) {
@@ -220,16 +225,12 @@ export class UIManager {
   }
 
   /**
-   * Ignora un oggetto dalla UI camera se è un oggetto del mondo di gioco.
+   * Ignora un oggetto dalla UI camera se è un oggetto del mondo di gioco o del background.
    * Da chiamare quando vengono creati nuovi oggetti durante il gioco (drinks, piattaforme riciclate, ecc).
    */
   public ignoreWorldObject(obj: Phaser.GameObjects.GameObject): void {
     const gameObj = obj as any;
-    if (
-      gameObj.depth !== undefined &&
-      gameObj.depth >= 0 &&
-      gameObj.depth < 100
-    ) {
+    if (gameObj.depth !== undefined && gameObj.depth < 100) {
       this.uiCamera.ignore(obj);
     }
   }
@@ -361,13 +362,13 @@ export class UIManager {
     }
   }
 
-  /**
-   * Toggle pause/play (per ora solo visivo, la logica verrà integrata dopo).
+  /**.
+   * Inverte l'icona e chiama il callback fornito da GameScene.
    */
   private togglePause(): void {
     this.isPaused = !this.isPaused;
 
-    const newTexture = this.isPaused ? "pauseIcon" : "playIcon";
+    const newTexture = this.isPaused ? "playIcon" : "pauseIcon";
     this.controlButton.setTexture(newTexture);
 
     // Piccolo effetto di scale al click
@@ -380,7 +381,10 @@ export class UIManager {
       ease: "Quad.easeInOut",
     });
 
-    // TODO: Implementare la logica di pausa del gioco
+    // Chiama il callback della GameScene per gestire la pausa effettiva
+    if (this.onPauseToggle) {
+      this.onPauseToggle(this.isPaused);
+    }
     console.log(`Game ${this.isPaused ? "PAUSED" : "PLAYING"}`);
   }
 

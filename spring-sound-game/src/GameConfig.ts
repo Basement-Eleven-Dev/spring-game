@@ -459,3 +459,11 @@ export const JUMP_MULTIPLIERS = {
   SUBWOOFER: 1.7,
   MUD: 0.75,
 } as const;
+
+// --- Impostazioni di gioco (modificabili dal menu di pausa) ---
+export const SETTINGS = {
+  /** Abilita/disabilita il controllo tramite accelerometro */
+  gyroEnabled: true,
+  /** Abilita/disabilita l'audio di gioco */
+  audioEnabled: true,
+};

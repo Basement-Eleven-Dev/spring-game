@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { GAME, PLAYER, BOUNCER } from "./GameConfig";
+import { GAME, PLAYER, BOUNCER, CAMERA, SETTINGS } from "./GameConfig";
 
 /**
  * Player
@@ -259,7 +259,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // Si attiva solo se non si sta toccando lo schermo, così touch e gyro
     // non si ostacolano. La velocità è proporzionale all'angolo tra
     // DEADZONE e MAX_TILT.
-    else if (Math.abs(this.gyroGamma) > PLAYER.GYRO_DEADZONE) {
+    // Controlla anche se l'accelerometro è abilitato dalle impostazioni
+    else if (
+      SETTINGS.gyroEnabled &&
+      Math.abs(this.gyroGamma) > PLAYER.GYRO_DEADZONE
+    ) {
       this.facingRight = this.gyroGamma > 0; // Flip ISTANTANEO
       const range = PLAYER.GYRO_MAX_TILT - PLAYER.GYRO_DEADZONE;
       const tilt = Math.abs(this.gyroGamma) - PLAYER.GYRO_DEADZONE;

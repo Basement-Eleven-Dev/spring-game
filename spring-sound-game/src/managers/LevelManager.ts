@@ -64,7 +64,7 @@ export class LevelManager {
     // Testo principale
     const lvlText = this.scene.add
       .text(centerX, centerY, `LEVEL ${this._level}!`, {
-        fontFamily: "Outfit, sans-serif",
+        fontFamily: "ChillPixels",
         fontSize: `${r(42)}px`,
         color: "#ffd700",
         fontStyle: "bold",
