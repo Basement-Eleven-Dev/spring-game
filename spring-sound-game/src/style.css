@@ -27,6 +27,4 @@ body {
 
 #game-container {
   display: block;
-  /* Ombra esterna per dare profondità al canvas */
-  filter: drop-shadow(0 0 30px rgba(100, 60, 255, 0.15));
 }

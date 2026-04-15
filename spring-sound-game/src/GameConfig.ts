@@ -250,13 +250,13 @@ export const PLATFORM = {
 
   // --- Animazioni ---
 
-  /** Spritesheet cassa rotta: 2 frame orizzontali, 800×400 per frame */
-  FRAGILE_FRAME_WIDTH: 800,
-  FRAGILE_FRAME_HEIGHT: 400,
+  /** Spritesheet cassa rotta: 2 frame orizzontali, 200×100 per frame (sheet 400×100) */
+  FRAGILE_FRAME_WIDTH: 200,
+  FRAGILE_FRAME_HEIGHT: 100,
 
-  /** Spritesheet subwoofer: 4 frame orizzontali, 800×400 per frame */
-  SUBWOOFER_FRAME_WIDTH: 800,
-  SUBWOOFER_FRAME_HEIGHT: 400,
+  /** Spritesheet subwoofer: 4 frame orizzontali, 200×100 per frame (sheet 800×100) */
+  SUBWOOFER_FRAME_WIDTH: 200,
+  SUBWOOFER_FRAME_HEIGHT: 100,
 
   /** Frame rate dell'animazione subwoofer (loop) */
   SUBWOOFER_ANIM_FPS: 8,

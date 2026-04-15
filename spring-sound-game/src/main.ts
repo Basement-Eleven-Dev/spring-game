@@ -26,14 +26,18 @@ const config: Phaser.Types.Core.GameConfig = {
     autoCenter: Phaser.Scale.CENTER_BOTH,
     autoDensity: true,
   },
-  // Calcola la risoluzione esatta per prevenire sgranature/blur:
-  // Moltiplica il devicePixelRatio nativo per il fattore di scala CSS
-  // applicato da Phaser.Scale.FIT
-  resolution: Math.max(1, Math.min(window.innerWidth / GAME.WIDTH, window.innerHeight / GAME.HEIGHT) * (window.devicePixelRatio || 1)),
   render: {
     antialias: true,
     antialiasGL: true,
-  }
+    // Genera mipmaps: indispensabile con texture grandi scalate a display piccolo.
+    // LINEAR_MIPMAP_NEAREST = bilinear within mipmap level, snap alla level più
+    // vicina (evita il blending inter-level di trilinear che causa sfocatura).
+    mipmapFilter: "LINEAR_MIPMAP_NEAREST",
+    // Arrotonda le coordinate degli sprite al pixel intero più vicino.
+    // Senza questo, Phaser posiziona sprite a coordinate sub-pixel (es. x=100.3)
+    // costringendo il GPU a spalmare il pixel su 2 colonne → blur visibile.
+    roundPixels: true,
+  },
 };
 
 /**
