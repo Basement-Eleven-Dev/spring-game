@@ -18,6 +18,7 @@ import { ScoreManager } from "./managers/ScoreManager";
 import { PartyManager } from "./managers/PartyManager";
 import { SpawnManager } from "./managers/SpawnManager";
 import { LevelManager } from "./managers/LevelManager";
+import { UIManager } from "./managers/UIManager";
 
 /**
  * GameScene — Scena Principale
@@ -45,6 +46,7 @@ export class GameScene extends Phaser.Scene {
   private partyManager!: PartyManager;
   private spawnManager!: SpawnManager;
   private levelManager!: LevelManager;
+  private uiManager!: UIManager;
 
   // --- Orologio narrativo ---
   /** Minuti narrativi trascorsi dall'inizio (1 secondo reale = 1 minuto narrativo). */
@@ -69,6 +71,9 @@ export class GameScene extends Phaser.Scene {
    * I file risiedono nella cartella public/assets/.
    */
   preload(): void {
+    // --- UI Assets (SVG) ---
+    UIManager.preloadAssets(this);
+
     this.load.image("drinkTexture", "/assets/drinks/drink.png");
     this.load.image("beerTexture", "/assets/drinks/beer.png");
 
@@ -159,6 +164,7 @@ export class GameScene extends Phaser.Scene {
     this.scoreManager = new ScoreManager(this, INITIAL.PLAYER_START_Y);
     this.spawnManager = new SpawnManager(this);
     this.partyManager = new PartyManager(this, this.cameraManager);
+    this.uiManager = new UIManager(this);
 
     // --- Piattaforme iniziali ---
     this.spawnManager.spawnInitialPlatforms(this.levelManager.level);
@@ -523,27 +529,30 @@ export class GameScene extends Phaser.Scene {
     // 3. Camera: scrolling + effetti ubriachezza
     this.cameraManager.update(this.player.y, partyLevel, isWasted);
 
-    // 4. Spawn di drink cadenti e bouncer (basato sulla distanza percorsa)
+    // 4. UI: aggiorna orario e punteggio
+    this.uiManager.update(this.clockMinutes, this.scoreManager.score);
+
+    // 5. Spawn di drink cadenti e bouncer (basato sulla distanza percorsa)
     this.spawnManager.checkSpawns(
       this.scoreManager.highestYReached,
       level,
       this.cameraManager.scrollY,
     );
 
-    // 5. Riciclo piattaforme uscite dal fondo dello schermo
+    // 6. Riciclo piattaforme uscite dal fondo dello schermo
     this.spawnManager.recyclePlatforms(
       this.cameraManager.scrollY,
       this.cameraManager.height,
       level,
     );
 
-    // 6. Pulizia entità fuori schermo (drink, fango, bouncer)
+    // 7. Pulizia entità fuori schermo (drink, fango, bouncer)
     this.spawnManager.cleanupOffscreen(
       this.cameraManager.scrollY,
       this.cameraManager.height,
     );
 
-    // 7. Game Over: il giocatore è caduto sotto lo schermo
+    // 8. Game Over: il giocatore è caduto sotto lo schermo
     if (
       this.player.y >
       this.cameraManager.scrollY + this.cameraManager.height

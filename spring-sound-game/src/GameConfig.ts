@@ -95,6 +95,27 @@ export const SKY = {
 } as const;
 
 /**
+ * Configurazione UI — Switch degli sfondi orario.
+ * Gli SVG day/sunset/night cambiano in base ai minuti trascorsi.
+ */
+export const UI = {
+  /** Soglia per passare da day a sunset: 19:00 = 3 ore dopo le 16:00 = 180 min */
+  SUNSET_START_MINUTES: 180,
+  /** Soglia per passare da sunset a night: 23:00 = 7 ore dopo le 16:00 = 420 min */
+  NIGHT_START_MINUTES: 420,
+  /** Dimensioni base degli elementi UI (scalati con GAME.SCALE) */
+  TIME_ICON_WIDTH: 80,
+  TIME_ICON_HEIGHT: 50,
+  POINTS_BAR_WIDTH: 180,
+  POINTS_BAR_HEIGHT: 30,
+  CONTROL_BUTTON_SIZE: 30,
+  /** Padding tra gli elementi della top bar */
+  TOP_BAR_PADDING: 12,
+  /** Distanza dal bordo superiore */
+  TOP_BAR_Y: 16,
+} as const;
+
+/**
  * Converte i minuti trascorsi dall'inizio partita in stringa orario "HH:MM".
  * Gestisce correttamente il passaggio di mezzanotte (es. 01:30).
  */

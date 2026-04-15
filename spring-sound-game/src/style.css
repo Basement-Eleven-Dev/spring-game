@@ -3,6 +3,15 @@
 /* Google Font — Outfit per UI moderna e leggibile */
 @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap");
 
+/* Font personalizzato — ChillPixels Mono per il gameplay */
+@font-face {
+  font-family: "ChillPixels";
+  src: url("/assets/fonts/ChillPixels-Mono.otf") format("opentype");
+  font-display: swap;
+  font-weight: normal;
+  font-style: normal;
+}
+
 * {
   margin: 0;
   padding: 0;
