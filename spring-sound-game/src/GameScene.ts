@@ -409,9 +409,16 @@ export class GameScene extends Phaser.Scene {
           // --- FASE 3: PINBALL — scaraventa il player e attiva il rimbalzo ---
           if (p.body) {
             p.body.allowGravity = true;
-            // Lancio diagonale violento: giù + lato opposto al bouncer
+
+            // Direzione Y: se il giocatore è nella parte bassa dello schermo, lancialo verso l'alto.
+            // Altrimenti, lancialo verso il basso. (Evita loop infiniti ed aiuta la visibilità)
+            const screenY = p.y - this.cameraManager.scrollY;
+            const isLowerHalf = screenY > (this.cameraManager.height / 2);
+            
             p.setVelocityX(lateralDir * BOUNCER.PINBALL_LAUNCH_X);
-            p.setVelocityY(BOUNCER.KNOCKBACK_FORCE);
+            // Forza verso l'alto (per salvarlo) leggermente maggiorata per contrastare la gravità
+            p.setVelocityY(isLowerHalf ? -BOUNCER.KNOCKBACK_FORCE * 1.8 : BOUNCER.KNOCKBACK_FORCE);
+
             // Attiva la fase pinball: rimbalzi + rotazione per PINBALL_DURATION_MS
             p.startPinball(BOUNCER.PINBALL_DURATION_MS);
           }

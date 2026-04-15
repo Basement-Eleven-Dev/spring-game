@@ -221,9 +221,9 @@ export class SpawnManager {
         platWidth === PLATFORM.COMPACT_WIDTH
           ? PLATFORM.COMPACT_HEIGHT
           : PLATFORM.WIDE_HEIGHT;
-      // Origine bouncer: (0.5, 1) = piedi al centro-basso.
-      // Y = bordo superiore della piattaforma (il bouncer ci sta in piedi sopra).
-      const bouncerY = y - platHeight / 2;
+      // Y = bordo superiore della piattaforma, spostato in basso (+20px)
+      // per poggiare ancora meglio sulla grafica effettiva della pedana.
+      const bouncerY = y - platHeight / 2 + 20;
       const bouncer = this.bouncers.get(
         bouncerX,
         bouncerY,

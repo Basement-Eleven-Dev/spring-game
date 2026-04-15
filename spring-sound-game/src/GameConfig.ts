@@ -341,14 +341,14 @@ export const BOUNCER = {
 
   /**
    * Durata della fase pinball in ms.
-   * 2 secondi di caos totale prima di riprendere il controllo.
+   * 1 secondo di caos totale prima di riprendere il controllo.
    */
-  PINBALL_DURATION_MS: 2000,
+  PINBALL_DURATION_MS: 1000,
   /**
    * Durata totale dello stordimento (ms) = animazione (~500ms) + pinball.
    * Durante tutto questo tempo il player non può muoversi né saltare.
    */
-  STUN_DURATION_MS: 2500,
+  STUN_DURATION_MS: 1500,
   /**
    * Fattore di conservazione della velocità ad ogni rimbalzo sul bordo.
    * 0.92 = perde solo l'8% → rimbalzi violenti e sostenuti.

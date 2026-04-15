@@ -194,6 +194,23 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         );
       }
 
+      // Rimbalzo sul bordo inferiore (per evitare morte istantanea)
+      const bottomY = this.scene.cameras.main.scrollY + this.scene.cameras.main.height - (this.displayHeight / 2);
+      if (this.y >= bottomY) {
+        this.y = bottomY - 1;
+        this.setVelocityY(
+          -Math.abs(this.body.velocity.y) * BOUNCER.PINBALL_BOUNCE_DAMPING
+        );
+        // Perturbazione laterale
+        this.setVelocityX(
+          this.body.velocity.x +
+            Phaser.Math.Between(
+              -BOUNCER.PINBALL_Y_PERTURBATION,
+              BOUNCER.PINBALL_Y_PERTURBATION,
+            )
+        );
+      }
+
       // Rotazione: il player gira su se stesso nella direzione del movimento
       const spinDir = this.body.velocity.x >= 0 ? 1 : -1;
       this.angle += spinDir * BOUNCER.PINBALL_SPIN_SPEED;
