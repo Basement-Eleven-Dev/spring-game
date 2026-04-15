@@ -24,7 +24,16 @@ const config: Phaser.Types.Core.GameConfig = {
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
+    autoDensity: true,
   },
+  // Calcola la risoluzione esatta per prevenire sgranature/blur:
+  // Moltiplica il devicePixelRatio nativo per il fattore di scala CSS
+  // applicato da Phaser.Scale.FIT
+  resolution: Math.max(1, Math.min(window.innerWidth / GAME.WIDTH, window.innerHeight / GAME.HEIGHT) * (window.devicePixelRatio || 1)),
+  render: {
+    antialias: true,
+    antialiasGL: true,
+  }
 };
 
 /**
