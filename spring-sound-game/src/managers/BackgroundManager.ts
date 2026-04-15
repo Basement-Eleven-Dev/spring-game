@@ -55,7 +55,7 @@ export class BackgroundManager {
     // Partendo dalla posizione iniziale del giocatore e salendo verso l'alto
     const keys = ["day_1", "day_2", "day_3"];
     const startY = Math.round(GAME.HEIGHT - scaledHeight / 2); // Parte dal basso
-    
+
     // Overlap di 2 pixel per evitare gap visibili tra le immagini
     const overlap = 2;
 
@@ -86,7 +86,7 @@ export class BackgroundManager {
   public update(cameraScrollY: number, cameraHeight: number): void {
     // Overlap di 2 pixel per evitare gap visibili
     const overlap = 2;
-    
+
     // Trova l'immagine più in alto (Y più piccola/negativa)
     let highestY = Infinity;
 
