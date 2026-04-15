@@ -344,12 +344,8 @@ export class GameScene extends Phaser.Scene {
           this.scoreManager.addBonus(this.levelManager.getLevelUpBonus());
           this.partyManager.resetForNewLevel();
 
-          // Cambio background notte se il tempo ha superato le 21:00
-          if (this.nightPending) {
-            this.cameraManager.switchToNight();
-            this.backgroundManager.switchToNight();
-            this.nightPending = false;
-          }
+          // Il background giorno/tramonto/notte è ora gestito automaticamente
+          // da BackgroundManager.update() tramite tint progressivo basato su clockMinutes.
 
           p.jump(LEVEL.JUMP_BOOST_ON_STAGE, this.levelManager.level);
           return;
@@ -571,10 +567,11 @@ export class GameScene extends Phaser.Scene {
     // 3. Camera: scrolling + effetti ubriachezza
     this.cameraManager.update(this.player.y, partyLevel, isWasted);
 
-    // 3b. Background: aggiorna scroll infinto
+    // 3b. Background: aggiorna scroll infinito + tint giorno/tramonto/notte
     this.backgroundManager.update(
       this.cameraManager.scrollY,
       this.cameraManager.height,
+      this.clockMinutes,
     );
 
     // 4. UI: aggiorna orario, punteggio e party bar

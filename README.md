@@ -302,6 +302,102 @@ this.scene.add.text(x, y, "16:00", {
 
 ---
 
+## 🌅 Background Scrollabile + Ciclo Giorno/Notte
+
+### Architettura Background
+
+3 immagini PNG (`day_1`, `day_2`, `day_3`) disposte in sequenza verticale creano un loop infinito verso l'alto. Gestite da `BackgroundManager`:
+
+- **Tiling infinito**: quando un'immagine esce dal fondo dello schermo, viene riposizionata sopra l'immagine più alta
+- **Overlap 2px**: previene gap visibili alle giunture tra immagini
+- **Depth -10**: sotto tutto il mondo di gioco
+
+### Copertura Rotazione (ROTATION_COVER)
+
+Quando la camera ruota (effetto ubriachezza), gli angoli del viewport escono dai bordi del background, mostrando il nero sottostante. Le immagini sono renderizzate **30% più larghe e alte** del viewport per coprire questi angoli:
+
+```typescript
+const ROTATION_COVER = 1.3; // 30% extra
+bg.setDisplaySize(GAME.WIDTH * ROTATION_COVER, displayHeight);
+```
+
+Formula: `cos(θ) + sin(θ) × (H/W) ≈ 1.25` per rotazione max di 0.15 rad. Il 30% dà margine di sicurezza. A rotazione 0, i bordi extra sono fuori dal viewport → nessun impatto visivo.
+
+### Tint Progressivo (Ciclo Giorno/Notte)
+
+Invece di caricare set separati di immagini (sunset_1/2/3, night_1/2/3), il sistema usa `setTint()` di Phaser per colorare progressivamente i background:
+
+| Fase | Orario Narrativo | Min | Tint | Effetto |
+|---|---|---|---|---|
+| Giorno | 16:00→19:00 | 0-180 | `0xFFFFFF` | Colori originali |
+| Giorno→Tramonto | 19:00→21:00 | 180-300 | `0xFFFFFF`→`0xDD3300` | Graduale arancione rossastro |
+| Tramonto→Notte | 21:00→23:00 | 300-420 | `0xDD3300`→`0x1A1A4E` | Arancione→blu scuro |
+| Notte piena | 23:00+ | 420+ | `0x1A1A4E` | Blu scuro fisso |
+
+**Interpolazione colore**: i canali R, G, B vengono interpolati linearmente in `lerpColor()`. La transizione è continua (ogni frame) e non a scatto.
+
+**Come calibrare**:
+
+1. **Colori**: modificare `DAY_TINT`, `SUNSET_TINT`, `NIGHT_TINT` in `BackgroundManager.updateDayNightTint()`
+2. **Tempistiche**: modificare `SUNSET_START`, `SUNSET_PEAK`, `NIGHT_FULL` (minuti dall'inizio)
+3. **Debug accelerato**: impostare `DEBUG_FAST = true` per comprimere la transizione in ~2 min
+
+**Vantaggi rispetto ad asset separati**:
+
+- ✅ Zero asset extra (stesse 3 immagini day)
+- ✅ Transizione continua e animata (non a scatto al level up)
+- ✅ Facile da calibrare (solo hex + soglie)
+- ✅ ROTATION_COVER funziona automaticamente
+- ✅ In futuro: se servono background radicalmente diversi, si possono aggiungere set aggiuntivi nello stesso sistema
+
+---
+
+## 🐛 Phaser 3.90: Bug autoDensity e Workaround DPR
+
+### Il problema
+
+`autoDensity: true` nella configurazione Scale di Phaser 3.90 **non funziona**. Il canvas buffer resta a 1× risoluzione indipendentemente dalla configurazione:
+
+```
+// DEBUG su iPhone 11 Pro (DPR=3):
+Buffer: 375×640       ← SBAGLIATO (dovrebbe essere 1125×1920)
+CSS:    375px×640px
+DPR:    3
+Game:   375×640
+Expected: 1125×1920   ← 3× più grande
+```
+
+Il browser CSS-scala il canvas 375px a 1125 pixel fisici → upscale 3× → **sfocatura totale** su testo, sprite e SVG.
+
+### La soluzione
+
+Incorporare il DPR direttamente nelle dimensioni del gioco in `GameConfig.ts`:
+
+```typescript
+const DPR = window.devicePixelRatio || 1;
+const CSS_WIDTH = Math.min(window.innerWidth, 800);
+const GAME_WIDTH = Math.round(CSS_WIDTH * DPR); // ← risoluzione fisica
+```
+
+Il canvas opera a risoluzione fisica nativa. `Scale.FIT` riduce il CSS display, dove `CSS × DPR = buffer` → mapping 1:1.
+
+### Come verificare
+
+Se in futuro si sospetta un problema di risoluzione, aggiungere temporaneamente in `GameScene.create()`:
+
+```typescript
+const c = this.game.canvas;
+const dbg = document.createElement("pre");
+dbg.textContent = `Buffer: ${c.width}×${c.height}\nCSS: ${c.style.width}×${c.style.height}\nDPR: ${window.devicePixelRatio}`;
+dbg.style.cssText = "position:fixed;top:8px;left:8px;z-index:99999;background:rgba(0,0,0,.85);color:#0f0;font:12px monospace;padding:8px;border-radius:6px;pointer-events:none";
+document.body.appendChild(dbg);
+setTimeout(() => dbg.remove(), 8000);
+```
+
+Il Buffer deve essere uguale a `Game × DPR`. Se non lo è, il canvas è a risoluzione sbagliata.
+
+---
+
 ## 📹 Sistema a 3 Camere
 
 Per garantire che la **UI rimanga sempre stabile e nitida** anche durante gli effetti wasted (rotazione, ghosting), il gioco utilizza un'architettura a **3 camere separate**.
