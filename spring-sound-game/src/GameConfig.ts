@@ -316,7 +316,7 @@ export const BOUNCER = {
   PROB_PER_LEVEL: 0.04,
   MAX_PROB: 0.4,
   /** I bouncer appaiono solo dal livello 2 */
-  MIN_LEVEL: 2,
+  MIN_LEVEL: 1,
   /**
    * Forza del lancio iniziale verso il BASSO (positiva in Phaser).
    * Il bouncer ti scaraventa giù — combinata con la velocità laterale
