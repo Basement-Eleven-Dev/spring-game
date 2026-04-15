@@ -42,7 +42,74 @@ npm run build
 
 ---
 
-## 🏗️ Architettura
+## � Sistema di Risoluzione Dinamica
+
+Il gioco utilizza un **sistema di risoluzione nativa** che garantisce la massima nitidezza su ogni dispositivo, eliminando completamente lo scaling del browser.
+
+### Problema Risolto
+
+Nelle versioni precedenti, il canvas aveva dimensioni fisse (`GAME_WIDTH = 350`), causando:
+
+- **Upscaling del browser**: su iPhone (390px CSS, dpr=3 → 1170px fisici), il buffer di 1050px veniva upscalato dell'11% → **sfocatura generale**
+- **Perdita di dettagli**: texture downscalate 51:1 (drink 1536×1536 → 30×30 display) perdevano bordi e dettagli per aliasing estremo
+- **Contrasto con UI HTML**: l'overlay "GIOCA" era nitido (risoluzione nativa), il canvas era sgranato
+
+### Soluzione Implementata
+
+**1. Risoluzione Dinamica** (`GameConfig.ts`)
+
+```typescript
+const REFERENCE_WIDTH = 350; // Risoluzione di riferimento per il bilanciamento
+const GAME_WIDTH = Math.min(window.innerWidth, 800); // Adatta al viewport (max 800)
+const S = GAME_WIDTH / REFERENCE_WIDTH; // Fattore di scala
+const r = (v: number) => Math.round(v * S); // Helper di scaling
+```
+
+- **iPhone 390px**: `S ≈ 1.114` → tutti i valori scalati del +11%
+- **Desktop 800px**: `S ≈ 2.286` → tutto scalato del +129%
+- Buffer canvas = `GAME_WIDTH × dpr` = pixel fisici esatti
+
+**2. Scaling Automatico di Tutti i Valori**
+
+Ogni costante spaziale usa la funzione `r()`:
+
+```typescript
+// Prima (fisso)
+PLAYER.SIZE: 40,
+DRINK.WIDTH: 30,
+
+// Dopo (dinamico)
+PLAYER.SIZE: r(40),
+DRINK.WIDTH: r(30),
+```
+
+**3. PNG Ridimensionati per Rapporti Sensati**
+
+| Asset                         | Sorgente Originale  | Ridotto a             | Rapporto Display |
+| ----------------------------- | ------------------- | --------------------- | ---------------- |
+| drink/beer                    | 1536×1536           | **512×512**           | 51:1 → **17:1**  |
+| piattaforme                   | 3200×1600           | **800×400**           | 47:1 → **9:1**   |
+| spritesheet fragile/subwoofer | 1600×400 / 3200×400 | **400×100 / 800×100** | idem             |
+
+**4. Mipmapping + RoundPixels** (`main.ts`)
+
+```typescript
+render: {
+  mipmapFilter: "LINEAR_MIPMAP_NEAREST", // Pre-riduce texture via mipmap chain
+  roundPixels: true, // Elimina sub-pixel positioning blur
+}
+```
+
+### Risultato
+
+✅ **Nitidezza perfetta** su smartphone, tablet, desktop  
+✅ **Zero upscaling** — il buffer coincide con i pixel fisici  
+✅ **Performance ottimale** — nessun carico GPU aggiuntivo  
+✅ **Gameplay identico** — le proporzioni restano invariate grazie al fattore `S`
+
+---
+
+## �🏗️ Architettura
 
 Il progetto segue un'architettura **Manager Pattern**: la scena principale (`GameScene`) è un orchestratore snello che delega la logica a manager specializzati.
 
@@ -91,7 +158,11 @@ main.ts
 
 ### `main.ts` — Entry Point
 
-- Configurazione Phaser (dimensioni, fisica, scene, scaling)
+- Configurazione Phaser (dimensioni dinamiche, fisica, scene, scaling)
+- **Risoluzione nativa**: `width: GAME.WIDTH` (= `window.innerWidth`, max 800), `autoDensity: true` → buffer canvas = pixel fisici esatti
+- **Rendering ottimizzato**:
+  - `mipmapFilter: "LINEAR_MIPMAP_NEAREST"` — genera mipmaps per texture grandi, evita aliasing
+  - `roundPixels: true` — arrotonda posizioni sprite a pixel interi, elimina blur da sub-pixel
 - Importa `GameConfig` per le costanti di dimensione e gravità
 - Registra `GameScene` e `GameOverScene`
 - **Overlay start screen**: un `<div>` HTML fullscreen con bottone **GIOCA** viene mostrato prima che Phaser venga inizializzato. Il gioco non parte fino al tap dell'utente.
@@ -100,24 +171,38 @@ main.ts
 
 ### `GameConfig.ts` — Configurazione Centralizzata
 
-**Tutte** le costanti di bilanciamento del gioco in un unico file:
+**Sistema di Risoluzione Dinamica + Costanti di Bilanciamento**
 
-- `GAME` — dimensioni del canvas (350×altezza responsiva)
-- `PHYSICS` — gravità base e scaling per livello
+Questo file centralizza:
+
+**Risoluzione Nativa:**
+
+- `REFERENCE_WIDTH` (350) — risoluzione di riferimento su cui sono calibrati tutti i valori
+- `GAME_WIDTH` — `Math.min(window.innerWidth, 800)` — si adatta al viewport reale
+- `GAME.SCALE` — fattore di scala `S = GAME_WIDTH / 350` esportato per uso nei manager
+- `r(v)` — helper interno che scala e arrotonda: `Math.round(v * S)`
+
+**Costanti di Bilanciamento** (tutte scalate via `r()`):
+
+- `GAME` — dimensioni canvas dinamiche + `SCALE` factor
+- `INITIAL` — posizioni iniziali (base platform, player start) scalate
+- `PHYSICS` — gravità base (`r(750)`) e scaling logaritmico per livello
 - `TIME` — orologio narrativo: `START_MINUTES` (960 = 16:00), `DURATION_MINUTES` (720), `NIGHT_TRIGGER_MINUTES` (300 = 21:00)
 - `SKY` — colori di sfondo giorno (`0x87CEEB`) e notte (`0x0a0a2e`)
 - `minutesToClockString()` — helper esportato: converte minuti trascorsi in stringa "HH:MM"
-- `CAMERA` — lerp dello scrolling, parametri oscillazione ubriachezza
-- `PLAYER` — velocità, forza salto, `GYRO_DEADZONE` (8°) e `GYRO_MAX_TILT` (28°) per il controllo via device orientation
-- `PLATFORM` — dimensioni per categoria (wide/compact/subwoofer), spacing, probabilità di spawn per tipo, parametri animazione spritesheet
+- `CAMERA` — lerp scrolling, ghosting offset (`r(14)`), parametri oscillazione
+- `PLAYER` — velocità (`r(280)`), forza salto (`r(580)`), dimensioni (`r(40)`), soglie gyro (angolari, non scalate)
+- `PLATFORM` — dimensioni per categoria (wide `r(90)×r(34)`, compact `r(70)×r(32)`, subwoofer `r(60)×r(32)`), spacing, probabilità di spawn, frame dimensions per spritesheet
 - `PLATFORM_TEXTURE_CATEGORY` — mappa texture → categoria dimensionale
 - `PLATFORM_STANDARD_TEXTURES` — lista texture per varianti standard/mobili
-- `MUD` — probabilità e dimensioni del fango
-- `DRINK` — intervallo spawn, velocità caduta, guadagno party
-- `BOUNCER` — dimensioni, velocità, intervallo spawn, knockback, durata pinball
-- `PARTY` — soglie colore barra, moltiplicatori punteggio
-- `LEVEL` — parametri DJ Stage, bonus level up
+- `MUD` — dimensioni (`r(40)×r(10)`), probabilità, offset (`r(20)`)
+- `DRINK` — dimensioni (`r(30)×r(30)`), intervallo spawn (`r(300)`), velocità caduta (`r(110)`), guadagno party
+- `BOUNCER` — dimensioni (`r(42)×r(54)`), forze (`r(300)`, `r(650)`), durata pinball, perturbazione Y (`r(120)`)
+- `PARTY` — dimensioni barra (`r(140)×r(14)`), soglie colore, moltiplicatori punteggio
+- `LEVEL` — offset DJ stage (`r(180)`), spacing, bonus
 - `JUMP_MULTIPLIERS` — normale (×1), subwoofer (×1.7), fango (×0.75)
+
+> **Nota**: Tutti i valori spaziali (px, velocità, forze) sono scalati dinamicamente. I rapporti (moltiplicatori, probabilità, angoli gyro) restano invariati.
 
 ### `GameScene.ts` — Scena Principale
 
@@ -139,10 +224,11 @@ Orchestratore che:
 
 ### `GameOverScene.ts` — Schermata Game Over
 
-- Sfondo scuro con titolo animato "GAME OVER"
-- Statistiche: distanza (m), punteggio (pts), livello raggiunto
+- Sfondo scuro con particelle animate e titolo animato "GAME OVER" (o "04:00" se timeout)
+- Statistiche: orario finale, punteggio (pts), livello raggiunto — layout centrato con animazioni sfalsate
 - Pulsante "RIPROVA" con effetto hover + pulsing
 - Click/Tap → riavvia `GameScene`
+- **Design responsive**: tutte le dimensioni (font, posizioni, particelle, bottone) scalate dinamicamente via `GAME.SCALE`
 
 ---
 
@@ -174,8 +260,8 @@ Orchestratore che:
 - Posizionato su un **bordo** (sx o dx, casuale) delle piattaforme standard e fragili
 - Appare dal livello 1, con probabilità crescente: `15% + 4%/livello` (max 40%)
 - **Nemico difensivo ma eludibile**:
-   1. **Super Mario Stomp**: se il giocatore cade sopra la sua testa, annulla la presa avversaria, schiaccia fisicamente il PNG e lo distrugge, ottenendo punti bonus (+300) ed uno slancio verticale salvifico.
-   2. **Flusso Grab-Throw**:
+  1.  **Super Mario Stomp**: se il giocatore cade sopra la sua testa, annulla la presa avversaria, schiaccia fisicamente il PNG e lo distrugge, ottenendo punti bonus (+300) ed uno slancio verticale salvifico.
+  2.  **Flusso Grab-Throw**:
       - **Presa**: Se intercettato di lato/fondo ostacola il player congelandolo in aria.
       - **Animazione Lancio**: Esegue stringa animazione `bouncerThrow` per ~500ms.
       - **Lancio "Intelligente"**: Scaglia il giocatore impostando la fase di vulnerabilità **pinball**:
@@ -195,20 +281,25 @@ Orchestratore che:
 
 ### `ScoreManager` — Punteggio + HUD
 
-- Calcola il **Punteggio** convertito dalla tolleranza `y` percorsa incrementata dal multiplier dei Drink presi. Costruisce visivamente HUD, statistiche e clock game-time in sovrimpressione.
+- Calcola il **Punteggio** convertito dalla tolleranza `y` percorsa incrementata dal multiplier dei Drink presi
+- Costruisce visivamente HUD, statistiche e clock game-time in sovrimpressione
+- **Usa scaling dinamico**: tutte le posizioni e font sizes sono scalate via `r()` per adattarsi alla risoluzione del device
 
 ### `PartyManager` — Party System + Wasted
 
-- **Raccolta drink**: +8 party level per drink raccolto
-- **Stato Wasted** (party = 100): Attiva i trigger dell'evento di checkpoint (DJ Stage). Questo causerà nel GameManager il reset dell'ubriachezza ad avvenuto level up. 
+- **Raccolta drink**: +10 party level per drink raccolto
+- **Stato Wasted** (party = 100): Attiva i trigger dell'evento di checkpoint (DJ Stage). Questo causerà nel GameManager il reset dell'ubriachezza ad avvenuto level up
+- **UI scalata**: party bar, padding, font — tutto scalato dinamicamente
 
 ### `LevelManager` — Progressione Livelli
 
-- **Gravità logaritmica**: `BASE × (1 + 0.22 × ln(livello))`. Gestisce la complessa scalatura matematica dell'engine limitando l'ingovernabilità del balzo via via all'ascesa limitando pesi estremi.
+- **Gravità logaritmica**: `BASE × (1 + 0.22 × ln(livello))`. Gestisce la complessa scalatura matematica dell'engine limitando l'ingovernabilità del balzo via via all'ascesa limitando pesi estremi
+- **Visual "LEVEL X!"**: animazione scalata dinamicamente per ogni risoluzione
 
 ### `SpawnManager` — Spawning/Riciclo/Pulizia
 
-- Cuore operativo del setup instanziato via `Factory method`. Crea entità per fasce basandosi su array a probabilità e cap procedurali, calcolando i posizionamenti per impedire l'overcrowding offscreen o blocchi statici (generazione costante on fly). 
+- Cuore operativo del setup instanziato via `Factory method`. Crea entità per fasce basandosi su array a probabilità e cap procedurali, calcolando i posizionamenti per impedire l'overcrowding offscreen o blocchi statici (generazione costante on fly)
+- **Margini e offset scalati**: tutti i valori di spawning (margini schermo, offset bouncer/drink, DJ stage height) usano il fattore `GAME.SCALE`
 
 ---
 
@@ -245,6 +336,35 @@ START
 ### Come modificare il bilanciamento
 
 Tutti i numeri che influenzano il gameplay sono interamente centralizzati ed esportabili in **`src/GameConfig.ts`**. Modifica i valori lì e il cambiamento si propagherà ovunque.
+
+**IMPORTANTE**: Usa sempre i valori di **riferimento** (come se il gioco fosse largo 350px). La funzione `r()` applicherà automaticamente lo scaling:
+
+```typescript
+// ✅ CORRETTO — valore di riferimento
+PLAYER.SIZE: r(40),
+
+// ❌ SBAGLIATO — usa il valore già scalato
+PLAYER.SIZE: r(40 * GAME.SCALE), // doppio scaling!
+```
+
+Per valori hardcoded nei manager/scene, usa `GAME.SCALE`:
+
+```typescript
+const r = (v: number) => Math.round(v * GAME.SCALE);
+const fontSize = `${r(16)}px`; // Font 16px di riferimento, scalato dinamicamente
+```
+
+### Aggiungere nuovi asset grafici
+
+Quando aggiungi nuovi PNG, segui questi rapporti per evitare aliasing:
+
+| Display finale | Dimensione PNG consigliata | Rapporto |
+| -------------- | -------------------------- | -------- |
+| 30×30 px       | 256×256 o 512×512          | ~8-17:1  |
+| 40×40 px       | 256×256 o 320×320          | ~6-8:1   |
+| 90×34 px       | 800×400                    | ~9:1     |
+
+**Evita** texture enormi (>2048px) che vengono poi scalate <100px — il GPU campionerà male anche con i mipmap.
 
 ### Aggiungere nuovi contenuti
 

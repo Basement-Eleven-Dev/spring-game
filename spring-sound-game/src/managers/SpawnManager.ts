@@ -44,8 +44,12 @@ export class SpawnManager {
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
+    this.r = (v: number) => Math.round(v * GAME.SCALE);
     this.createGroups();
   }
+
+  /** Shorthand per scalare valori di riferimento */
+  private r: (v: number) => number;
 
   /** Crea i gruppi fisici e le texture procedurali (fango, DJ stage) */
   private createGroups(): void {
@@ -59,8 +63,8 @@ export class SpawnManager {
     // Texture procedurale per il DJ Stage (rettangolo magenta)
     const djGfx = this.scene.add.graphics();
     djGfx.fillStyle(0xff00ff, 1);
-    djGfx.fillRect(0, 0, GAME.WIDTH, 20);
-    djGfx.generateTexture("djStageTexture", GAME.WIDTH, 20);
+    djGfx.fillRect(0, 0, GAME.WIDTH, this.r(20));
+    djGfx.generateTexture("djStageTexture", GAME.WIDTH, this.r(20));
     djGfx.destroy();
 
     // Gruppo piattaforme — usa Platform come classType, con update automatico
@@ -139,9 +143,9 @@ export class SpawnManager {
    */
   public spawnPlatform(y: number, level: number): void {
     // Posizione X raggiungibile dalla piattaforma precedente
-    const minX = Math.max(40, this.lastPlatformX - PLATFORM.REACH_X);
+    const minX = Math.max(this.r(40), this.lastPlatformX - PLATFORM.REACH_X);
     const maxX = Math.min(
-      GAME.WIDTH - 40,
+      GAME.WIDTH - this.r(40),
       this.lastPlatformX + PLATFORM.REACH_X,
     );
     const randomX = Phaser.Math.Between(minX, maxX);
@@ -198,13 +202,15 @@ export class SpawnManager {
           Math.min(MUD.BASE_PROB + level * MUD.PROB_PER_LEVEL, MUD.MAX_PROB)
       ) {
         const offset = Math.random() < 0.5 ? -MUD.OFFSET : MUD.OFFSET;
-        this.muds.get(randomX + offset, y - 7, "mudTexture");
+        this.muds.get(randomX + offset, y - this.r(7), "mudTexture");
       }
     }
 
     // Bouncer su un bordo della piattaforma (standard e fragile, dal livello 2)
     // Vincoli: max 1 attivo a schermo + distanza minima tra spawn consecutivi
-    const activeBouncerCount = this.bouncers.getChildren().filter(c => c.active).length;
+    const activeBouncerCount = this.bouncers
+      .getChildren()
+      .filter((c) => c.active).length;
     if (
       canHaveBouncer &&
       level >= BOUNCER.MIN_LEVEL &&
@@ -217,16 +223,16 @@ export class SpawnManager {
         )
     ) {
       // Offset calcolato dalla larghezza effettiva della piattaforma
-      const bouncerOffset = platWidth / 2 - BOUNCER.WIDTH / 2 - 4;
+      const bouncerOffset = platWidth / 2 - BOUNCER.WIDTH / 2 - this.r(4);
       const side = Math.random() < 0.5 ? -1 : 1;
       const bouncerX = randomX + side * bouncerOffset;
       const platHeight =
         platWidth === PLATFORM.COMPACT_WIDTH
           ? PLATFORM.COMPACT_HEIGHT
           : PLATFORM.WIDE_HEIGHT;
-      // Y = bordo superiore della piattaforma, spostato in basso (+20px)
+      // Y = bordo superiore della piattaforma, spostato in basso
       // per poggiare ancora meglio sulla grafica effettiva della pedana.
-      const bouncerY = y - platHeight / 2 + 20;
+      const bouncerY = y - platHeight / 2 + this.r(20);
       const bouncer = this.bouncers.get(
         bouncerX,
         bouncerY,
@@ -240,7 +246,11 @@ export class SpawnManager {
 
     // Possibilità di drink sulla piattaforma
     if (Math.random() < DRINK.SPAWN_PROB_ON_PLATFORM) {
-      const drink = this.drinks.get(randomX, y - 25, "beerTexture") as Drink;
+      const drink = this.drinks.get(
+        randomX,
+        y - this.r(25),
+        "beerTexture",
+      ) as Drink;
       if (drink) drink.initDrink("static", "beerTexture", plat);
     }
 
@@ -250,10 +260,10 @@ export class SpawnManager {
 
   /** Genera un drink che cade dall'alto dello schermo */
   public spawnFallingDrink(camScrollY: number): void {
-    const randomX = Phaser.Math.Between(20, GAME.WIDTH - 20);
+    const randomX = Phaser.Math.Between(this.r(20), GAME.WIDTH - this.r(20));
     const drink = this.drinks.get(
       randomX,
-      camScrollY - 20,
+      camScrollY - this.r(20),
       "drinkTexture",
     ) as Drink;
     if (drink) drink.initDrink("falling", "drinkTexture");
@@ -267,7 +277,7 @@ export class SpawnManager {
     const nextY = camScrollY - LEVEL.DJ_STAGE_OFFSET;
 
     // Pulisci tutte le entità sopra il DJ Stage
-    this.clearAbove(nextY + 50);
+    this.clearAbove(nextY + this.r(50));
 
     // Crea il palco DJ
     const djStage = this.platforms.get(
@@ -276,7 +286,7 @@ export class SpawnManager {
       "djStageTexture",
     ) as Platform;
     djStage.initPlatform("standard", "djStageTexture", level);
-    djStage.setDisplaySize(GAME.WIDTH, 20);
+    djStage.setDisplaySize(GAME.WIDTH, this.r(20));
     djStage.isBasePlatform = true;
     djStage.isDJStage = true;
 
@@ -350,7 +360,7 @@ export class SpawnManager {
     const cleanupGroup = (group: Phaser.Physics.Arcade.Group) => {
       group.getChildren().forEach((child) => {
         const sprite = child as Phaser.Physics.Arcade.Sprite;
-        if (sprite.y > camScrollY + camHeight + 50) sprite.destroy();
+        if (sprite.y > camScrollY + camHeight + this.r(50)) sprite.destroy();
       });
     };
 

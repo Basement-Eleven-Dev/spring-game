@@ -343,10 +343,14 @@ export class GameScene extends Phaser.Scene {
             plat.body!.checkCollision.down = false;
             plat.body!.checkCollision.left = false;
             plat.body!.checkCollision.right = false;
-            plat.setVelocityY(300);
+            plat.setVelocityY(Math.round(300 * GAME.SCALE));
             // Genera una nuova piattaforma in alto per mantenere la densità
             this.spawnManager.spawnPlatform(
-              this.spawnManager.highestPlatformY - Phaser.Math.Between(50, 130),
+              this.spawnManager.highestPlatformY -
+                Phaser.Math.Between(
+                  Math.round(50 * GAME.SCALE),
+                  Math.round(130 * GAME.SCALE),
+                ),
               this.levelManager.level,
             );
           }
@@ -385,9 +389,12 @@ export class GameScene extends Phaser.Scene {
         // Il Bouncer ha origine (0.5, 1) quindi b.y è ai suoi piedi
         const playerBottom = p.y + p.displayHeight / 2;
         const bouncerHead = b.y - BOUNCER.HEIGHT;
-        
+
         // Se sta cadendo e si trova all'incirca sopra la testa (tolleranza 25px)
-        if (p.body.velocity.y > 0 && playerBottom < bouncerHead + 25) {
+        if (
+          p.body.velocity.y > 0 &&
+          playerBottom < bouncerHead + Math.round(25 * GAME.SCALE)
+        ) {
           // Disabilita subito il corpo fisico per evitare multipli overlap
           b.body!.enable = false;
 
@@ -399,7 +406,7 @@ export class GameScene extends Phaser.Scene {
             targets: b,
             scaleY: 0.1,
             duration: 150,
-            onComplete: () => b.destroy()
+            onComplete: () => b.destroy(),
           });
 
           // Punteggio o effetto bonus opzionale
@@ -415,7 +422,8 @@ export class GameScene extends Phaser.Scene {
 
         // Calcola posizione della "mano" del bouncer
         const lateralDir = p.x < b.x ? -1 : 1;
-        const handOffsetX = lateralDir * (BOUNCER.WIDTH / 2 + 5);
+        const handOffsetX =
+          lateralDir * (BOUNCER.WIDTH / 2 + Math.round(5 * GAME.SCALE));
         const handY = b.y - BOUNCER.HEIGHT * 0.15;
 
         // Sposta il player nella mano immediatamente
@@ -442,17 +450,21 @@ export class GameScene extends Phaser.Scene {
             // Direzione Y: se il giocatore è nella parte bassa dello schermo, lancialo verso l'alto.
             // Altrimenti, lancialo verso il basso. (Evita loop infiniti ed aiuta la visibilità)
             const screenY = p.y - this.cameraManager.scrollY;
-            const isLowerHalf = screenY > (this.cameraManager.height / 2);
-            
+            const isLowerHalf = screenY > this.cameraManager.height / 2;
+
             p.setVelocityX(lateralDir * BOUNCER.PINBALL_LAUNCH_X);
             // Forza verso l'alto (per salvarlo) leggermente maggiorata per contrastare la gravità
-            p.setVelocityY(isLowerHalf ? -BOUNCER.KNOCKBACK_FORCE * 1.8 : BOUNCER.KNOCKBACK_FORCE);
+            p.setVelocityY(
+              isLowerHalf
+                ? -BOUNCER.KNOCKBACK_FORCE * 1.8
+                : BOUNCER.KNOCKBACK_FORCE,
+            );
 
             // Attiva la fase pinball: rimbalzi + rotazione per PINBALL_DURATION_MS
             p.startPinball(BOUNCER.PINBALL_DURATION_MS);
           }
           b.stop();
-          
+
           // --- SCOMPARSA DEL BOUNCER POST-LANCIO ---
           // Il bouncer fa un fade out e scompare per evitare loop o ricatture accidentali
           b.body!.enable = false;
@@ -460,7 +472,7 @@ export class GameScene extends Phaser.Scene {
             targets: b,
             alpha: 0,
             duration: 400,
-            onComplete: () => b.destroy()
+            onComplete: () => b.destroy(),
           });
         });
       },

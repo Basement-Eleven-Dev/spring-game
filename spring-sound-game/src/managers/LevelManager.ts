@@ -59,21 +59,22 @@ export class LevelManager {
   private showLevelUpVisual(): void {
     const centerX = GAME.WIDTH / 2;
     const centerY = GAME.HEIGHT / 2;
+    const r = (v: number) => Math.round(v * GAME.SCALE);
 
     // Testo principale
     const lvlText = this.scene.add
       .text(centerX, centerY, `LEVEL ${this._level}!`, {
         fontFamily: "Outfit, sans-serif",
-        fontSize: "42px",
+        fontSize: `${r(42)}px`,
         color: "#ffd700",
         fontStyle: "bold",
         stroke: "#b8860b",
-        strokeThickness: 5,
+        strokeThickness: r(5),
         shadow: {
           offsetX: 0,
           offsetY: 0,
           color: "#ffd700",
-          blur: 20,
+          blur: r(20),
           fill: true,
         },
       })
@@ -91,7 +92,7 @@ export class LevelManager {
       onComplete: () => {
         this.scene.tweens.add({
           targets: lvlText,
-          y: centerY - 80,
+          y: centerY - r(80),
           alpha: 0,
           duration: 1000,
           delay: 600,

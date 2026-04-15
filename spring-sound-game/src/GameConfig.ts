@@ -3,9 +3,40 @@
  * ========================================
  * Tutte le costanti di bilanciamento, dimensioni e probabilità
  * risiedono qui. Modifica questi valori per calibrare il gameplay.
+ *
+ * RISOLUZIONE DINAMICA
+ * --------------------
+ * GAME_WIDTH = window.innerWidth (max 800) anziché il vecchio 350 fisso.
+ * Con autoDensity: true, Phaser crea un buffer = GAME_WIDTH × dpr che ora
+ * coincide esattamente coi pixel fisici del display → zero upscaling → nitido.
+ *
+ * Per mantenere le stesse proporzioni visive, tutti i valori spaziali
+ * sono moltiplicati per S = GAME_WIDTH / 350 (la risoluzione di riferimento).
  */
 
 // --- Dimensioni del gioco (responsive) ---
+
+/** Larghezza di riferimento su cui sono stati calibrati tutti i valori originali. */
+const REFERENCE_WIDTH = 350;
+
+/**
+ * Larghezza logica del mondo di gioco: usa la larghezza reale del viewport
+ * (cappata a 800 per evitare buffer enormi su desktop ultra-wide).
+ * Su smartphone coincide con la larghezza CSS → buffer = pixel fisici esatti.
+ */
+const GAME_WIDTH =
+  typeof window !== "undefined"
+    ? Math.min(window.innerWidth, 800)
+    : REFERENCE_WIDTH;
+
+/**
+ * Fattore di scala: converte i valori calibrati a 350 nella risoluzione corrente.
+ * Es. su iPhone 390px → S ≈ 1.114. Su desktop cappato a 800 → S ≈ 2.286.
+ */
+const S = GAME_WIDTH / REFERENCE_WIDTH;
+
+/** Shorthand: scala e arrotonda un valore di riferimento. */
+const r = (v: number) => Math.round(v * S);
 
 /**
  * Calcola l'altezza del canvas in base all'aspect ratio del dispositivo.
@@ -13,32 +44,27 @@
  * Su tablet/desktop viene clampato a un ratio ragionevole.
  */
 function calculateGameHeight(width: number): number {
-  if (typeof window === "undefined") return 700;
+  if (typeof window === "undefined") return r(700);
   const ratio = window.innerHeight / window.innerWidth;
   const clampedRatio = Math.max(1.5, Math.min(ratio, 2.3));
   return Math.round(width * clampedRatio);
 }
 
-/**
- * Larghezza logica del mondo di gioco.
- * Phaser scala il canvas al device via Scale.FIT, quindi un valore più basso
- * = tutto appare più grande sullo schermo senza zoom né clipping.
- * 350 (anziché 400) dà un ingrandimento ~14%, equivalente a un 1.15× zoom.
- */
-const GAME_WIDTH = 350;
 const GAME_HEIGHT = calculateGameHeight(GAME_WIDTH);
 
 export const GAME = {
   WIDTH: GAME_WIDTH,
   HEIGHT: GAME_HEIGHT,
+  /** Fattore di scala rispetto alla risoluzione di riferimento (350px). */
+  SCALE: S,
 };
 
 /**
  * Posizioni iniziali calcolate in base all'altezza reale del canvas.
  */
 export const INITIAL = {
-  BASE_PLATFORM_Y: GAME_HEIGHT - 20,
-  PLAYER_START_Y: GAME_HEIGHT - 100,
+  BASE_PLATFORM_Y: GAME_HEIGHT - r(20),
+  PLAYER_START_Y: GAME_HEIGHT - r(100),
 };
 
 // --- Orologio narrativo (16:00 → 04:00) ---
@@ -81,7 +107,7 @@ export function minutesToClockString(minutesElapsed: number): string {
 
 // --- Fisica ---
 export const PHYSICS = {
-  BASE_GRAVITY: 750,
+  BASE_GRAVITY: r(750),
   /**
    * Incremento gravità per livello — curva LOGARITMICA:
    * Livello 1: 750 | 2: 855 | 3: 923 | 5: 1010 | 10: 1111
@@ -121,7 +147,7 @@ export const CAMERA = {
    * Offset orizzontale in px della ghost camera rispetto alla camera principale.
    * Valori 10-18: ghosting percettibile ma non disorientante.
    */
-  DRUNK_GHOST_OFFSET: 14,
+  DRUNK_GHOST_OFFSET: r(14),
 
   /**
    * Opacità di picco della ghost camera durante l'oscillazione.
@@ -148,9 +174,9 @@ export const CAMERA = {
 
 // --- Giocatore ---
 export const PLAYER = {
-  SIZE: 40,
-  MOVE_SPEED: 280,
-  JUMP_FORCE: 580,
+  SIZE: r(40),
+  MOVE_SPEED: r(280),
+  JUMP_FORCE: r(580),
   /** Soglia di gamma (gradi) sotto cui il tilt viene ignorato — elimina il rumore del sensore */
   GYRO_DEADZONE: 8,
   /** Angolo di gamma (gradi) a cui si raggiunge la velocità orizzontale massima */
@@ -208,26 +234,26 @@ export const PLATFORM = {
   // --- Dimensioni per categoria (larghezza × altezza in px di gioco) ---
 
   /** Piattaforme "wide": erba, ubriaco — più larghe e piatte */
-  WIDE_WIDTH: 90,
-  WIDE_HEIGHT: 34,
+  WIDE_WIDTH: r(90),
+  WIDE_HEIGHT: r(34),
 
   /** Piattaforme "compact": cassa, cassa_erba — più strette e alte */
-  COMPACT_WIDTH: 70,
-  COMPACT_HEIGHT: 32,
+  COMPACT_WIDTH: r(70),
+  COMPACT_HEIGHT: r(32),
 
   /** Subwoofer (trampolino): dimensione del singolo frame */
-  SUBWOOFER_WIDTH: 60,
-  SUBWOOFER_HEIGHT: 32,
+  SUBWOOFER_WIDTH: r(60),
+  SUBWOOFER_HEIGHT: r(32),
 
-  SPACING_MIN: 55,
-  SPACING_MAX: 115,
+  SPACING_MIN: r(55),
+  SPACING_MAX: r(115),
   /** Max spostamento orizzontale tra piattaforme consecutive */
-  REACH_X: 130,
+  REACH_X: r(130),
   /** Piattaforme iniziali generate al create */
   INITIAL_COUNT: 14,
 
-  BASE_WIDTH: 400,
-  BASE_HEIGHT: 15,
+  BASE_WIDTH: r(400),
+  BASE_HEIGHT: r(15),
 
   // --- Probabilità di spawn (crescono col livello) ---
   /** Le piattaforme mobili appaiono dal livello 1 ma sono rare all'inizio */
@@ -244,8 +270,8 @@ export const PLATFORM = {
   SUBWOOFER_PROB: 0.08,
 
   // --- Velocità piattaforme mobili ---
-  MOVING_SPEED_MIN: 50,
-  MOVING_SPEED_MAX: 100,
+  MOVING_SPEED_MIN: r(50),
+  MOVING_SPEED_MAX: r(100),
   MOVING_SPEED_SCALE_PER_LEVEL: 0.15,
 
   // --- Animazioni ---
@@ -266,25 +292,25 @@ export const PLATFORM = {
 
 // --- Fango (rallenta il salto) ---
 export const MUD = {
-  WIDTH: 40,
-  HEIGHT: 10,
+  WIDTH: r(40),
+  HEIGHT: r(10),
   BASE_PROB: 0.15,
   PROB_PER_LEVEL: 0.04,
   MAX_PROB: 0.4,
   /** Il fango appare solo dal livello 3 */
   MIN_LEVEL: 3,
-  OFFSET: 20,
+  OFFSET: r(20),
 } as const;
 
 // --- Drink ---
 export const DRINK = {
-  WIDTH: 30,
-  HEIGHT: 30,
+  WIDTH: r(30),
+  HEIGHT: r(30),
   /** Probabilità drink su piattaforma — più alto = party più veloce */
   SPAWN_PROB_ON_PLATFORM: 0.12,
   /** Distanza tra drink cadenti (px di salita) */
-  SPAWN_INTERVAL: 300,
-  FALLING_SPEED: 110,
+  SPAWN_INTERVAL: r(300),
+  FALLING_SPEED: r(110),
   /** Party gain per drink: 10 drink per raggiungere il wasted */
   PARTY_GAIN: 10,
 } as const;
@@ -296,8 +322,8 @@ export const BOUNCER = {
    * Deve essere visivamente imponente rispetto al giocatore (SIZE 40×40).
    * L'asset ha content ratio ~0.77:1 (più alto che largo).
    */
-  WIDTH: 42,
-  HEIGHT: 54,
+  WIDTH: r(42),
+  HEIGHT: r(54),
 
   // --- Spritesheet animazione ---
 
@@ -322,12 +348,12 @@ export const BOUNCER = {
    * Il bouncer ti scaraventa giù — combinata con la velocità laterale
    * dà una traiettoria diagonale che inizia la fase pinball.
    */
-  KNOCKBACK_FORCE: 300,
+  KNOCKBACK_FORCE: r(300),
   /**
    * Velocità laterale iniziale della fase pinball.
    * Valore alto = il player schizza via come una palla da flipper.
    */
-  PINBALL_LAUNCH_X: 650,
+  PINBALL_LAUNCH_X: r(650),
   /**
    * Cooldown in ms tra un lancio e l'altro (per evitare trigger multipli).
    * 600ms ≈ durata dell'animazione di lancio a 6fps.
@@ -363,19 +389,19 @@ export const BOUNCER = {
    * Perturbazione Y random ad ogni rimbalzo laterale.
    * Aggiunge caos verticale: il player non segue una traiettoria prevedibile.
    */
-  PINBALL_Y_PERTURBATION: 120,
+  PINBALL_Y_PERTURBATION: r(120),
   /**
    * Distanza minima verticale (px) tra bouncer consecutivi.
    * Evita che due bouncer appaiano troppo vicini nella salita.
    */
-  MIN_SPAWN_SPACING: 400,
+  MIN_SPAWN_SPACING: r(400),
 } as const;
 
 // --- Party System ---
 export const PARTY = {
   /** Posizione dinamica della barra: centrata orizzontalmente, in alto */
-  BAR_WIDTH: 140,
-  BAR_HEIGHT: 14,
+  BAR_WIDTH: r(140),
+  BAR_HEIGHT: r(14),
   MAX_LEVEL: 100,
 
   // Soglie di colore
@@ -392,10 +418,10 @@ export const PARTY = {
 
 // --- Progressione livelli ---
 export const LEVEL = {
-  DJ_STAGE_OFFSET: 180,
+  DJ_STAGE_OFFSET: r(180),
   DJ_STAGE_PLATFORMS: 10,
-  DJ_STAGE_SPACING_MIN: 100,
-  DJ_STAGE_SPACING_MAX: 180,
+  DJ_STAGE_SPACING_MIN: r(100),
+  DJ_STAGE_SPACING_MAX: r(180),
   WASTED_DELAY: 4000,
   LEVEL_UP_BONUS: 1500,
   JUMP_BOOST_ON_STAGE: 1.4,

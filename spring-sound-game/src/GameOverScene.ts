@@ -20,6 +20,9 @@ export class GameOverScene extends Phaser.Scene {
     const { score, clockMinutes, level, isTimeout } = data;
     const cx = GAME.WIDTH / 2;
     const cy = GAME.HEIGHT / 2;
+    const S = GAME.SCALE;
+    /** Shorthand: scala e arrotonda */
+    const r = (v: number) => Math.round(v * S);
 
     // Sfondo gradiente scuro
     this.cameras.main.setBackgroundColor("#0a0a18");
@@ -28,9 +31,9 @@ export class GameOverScene extends Phaser.Scene {
     for (let i = 0; i < 20; i++) {
       const particle = this.add
         .circle(
-          Phaser.Math.Between(20, GAME.WIDTH - 20),
-          Phaser.Math.Between(20, GAME.HEIGHT - 20),
-          Phaser.Math.Between(1, 3),
+          Phaser.Math.Between(r(20), GAME.WIDTH - r(20)),
+          Phaser.Math.Between(r(20), GAME.HEIGHT - r(20)),
+          Phaser.Math.Between(1, r(3)),
           0x6633ff,
           Phaser.Math.FloatBetween(0.1, 0.4),
         )
@@ -38,7 +41,7 @@ export class GameOverScene extends Phaser.Scene {
 
       this.tweens.add({
         targets: particle,
-        y: particle.y - Phaser.Math.Between(20, 60),
+        y: particle.y - Phaser.Math.Between(r(20), r(60)),
         alpha: 0,
         duration: Phaser.Math.Between(2000, 4000),
         yoyo: true,
@@ -49,18 +52,18 @@ export class GameOverScene extends Phaser.Scene {
 
     // --- Titolo ---
     const titleText = this.add
-      .text(cx, cy - 180, isTimeout ? "04:00" : "GAME OVER", {
+      .text(cx, cy - r(180), isTimeout ? "04:00" : "GAME OVER", {
         fontFamily: "Outfit, sans-serif",
-        fontSize: isTimeout ? "52px" : "44px",
+        fontSize: isTimeout ? `${r(52)}px` : `${r(44)}px`,
         color: isTimeout ? "#ffd700" : "#ff4455",
         fontStyle: "bold",
         stroke: isTimeout ? "#332200" : "#220011",
-        strokeThickness: 6,
+        strokeThickness: r(6),
         shadow: {
           offsetX: 0,
           offsetY: 0,
           color: isTimeout ? "#ffd700" : "#ff4455",
-          blur: 25,
+          blur: r(25),
           fill: true,
         },
       })
@@ -72,13 +75,13 @@ export class GameOverScene extends Phaser.Scene {
     this.add
       .text(
         cx,
-        cy - 130,
+        cy - r(130),
         isTimeout
           ? "Hai retto fino all'alba! 🌅"
           : "Sei tornato a casa troppo presto",
         {
           fontFamily: "Outfit, sans-serif",
-          fontSize: "13px",
+          fontSize: `${r(13)}px`,
           color: isTimeout ? "#ffdd88" : "#aa8888",
         },
       )
@@ -106,19 +109,19 @@ export class GameOverScene extends Phaser.Scene {
     // --- Statistiche finali ---
     const statsConfig = [
       {
-        y: cy - 60,
+        y: cy - r(60),
         label: "ORARIO",
         value: minutesToClockString(clockMinutes),
         color: "#88ccff",
       },
       {
-        y: cy - 15,
+        y: cy - r(15),
         label: "PUNTEGGIO",
         value: `${Math.floor(score)} pts`,
         color: "#ffd700",
       },
       {
-        y: cy + 30,
+        y: cy + r(30),
         label: "LIVELLO",
         value: `${level}`,
         color: "#66ffaa",
@@ -128,9 +131,9 @@ export class GameOverScene extends Phaser.Scene {
     statsConfig.forEach((stat, index) => {
       // Label piccola
       const label = this.add
-        .text(cx - 60, stat.y, stat.label, {
+        .text(cx - r(60), stat.y, stat.label, {
           fontFamily: "Outfit, sans-serif",
-          fontSize: "11px",
+          fontSize: `${r(11)}px`,
           color: "#666688",
           fontStyle: "bold",
         })
@@ -139,9 +142,9 @@ export class GameOverScene extends Phaser.Scene {
 
       // Valore grande
       const value = this.add
-        .text(cx + 60, stat.y, stat.value, {
+        .text(cx + r(60), stat.y, stat.value, {
           fontFamily: "Outfit, sans-serif",
-          fontSize: "20px",
+          fontSize: `${r(20)}px`,
           color: stat.color,
           fontStyle: "bold",
         })
@@ -150,14 +153,14 @@ export class GameOverScene extends Phaser.Scene {
 
       // Linea separatrice sotto ogni stat
       const line = this.add
-        .rectangle(cx, stat.y + 18, 160, 1, 0x333355, 0.4)
+        .rectangle(cx, stat.y + r(18), r(160), 1, 0x333355, 0.4)
         .setAlpha(0);
 
       const delay = 400 + index * 200;
       this.tweens.add({
         targets: label,
         alpha: 1,
-        x: cx - 70,
+        x: cx - r(70),
         duration: 400,
         delay,
         ease: "Power2",
@@ -165,7 +168,7 @@ export class GameOverScene extends Phaser.Scene {
       this.tweens.add({
         targets: value,
         alpha: 1,
-        x: cx + 70,
+        x: cx + r(70),
         duration: 400,
         delay,
         ease: "Power2",
@@ -180,15 +183,15 @@ export class GameOverScene extends Phaser.Scene {
 
     // --- Pulsante "RIPROVA" ---
     const btnBg = this.add
-      .rectangle(cx, cy + 140, 180, 50, 0x6633ff, 1)
-      .setStrokeStyle(2, 0x9966ff)
+      .rectangle(cx, cy + r(140), r(180), r(50), 0x6633ff, 1)
+      .setStrokeStyle(r(2), 0x9966ff)
       .setInteractive({ useHandCursor: true })
       .setAlpha(0);
 
     const btnText = this.add
-      .text(cx, cy + 140, "RIPROVA", {
+      .text(cx, cy + r(140), "RIPROVA", {
         fontFamily: "Outfit, sans-serif",
-        fontSize: "22px",
+        fontSize: `${r(22)}px`,
         color: "#ffffff",
         fontStyle: "bold",
       })

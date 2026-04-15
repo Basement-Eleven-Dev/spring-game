@@ -21,11 +21,15 @@ export class PartyManager {
 
   /** Posizione della barra: centrata orizzontalmente, sotto l'HUD */
   private readonly barX: number;
-  private readonly barY: number = 52;
+  private readonly barY: number;
+  private readonly r: (v: number) => number;
 
   constructor(scene: Phaser.Scene, cameraManager: CameraManager) {
     this.scene = scene;
     this.cameraManager = cameraManager;
+    this.r = (v: number) => Math.round(v * GAME.SCALE);
+
+    this.barY = this.r(52);
 
     // Centra la barra orizzontalmente
     this.barX = (GAME.WIDTH - PARTY.BAR_WIDTH) / 2;
@@ -36,9 +40,9 @@ export class PartyManager {
 
     // Etichetta "PARTY" sopra la barra
     this.barLabel = scene.add
-      .text(GAME.WIDTH / 2, this.barY - 2, "PARTY", {
+      .text(GAME.WIDTH / 2, this.barY - this.r(2), "PARTY", {
         fontFamily: "Outfit, sans-serif",
-        fontSize: "9px",
+        fontSize: `${this.r(9)}px`,
         color: "#999999",
         fontStyle: "bold",
       })
@@ -52,15 +56,16 @@ export class PartyManager {
   /** Disegna la party bar con gradiente visivo e angoli arrotondati */
   public drawBar(): void {
     this.barGraphics.clear();
+    const r = this.r;
 
     // Sfondo della barra (grigio scuro)
     this.barGraphics.fillStyle(0x1a1a2e, 0.8);
     this.barGraphics.fillRoundedRect(
-      this.barX - 2,
-      this.barY - 2,
-      PARTY.BAR_WIDTH + 4,
-      PARTY.BAR_HEIGHT + 4,
-      4,
+      this.barX - r(2),
+      this.barY - r(2),
+      PARTY.BAR_WIDTH + r(4),
+      PARTY.BAR_HEIGHT + r(4),
+      r(4),
     );
 
     // Colore della barra basato sul party level
@@ -76,20 +81,20 @@ export class PartyManager {
       this.barGraphics.fillRoundedRect(
         this.barX,
         this.barY,
-        Math.max(barWidth, 6), // Minimo 6px per mostrare il bordo arrotondato
+        Math.max(barWidth, r(6)), // Minimo per mostrare il bordo arrotondato
         PARTY.BAR_HEIGHT,
-        3,
+        r(3),
       );
     }
 
     // Bordo sottile
     this.barGraphics.lineStyle(1, 0x444466, 0.6);
     this.barGraphics.strokeRoundedRect(
-      this.barX - 2,
-      this.barY - 2,
-      PARTY.BAR_WIDTH + 4,
-      PARTY.BAR_HEIGHT + 4,
-      4,
+      this.barX - r(2),
+      this.barY - r(2),
+      PARTY.BAR_WIDTH + r(4),
+      PARTY.BAR_HEIGHT + r(4),
+      r(4),
     );
 
     // Aggiorna label con percentuale
@@ -118,12 +123,13 @@ export class PartyManager {
 
   /** Effetto flash bianco sulla barra quando si raccoglie un drink */
   private flashBar(): void {
+    const r = this.r;
     const flash = this.scene.add
       .rectangle(
         this.barX + PARTY.BAR_WIDTH / 2,
         this.barY + PARTY.BAR_HEIGHT / 2,
-        PARTY.BAR_WIDTH + 8,
-        PARTY.BAR_HEIGHT + 8,
+        PARTY.BAR_WIDTH + r(8),
+        PARTY.BAR_HEIGHT + r(8),
         0xffffff,
         0.4,
       )

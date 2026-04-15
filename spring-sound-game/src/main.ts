@@ -24,8 +24,10 @@ const config: Phaser.Types.Core.GameConfig = {
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
+    // autoDensity moltiplica il canvas buffer per devicePixelRatio
+    // → buffer = GAME_WIDTH × dpr = pixel fisici esatti (niente upscale)
     autoDensity: true,
-  },
+  } as Phaser.Types.Core.ScaleConfig,
   render: {
     antialias: true,
     antialiasGL: true,
