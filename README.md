@@ -188,7 +188,7 @@ Questo file centralizza:
 - `INITIAL` — posizioni iniziali (base platform, player start) scalate
 - `PHYSICS` — gravità base (`r(750)`) e scaling logaritmico per livello
 - `TIME` — orologio narrativo: `START_MINUTES` (960 = 16:00), `DURATION_MINUTES` (720), `NIGHT_TRIGGER_MINUTES` (300 = 21:00)
-- `SKY` — colori di sfondo giorno (`0x87CEEB`) e notte (`0x0a0a2e`)
+- `SKY` — colori di sfondo giorno (`0x138EFD`) e notte (`0x0a0a2e`)
 - `minutesToClockString()` — helper esportato: converte minuti trascorsi in stringa "HH:MM"
 - `CAMERA` — lerp scrolling, ghosting offset (`r(14)`), parametri oscillazione
 - `PLAYER` — velocità (`r(280)`), forza salto (`r(580)`), dimensioni (`r(40)`), soglie gyro (angolari, non scalate)

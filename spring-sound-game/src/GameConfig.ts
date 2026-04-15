@@ -90,7 +90,7 @@ export const TIME = {
 
 /** Colori di sfondo: giorno (azzurro) e notte (blu scuro). */
 export const SKY = {
-  DAY: 0x87ceeb,
+  DAY: 0x138efd,
   NIGHT: 0x0a0a2e,
 } as const;
 
