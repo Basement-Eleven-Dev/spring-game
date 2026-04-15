@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { GAME, UI, minutesToClockString } from "../GameConfig";
+import { GAME, UI, PARTY, minutesToClockString } from "../GameConfig";
 
 /**
  * UIManager
@@ -11,13 +11,17 @@ import { GAME, UI, minutesToClockString } from "../GameConfig";
  * - Centro:    Points bar + punteggio
  * - Destra:    Controllo pause/play
  *
- * Gli elementi UI hanno depth 100+ per restare sopra tutti gli effetti
- * del gioco (blur, shake, etc.) e scrollFactor(0) per restare fissi.
+ * PROTEZIONE DAGLI EFFETTI: Gli elementi UI vengono renderizzati da una camera
+ * dedicata (uiCamera) che non subisce rotazioni, blur o shake. La camera principale
+ * ignora completamente questi elementi, garantendo che rimangano sempre fissi e nitidi.
  *
  * RESPONSIVE: Tutte le dimensioni sono scalate con GAME.SCALE.
  */
 export class UIManager {
   private scene: Phaser.Scene;
+
+  // --- Camera dedicata per la UI (nessun effetto, sempre fissa e nitida) ---
+  private uiCamera!: Phaser.Cameras.Scene2D.Camera;
 
   // --- Shorthand per scalare valori ---
   private r: (v: number) => number;
@@ -28,9 +32,12 @@ export class UIManager {
   private pointsBar!: Phaser.GameObjects.Image;
   private pointsText!: Phaser.GameObjects.Text;
   private controlButton!: Phaser.GameObjects.Image;
+  private partyBarIcon!: Phaser.GameObjects.Image;
 
   // --- Stato corrente ---
   private currentTimePhase: "day" | "sunset" | "night" = "day";
+  private currentPartyPhase: "empty" | "green" | "yellow" | "orange" | "red" =
+    "empty";
   private isPaused: boolean = false;
 
   // --- Posizioni calcolate ---
@@ -40,6 +47,8 @@ export class UIManager {
   private pointsBarY!: number;
   private controlButtonX!: number;
   private controlButtonY!: number;
+  private partyBarX!: number;
+  private partyBarY!: number;
 
   /**
    * Crea il manager UI.
@@ -48,8 +57,25 @@ export class UIManager {
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     this.r = (v: number) => Math.round(v * GAME.SCALE);
+
+    // Crea camera UI dedicata: nessun effetto, sempre fissa e nitida
+    this.uiCamera = scene.cameras.add(0, 0, GAME.WIDTH, GAME.HEIGHT);
+    // Trasparente: non mostra il background, solo gli elementi UI
+    this.uiCamera.setBackgroundColor("rgba(0,0,0,0)");
+
     this.calculatePositions();
     this.createUI();
+
+    // NON configuriamo ancora l'esclusività, lo faremo dopo che tutti gli oggetti
+    // di gioco sono stati creati (chiamato da GameScene)
+  }
+
+  /**
+   * Configura l'exclusivity delle camere DOPO che tutti gli oggetti iniziali
+   * sono stati creati. Deve essere chiamato da GameScene dopo create().
+   */
+  public finalizeSetup(): void {
+    this.configureUICameraExclusivity();
   }
 
   /**
@@ -79,6 +105,10 @@ export class UIManager {
     // Control button: vicino al bordo destro
     this.controlButtonX = GAME.WIDTH - padding - r(UI.CONTROL_BUTTON_SIZE) / 2;
     this.controlButtonY = r(27); // Altezza giusta
+
+    // Party bar: sotto il time icon, allineata a sinistra
+    this.partyBarX = r(UI.PARTY_BAR_X);
+    this.partyBarY = r(UI.PARTY_BAR_Y);
   }
 
   /**
@@ -146,14 +176,71 @@ export class UIManager {
 
     // Click handler per pause/play
     this.controlButton.on("pointerdown", () => this.togglePause());
+
+    // --- Party bar (sotto il time icon, inizialmente empty) ---
+    this.partyBarIcon = this.scene.add
+      .image(this.partyBarX, this.partyBarY, "partyBarEmpty")
+      .setOrigin(0, 0)
+      .setDisplaySize(r(UI.PARTY_BAR_WIDTH), r(UI.PARTY_BAR_HEIGHT))
+      .setScrollFactor(0)
+      .setDepth(100);
+  }
+
+  /**
+   * Configura l'esclusività delle camere:
+   * - Camera principale: ignora SOLO gli elementi UI (depth >= 100)
+   * - Camera UI: ignora SOLO il mondo di gioco (depth 0-99)
+   *
+   * Lo sfondo è gestito dal backgroundColor delle camere, non come oggetto.
+   * Main camera ha backgroundColor colorato, UI camera ha backgroundColor trasparente.
+   */
+  private configureUICameraExclusivity(): void {
+    const uiElements = [
+      this.timeIcon,
+      this.timeText,
+      this.pointsBar,
+      this.pointsText,
+      this.controlButton,
+      this.partyBarIcon,
+    ];
+
+    // Camera principale: ignora SOLO gli elementi UI
+    // Il mondo (depth 0-99) viene renderizzato con rotazione/blur
+    this.scene.cameras.main.ignore(uiElements);
+
+    // Camera UI: ignora SOLO gli oggetti del mondo di gioco (depth 0-99)
+    // Gli elementi UI (depth >= 100) vengono renderizzati senza effetti
+    const worldObjects = this.scene.children.list.filter((obj: any) => {
+      return obj.depth !== undefined && obj.depth >= 0 && obj.depth < 100;
+    });
+
+    if (worldObjects.length > 0) {
+      this.uiCamera.ignore(worldObjects);
+    }
+  }
+
+  /**
+   * Ignora un oggetto dalla UI camera se è un oggetto del mondo di gioco.
+   * Da chiamare quando vengono creati nuovi oggetti durante il gioco (drinks, piattaforme riciclate, ecc).
+   */
+  public ignoreWorldObject(obj: Phaser.GameObjects.GameObject): void {
+    const gameObj = obj as any;
+    if (
+      gameObj.depth !== undefined &&
+      gameObj.depth >= 0 &&
+      gameObj.depth < 100
+    ) {
+      this.uiCamera.ignore(obj);
+    }
   }
 
   /**
    * Aggiorna l'UI ogni frame.
    * @param clockMinutes Minuti narrativi trascorsi (da GameScene)
    * @param score        Punteggio corrente
+   * @param partyLevel   Party level corrente (0-100)
    */
-  public update(clockMinutes: number, score: number): void {
+  public update(clockMinutes: number, score: number, partyLevel: number): void {
     // Aggiorna l'orario
     this.timeText.setText(minutesToClockString(clockMinutes));
 
@@ -162,6 +249,9 @@ export class UIManager {
 
     // Switch dell'icona orario in base ai minuti trascorsi
     this.updateTimeIcon(clockMinutes);
+
+    // Switch della party bar in base al party level
+    this.updatePartyBar(partyLevel);
   }
 
   /**
@@ -212,6 +302,66 @@ export class UIManager {
   }
 
   /**
+   * Aggiorna l'icona della party bar in base al party level.
+   * - Empty:  0 (nessun drink raccolto)
+   * - Green:  1-29
+   * - Yellow: 30-59 (THRESHOLD_YELLOW)
+   * - Orange: 60-99 (THRESHOLD_ORANGE)
+   * - Red:    100 (THRESHOLD_RED, stato wasted)
+   */
+  private updatePartyBar(partyLevel: number): void {
+    let newPhase: "empty" | "green" | "yellow" | "orange" | "red";
+
+    if (partyLevel === 0) {
+      newPhase = "empty";
+    } else if (partyLevel >= PARTY.THRESHOLD_RED) {
+      newPhase = "red";
+    } else if (partyLevel >= PARTY.THRESHOLD_ORANGE) {
+      newPhase = "orange";
+    } else if (partyLevel >= PARTY.THRESHOLD_YELLOW) {
+      newPhase = "yellow";
+    } else {
+      newPhase = "green";
+    }
+
+    // Cambio texture solo se la fase è cambiata
+    if (newPhase !== this.currentPartyPhase) {
+      this.currentPartyPhase = newPhase;
+
+      let iconKey: string;
+      switch (newPhase) {
+        case "empty":
+          iconKey = "partyBarEmpty";
+          break;
+        case "green":
+          iconKey = "partyBarGreen";
+          break;
+        case "yellow":
+          iconKey = "partyBarYellow";
+          break;
+        case "orange":
+          iconKey = "partyBarOrange";
+          break;
+        case "red":
+          iconKey = "partyBarRed";
+          break;
+      }
+
+      this.partyBarIcon.setTexture(iconKey);
+
+      // Piccolo effetto di scala quando cambia stato
+      this.scene.tweens.add({
+        targets: this.partyBarIcon,
+        scaleX: 1.05,
+        scaleY: 1.05,
+        duration: 150,
+        yoyo: true,
+        ease: "Sine.easeInOut",
+      });
+    }
+  }
+
+  /**
    * Toggle pause/play (per ora solo visivo, la logica verrà integrata dopo).
    */
   private togglePause(): void {
@@ -237,7 +387,7 @@ export class UIManager {
   /**
    * Aggiungi punti bonus (chiamato da eventi speciali come level up).
    */
-  public addBonusPoints(points: number): void {
+  public addBonusPoints(_points: number): void {
     // Flash visivo sulla points bar
     this.scene.tweens.add({
       targets: this.pointsBar,
@@ -293,6 +443,28 @@ export class UIManager {
     scene.load.svg("playIcon", "/assets/ui/play.svg", {
       width: r(UI.CONTROL_BUTTON_SIZE),
       height: r(UI.CONTROL_BUTTON_SIZE),
+    });
+
+    // Party bar (5 stati: empty, green, yellow, orange, red)
+    scene.load.svg("partyBarEmpty", "/assets/ui/party_bar_empty.svg", {
+      width: r(UI.PARTY_BAR_WIDTH),
+      height: r(UI.PARTY_BAR_HEIGHT),
+    });
+    scene.load.svg("partyBarGreen", "/assets/ui/party_bar_green.svg", {
+      width: r(UI.PARTY_BAR_WIDTH),
+      height: r(UI.PARTY_BAR_HEIGHT),
+    });
+    scene.load.svg("partyBarYellow", "/assets/ui/party_bar_yellow.svg", {
+      width: r(UI.PARTY_BAR_WIDTH),
+      height: r(UI.PARTY_BAR_HEIGHT),
+    });
+    scene.load.svg("partyBarOrange", "/assets/ui/party_bar_orange.svg", {
+      width: r(UI.PARTY_BAR_WIDTH),
+      height: r(UI.PARTY_BAR_HEIGHT),
+    });
+    scene.load.svg("partyBarRed", "/assets/ui/party_bar_red.svg", {
+      width: r(UI.PARTY_BAR_WIDTH),
+      height: r(UI.PARTY_BAR_HEIGHT),
     });
   }
 }

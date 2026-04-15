@@ -126,11 +126,42 @@ src/
 ├── Bouncer.ts             ← Buttafuori nemici
 │
 ├── managers/
-│   ├── CameraManager.ts   ← Scrolling fluido + effetti visivi
-│   ├── ScoreManager.ts    ← Punteggio + HUD
-│   ├── PartyManager.ts    ← Party system + stato wasted
+│   ├── CameraManager.ts   ← Sistema 3 camere + effetti visivi (rotazione, ghosting)
+│   ├── UIManager.ts       ← Interfaccia SVG + camera UI dedicata
+│   ├── ScoreManager.ts    ← Calcolo punteggio (logica)
+│   ├── PartyManager.ts    ← Party level + stato wasted (logica)
 │   ├── LevelManager.ts    ← Progressione livelli + gravità
 │   └── SpawnManager.ts    ← Spawning/riciclo/pulizia entità
+
+public/assets/
+├── fonts/
+│   └── ChillPixels-Mono.otf  ← Font personalizzato per UI
+├── ui/
+│   ├── day.svg               ← Icona orario 16:00-19:00
+│   ├── sunset.svg            ← Icona orario 19:00-23:00
+│   ├── night.svg             ← Icona orario 23:00-04:00
+│   ├── points_bar.svg        ← Barra punteggio
+│   ├── play.svg              ← Bottone play
+│   ├── pause.svg             ← Bottone pausa
+│   ├── party_bar_empty.svg   ← Party bar 0%
+│   ├── party_bar_green.svg   ← Party bar 1-29%
+│   ├── party_bar_yellow.svg  ← Party bar 30-59%
+│   ├── party_bar_orange.svg  ← Party bar 60-99%
+│   └── party_bar_red.svg     ← Party bar 100% (wasted)
+├── drinks/
+│   ├── drink.png             ← Drink generico (512×512)
+│   └── beer.png              ← Birra (512×512)
+├── players/
+│   ├── player_sheet_dx_jump.png  ← Spritesheet salto destro (4 frame)
+│   ├── player_sheet_sx_jump.png  ← Spritesheet salto sinistro (4 frame)
+│   └── buttafuori.png            ← Spritesheet bouncer (3 frame)
+└── platforms/
+    ├── platform erba.png             ← Variante erba (800×400)
+    ├── platform_ubriaco.png          ← Variante ubriaco (800×400)
+    ├── platform_cassa.png            ← Variante cassa (800×400)
+    ├── platform_cassa_erba.png       ← Variante cassa+erba (800×400)
+    ├── platform_cassa_rotta_sheet.png ← Fragile spritesheet (400×100, 2 frame)
+    └── subwoofer_sheet.png           ← Subwoofer spritesheet (800×100, 4 frame)
 ```
 
 ### Diagramma delle dipendenze
@@ -139,9 +170,10 @@ src/
 main.ts
   ├── Overlay HTML (start screen + permesso iOS) → startGame()
   └── GameScene (orchestratore)
-        ├── CameraManager ← scrolling + rotazione + vista doppia
-        ├── ScoreManager ← punteggio + HUD
-        ├── PartyManager ← party bar + wasted → emette evento "wasted-ready"
+        ├── CameraManager ← scrolling + rotazione + vista doppia (3 camere)
+        ├── ScoreManager ← calcolo punteggio
+        ├── UIManager ← interfaccia SVG + rendering dedicato
+        ├── PartyManager ← party level + wasted
         ├── LevelManager ← livello + gravità + visual
         ├── SpawnManager ← possiede tutti i gruppi Phaser:
         │     ├── platforms (Platform)
@@ -151,6 +183,171 @@ main.ts
         └── Player ← input (tastiera/touch/device orientation)
   └── GameOverScene ← statistiche finali + pulsante "Riprova"
 ```
+
+---
+
+## 🎨 Sistema UI con SVG
+
+Il gioco utilizza un **sistema UI completamente basato su SVG** per garantire massima nitidezza e scalabilità su tutti i dispositivi.
+
+### Struttura UI
+
+```
+public/assets/ui/
+├── day.svg           ← Icona orario 16:00-19:00
+├── sunset.svg        ← Icona orario 19:00-23:00
+├── night.svg         ← Icona orario 23:00-04:00
+├── points_bar.svg    ← Sfondo barra punteggio
+├── play.svg          ← Bottone play/pausa
+├── pause.svg         ← Bottone pausa
+├── party_bar_empty.svg  ← Party bar vuota (0%)
+├── party_bar_green.svg  ← Party bar verde (1-29%)
+├── party_bar_yellow.svg ← Party bar gialla (30-59%)
+├── party_bar_orange.svg ← Party bar arancione (60-99%)
+└── party_bar_red.svg    ← Party bar rossa (100% - wasted)
+```
+
+### Elementi UI
+
+**Top Bar** (3 elementi evenly spaced):
+
+- **Sinistra**: Icona orario + tempo HH:MM (font ChillPixels)
+- **Centro**: Points bar + punteggio (font ChillPixels)
+- **Destra**: Bottone play/pause (interattivo)
+
+**Party Bar**: Sotto l'icona orario, allineata a sinistra, si aggiorna automaticamente in base al party level con 5 stati visivi.
+
+### Come Modificare gli SVG
+
+1. **Dimensioni di riferimento** in `GameConfig.ts`:
+
+   ```typescript
+   export const UI = {
+     TIME_ICON_WIDTH: 80,
+     TIME_ICON_HEIGHT: 50,
+     POINTS_BAR_WIDTH: 180,
+     POINTS_BAR_HEIGHT: 30,
+     CONTROL_BUTTON_SIZE: 30,
+     PARTY_BAR_WIDTH: 175,
+     PARTY_BAR_HEIGHT: 30,
+     // ...
+   };
+   ```
+
+2. **Caricamento automatico scalato** in `UIManager.preloadAssets()`:
+
+   ```typescript
+   scene.load.svg("dayIcon", "/assets/ui/day.svg", {
+     width: r(UI.TIME_ICON_WIDTH), // Scalato in base al device
+     height: r(UI.TIME_ICON_HEIGHT),
+   });
+   ```
+
+3. **Switch automatici**:
+   - Orario: day → sunset → night (in base ai minuti trascorsi)
+   - Party bar: empty → green → yellow → orange → red (in base al party level 0-100)
+
+### Font Personalizzato: ChillPixels
+
+Il gioco usa **ChillPixels-Mono.otf** per tutti i testi numerici (orario, punteggio).
+
+**Installazione**:
+
+```
+public/assets/fonts/ChillPixels-Mono.otf
+```
+
+**Caricamento CSS** (`style.css`):
+
+```css
+@font-face {
+  font-family: "ChillPixels";
+  src: url("/assets/fonts/ChillPixels-Mono.otf") format("opentype");
+  font-display: swap;
+}
+```
+
+**Uso nei text di Phaser**:
+
+```typescript
+this.scene.add.text(x, y, "16:00", {
+  fontFamily: "ChillPixels, monospace",
+  fontSize: `${r(13)}px`,
+  color: "#000000",
+});
+```
+
+---
+
+## 📹 Sistema a 3 Camere
+
+Per garantire che la **UI rimanga sempre stabile e nitida** anche durante gli effetti wasted (rotazione, ghosting), il gioco utilizza un'architettura a **3 camere separate**.
+
+### Architettura Camere
+
+```
+┌─────────────────────────────────────────────────┐
+│ UI CAMERA (depth 100+)                          │
+│ - Background: trasparente                       │
+│ - Renderizza: SOLO elementi UI                  │
+│ - Effetti: NESSUNO (sempre fissa e nitida)      │
+│                                                  │
+├─────────────────────────────────────────────────┤
+│ GHOST CAMERA (depth 0-99, effetto wasted)      │
+│ - Background: trasparente                       │
+│ - Renderizza: mondo di gioco ghostato           │
+│ - Effetti: rotazione + offset + alpha oscillante│
+│ - Attiva solo durante wasted                    │
+│                                                  │
+├─────────────────────────────────────────────────┤
+│ MAIN CAMERA (depth 0-99)                        │
+│ - Background: colorato (azzurro → blu notte)    │
+│ - Renderizza: mondo di gioco principale         │
+│ - Effetti: rotazione progressiva                │
+└─────────────────────────────────────────────────┘
+```
+
+### Gestione Depth
+
+| Range Depth | Contenuto      | Main Camera  | Ghost Camera | UI Camera |
+| ----------- | -------------- | ------------ | ------------ | --------- |
+| < 0         | _Non usato_    | ❌           | ❌           | ❌        |
+| 0-99        | Mondo di gioco | ✅ + effetti | ✅ ghosting  | ❌        |
+| 100+        | Elementi UI    | ❌           | ❌           | ✅ fissi  |
+
+### Effetto Wasted (Vista Doppia)
+
+Quando il party level raggiunge 100:
+
+1. **Ghost Camera** viene creata dinamicamente
+2. Renderizza il mondo con:
+   - Offset orizzontale (+14px scalati)
+   - Alpha oscillante (0 ↔ 0.3, periodo ~4.4s)
+   - Stessa rotazione della main camera
+3. Risultato: **sdoppiatura leggera** del mondo sopra lo sfondo fisso
+4. **UI non viene mai ghostata** (ignorata dalla ghost camera)
+
+### Configurazione in `UIManager`
+
+```typescript
+// Camera UI dedicata
+this.uiCamera = scene.cameras.add(0, 0, GAME.WIDTH, GAME.HEIGHT);
+this.uiCamera.setBackgroundColor("rgba(0,0,0,0)"); // Trasparente
+
+// Main camera ignora la UI
+this.scene.cameras.main.ignore(uiElements);
+
+// UI camera ignora il mondo
+this.uiCamera.ignore(worldObjects);
+```
+
+### Vantaggi
+
+✅ **UI perfettamente stabile** durante tutti gli effetti  
+✅ **NO barcollamento** della party bar o dei punteggi  
+✅ **NO ghosting** degli elementi UI  
+✅ **Sfondo fisso** (backgroundColor non ruota mai)  
+✅ **Performance ottimale** (rendering separato e mirato)
 
 ---
 
@@ -273,23 +470,93 @@ Orchestratore che:
 
 ## ⚙️ Manager
 
-### `CameraManager` — Camera + Effetti Visivi
+### `CameraManager` — Sistema a 3 Camere + Effetti Visivi
+
+Gestisce il sistema multi-camera e gli effetti wasted:
+
+**Main Camera**:
 
 - **Smooth scroll**: segue il giocatore verso l'alto con lerp 0.1 (non scende mai)
-- **Background giorno/notte**: rettangolo fixed che varia da azzurro a blu notte interpolandosi nei trigger dell'orologio interno (es: start 16:00, animazione di cambio passate le 21:00).
-- **Effetti ubriachezza progressivi**: gestiti ad ogni frame basandosi su funzioni logaritmiche di lerping che disorientano lo schermo col _Dual Camera Ghosting_ nello stadio "Wasted".
+- **Background giorno/notte**: `backgroundColor` varia da azzurro (`0x138EFD`) a blu notte (`0x0a0a2e`) via tween al primo level up dopo le 21:00
+- **Rotazione progressiva**: oscilla sinusoidalmente in base al party level (da 30% in su), con ampiezza interpolata via lerp per transizioni fluide
+- **Ignora**: solo elementi UI (depth >= 100)
 
-### `ScoreManager` — Punteggio + HUD
+**Ghost Camera** (effetto wasted):
 
-- Calcola il **Punteggio** convertito dalla tolleranza `y` percorsa incrementata dal multiplier dei Drink presi
-- Costruisce visivamente HUD, statistiche e clock game-time in sovrimpressione
-- **Usa scaling dinamico**: tutte le posizioni e font sizes sono scalate via `r()` per adattarsi alla risoluzione del device
+- **Creazione lazy**: appare solo quando `ghostCurrentAlpha > 0.005` (party level = 100)
+- **Background trasparente**: renderizza solo il mondo ghostato, non lo sfondo
+- **Ghosting parametri**:
+  - Offset orizzontale: +14px scalati (`CAMERA.DRUNK_GHOST_OFFSET`)
+  - Alpha oscillante: `max(0, sin(time / 4400)) × 0.3` con lerp smooth
+  - Rotazione: identica alla main camera
+- **Auto-cleanup**: si distrugge quando l'alpha scende sotto la soglia (fine wasted)
+- **Ignora**: solo elementi UI (depth >= 100)
 
-### `PartyManager` — Party System + Wasted
+**UI Camera** (gestita da UIManager):
+
+- Background trasparente, renderizza solo UI
+- Nessun effetto applicato
+
+### `UIManager` — Interfaccia SVG Responsiva
+
+Gestisce tutta l'interfaccia utente con elementi SVG scalabili:
+
+**Top Bar** (3 elementi):
+
+- **Time Icon** (sx): day/sunset/night.svg + testo orario HH:MM
+  - Switch automatici: `day` (0-180min) → `sunset` (180-420min) → `night` (420+min)
+  - Transizione fade da 600ms tra le fasi
+- **Points Bar** (centro): points_bar.svg + punteggio numerico
+  - Effetto scale su bonus points
+- **Control Button** (dx): play/pause.svg interattivo
+  - Click handler per pausa (TODO: implementare logica pausa completa)
+
+**Party Bar** (sotto time icon):
+
+- 5 stati SVG: empty → green → yellow → orange → red
+- Switch automatici basati su party level:
+  - `0`: empty
+  - `1-29`: green
+  - `30-59`: yellow (THRESHOLD_YELLOW)
+  - `60-99`: orange (THRESHOLD_ORANGE)
+  - `100`: red (THRESHOLD_RED, wasted)
+- Effetto scale al cambio stato
+
+**Camera UI Dedicata**:
+
+- Crea una camera separata con backgroundColor trasparente
+- Configura l'esclusività: main camera ignora UI, UI camera ignora mondo
+- Metodo `finalizeSetup()` chiamato dopo `create()` per configurare i filtri
+- Metodo `ignoreWorldObject()` per oggetti creati dinamicamente (opzionale)
+
+**Rendering**:
+
+- Tutti gli elementi a depth 100+ (sopra il mondo di gioco)
+- ScrollFactor(0) per posizione fissa sullo schermo
+- Dimensioni scalate dinamicamente via `r(UI.*)` costanti
+
+### `ScoreManager` — Calcolo Punteggio
+
+**Responsabilità ridotte** (visualizzazione delegata a UIManager):
+
+- Calcola il **punteggio** basato su:
+  - Distanza verticale percorsa (10px = 1 unità)
+  - Livello corrente (moltiplicatore)
+  - Party level (moltiplicatori: ×1 normale, ×1.5 giallo, ×2.5 arancio, ×4 wasted)
+- Traccia `highestYReached` per lo spawn management
+- Bonus diretti (+1500 al level up, +300 allo schiacciamento bouncer)
+- **NO rendering**: tutta la parte visuale è stata migrata a UIManager
+
+### `PartyManager` — Logica Party System
+
+**Responsabilità ridotte** (visualizzazione delegata a UIManager):
 
 - **Raccolta drink**: +10 party level per drink raccolto
-- **Stato Wasted** (party = 100): Attiva i trigger dell'evento di checkpoint (DJ Stage). Questo causerà nel GameManager il reset dell'ubriachezza ad avvenuto level up
-- **UI scalata**: party bar, padding, font — tutto scalato dinamicamente
+- **Stato Wasted** (party = 100):
+  - Attiva `triggerWasted()` che emette evento `'wasted-ready'` dopo 4s
+  - Gli effetti visivi (blur, rotazione, ghosting) sono gestiti da CameraManager
+- **Reset**: `resetForNewLevel()` riporta party a 0 e chiama `cameraManager.clearEffects()`
+- **NO rendering**: tutta la parte grafica (party bar) è stata migrata a UIManager
 
 ### `LevelManager` — Progressione Livelli
 
@@ -365,6 +632,65 @@ Quando aggiungi nuovi PNG, segui questi rapporti per evitare aliasing:
 | 90×34 px       | 800×400                    | ~9:1     |
 
 **Evita** texture enormi (>2048px) che vengono poi scalate <100px — il GPU campionerà male anche con i mipmap.
+
+### Aggiungere/Modificare elementi UI SVG
+
+Il sistema UI è completamente modulare. Per aggiungere un nuovo elemento:
+
+**1. Aggiungi l'SVG in `public/assets/ui/`**
+
+**2. Definisci le dimensioni in `GameConfig.ts`:**
+
+```typescript
+export const UI = {
+  // ... elementi esistenti
+  NEW_ELEMENT_WIDTH: 100,
+  NEW_ELEMENT_HEIGHT: 50,
+};
+```
+
+**3. Carica l'SVG in `UIManager.preloadAssets()`:**
+
+```typescript
+scene.load.svg("newElementIcon", "/assets/ui/new_element.svg", {
+  width: r(UI.NEW_ELEMENT_WIDTH),
+  height: r(UI.NEW_ELEMENT_HEIGHT),
+});
+```
+
+**4. Aggiungi l'elemento in `UIManager.createUI()`:**
+
+```typescript
+this.newElement = this.scene.add
+  .image(x, y, "newElementIcon")
+  .setOrigin(0.5, 0)
+  .setDisplaySize(r(UI.NEW_ELEMENT_WIDTH), r(UI.NEW_ELEMENT_HEIGHT))
+  .setScrollFactor(0)
+  .setDepth(100); // Importante: depth >= 100 per essere sulla UI camera
+```
+
+**5. Aggiungilo alla lista in `configureUICameraExclusivity()`:**
+
+```typescript
+const uiElements = [
+  // ... elementi esistenti
+  this.newElement,
+];
+```
+
+**Regole importanti**:
+
+- ✅ **Depth >= 100**: tutti gli elementi UI devono avere depth alto per essere ignorati dalla main camera
+- ✅ **ScrollFactor(0)**: mantiene l'elemento fisso sullo schermo
+- ✅ **Dimensioni scalate**: usa sempre `r(UI.*)` per responsive design
+- ✅ **Colori SVG**: puoi usare colori embedded nell'SVG o modificarli via `setTint()` in Phaser
+- ✅ **Interattività**: usa `.setInteractive({ useHandCursor: true })` e `.on("pointerdown", callback)` per bottoni
+
+**Per sostituire un SVG esistente**:
+
+1. Sostituisci il file in `public/assets/ui/` mantenendo lo stesso nome
+2. Modifica le dimensioni in `GameConfig.ts` se necessario
+3. Il gioco caricherà automaticamente il nuovo SVG
 
 ### Aggiungere nuovi contenuti
 

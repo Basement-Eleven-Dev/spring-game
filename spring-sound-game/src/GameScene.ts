@@ -180,6 +180,9 @@ export class GameScene extends Phaser.Scene {
     // --- Collisioni ---
     this.setupColliders();
 
+    // --- Finalizza setup UI: configura le camere ora che tutti gli oggetti sono creati ---
+    this.uiManager.finalizeSetup();
+
     // --- Evento: il DJ Stage deve apparire (emesso da PartyManager dopo il wasted delay) ---
     this.events.on("wasted-ready", () => {
       this.spawnManager.spawnDJStage(
@@ -529,8 +532,12 @@ export class GameScene extends Phaser.Scene {
     // 3. Camera: scrolling + effetti ubriachezza
     this.cameraManager.update(this.player.y, partyLevel, isWasted);
 
-    // 4. UI: aggiorna orario e punteggio
-    this.uiManager.update(this.clockMinutes, this.scoreManager.score);
+    // 4. UI: aggiorna orario, punteggio e party bar
+    this.uiManager.update(
+      this.clockMinutes,
+      this.scoreManager.score,
+      partyLevel,
+    );
 
     // 5. Spawn di drink cadenti e bouncer (basato sulla distanza percorsa)
     this.spawnManager.checkSpawns(

@@ -113,6 +113,11 @@ export const UI = {
   TOP_BAR_PADDING: 12,
   /** Distanza dal bordo superiore */
   TOP_BAR_Y: 16,
+  /** Party bar: posizionata sotto il time icon, larga metà schermo */
+  PARTY_BAR_WIDTH: 175, // Metà schermo (350/2), scalato responsivamente
+  PARTY_BAR_HEIGHT: 30,
+  PARTY_BAR_Y: 62, // Sotto il time icon
+  PARTY_BAR_X: 12, // Allineata a sinistra con padding
 } as const;
 
 /**

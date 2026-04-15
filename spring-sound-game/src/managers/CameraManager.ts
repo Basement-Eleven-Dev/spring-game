@@ -8,13 +8,11 @@ import { CAMERA, GAME, PARTY, SKY } from "../GameConfig";
  *
  * - Scrolling verso l'alto che segue il giocatore (mai verso il basso)
  * - Effetti ubriachezza progressivi: rotazione + vista doppia (vedi updateDrunkEffects)
- * - Transizione giorno/notte del background (sky rectangle)
+ * - Transizione giorno/notte del background (backgroundColor della camera)
  */
 export class CameraManager {
   private scene: Phaser.Scene;
   private camera: Phaser.Cameras.Scene2D.Camera;
-  /** Rettangolo di sfondo cielo — fixed in screen space, dietro a tutto. */
-  private skyBg!: Phaser.GameObjects.Rectangle;
 
   /**
    * Ampiezza corrente della rotazione sinusoidale.
@@ -45,20 +43,12 @@ export class CameraManager {
     this.scene = scene;
     this.camera = scene.cameras.main;
 
-    // Sfondo giorno: rettangolo fisso nello spazio dello schermo (depth -1).
-    // Il colore cambia solo al momento del level up dopo le 21:00.
-    this.skyBg = scene.add
-      .rectangle(
-        GAME.WIDTH / 2,
-        GAME.HEIGHT / 2,
-        GAME.WIDTH,
-        GAME.HEIGHT,
-        SKY.DAY,
-      )
-      .setScrollFactor(0)
-      .setDepth(-1);
-
+    // Sfondo: usiamo il backgroundColor della camera principale che NON ruota
+    // anche quando la camera viene ruotata. Questo è esattamente quello che vogliamo!
     scene.cameras.main.setBackgroundColor(SKY.DAY);
+
+    // NON creiamo più skyBg rectangle - usiamo direttamente il background della camera
+    // che è più efficiente e non ruota mai
   }
 
   /**
@@ -80,7 +70,7 @@ export class CameraManager {
   }
 
   /**
-   * Transizione al background notturno con un tween sul colore del rettangolo.
+   * Transizione al background notturno con un tween sul backgroundColor della camera.
    * Chiamato da GameScene al primo level up dopo le 21:00.
    */
   public switchToNight(): void {
@@ -97,8 +87,8 @@ export class CameraManager {
         const g = Math.round(from.g + (to.g - from.g) * t);
         const b = Math.round(from.b + (to.b - from.b) * t);
         const color = Phaser.Display.Color.GetColor(r, g, b);
-        this.skyBg.setFillStyle(color);
         this.camera.setBackgroundColor(color);
+        // Ghost camera è trasparente, non ha backgroundColor da aggiornare
       },
     });
   }
@@ -175,6 +165,21 @@ export class CameraManager {
       // Crea la camera la prima volta che l'alpha supera la soglia
       if (!this.ghostCam) {
         this.ghostCam = this.scene.cameras.add(0, 0, GAME.WIDTH, GAME.HEIGHT);
+
+        // Background TRASPARENTE: la ghost camera renderizza solo il mondo di gioco
+        // con alpha oscillante, creando l'effetto di sdoppiatura/ghosting.
+        // Lo sfondo rimane fisso sulla main camera.
+        this.ghostCam.setBackgroundColor("rgba(0,0,0,0)");
+
+        // Configura la ghost camera per ignorare solo la UI (depth >= 100)
+        // Il mondo di gioco (depth 0-99) viene renderizzato ghostato
+        const allObjects = this.scene.children.list;
+        const ignoreObjects = allObjects.filter(
+          (obj: any) => obj.depth !== undefined && obj.depth >= 100,
+        );
+        if (ignoreObjects.length > 0) {
+          this.ghostCam.ignore(ignoreObjects);
+        }
       }
       this.ghostCam.setAlpha(this.ghostCurrentAlpha);
       this.ghostCam.scrollX = this.camera.scrollX + CAMERA.DRUNK_GHOST_OFFSET;
