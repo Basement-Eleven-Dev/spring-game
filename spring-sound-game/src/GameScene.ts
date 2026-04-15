@@ -379,6 +379,34 @@ export class GameScene extends Phaser.Scene {
         const now = this.time.now;
         if (!b.canThrow(now)) return; // Cooldown attivo — ignora
 
+        // --- CONTROLLO SUPA-MARIO STOMP ---
+        // Se il giocatore sta cadendo e lo colpisce dall'alto
+        // Il Bouncer ha origine (0.5, 1) quindi b.y è ai suoi piedi
+        const playerBottom = p.y + p.displayHeight / 2;
+        const bouncerHead = b.y - BOUNCER.HEIGHT;
+        
+        // Se sta cadendo e si trova all'incirca sopra la testa (tolleranza 25px)
+        if (p.body.velocity.y > 0 && playerBottom < bouncerHead + 25) {
+          // Disabilita subito il corpo fisico per evitare multipli overlap
+          b.body!.enable = false;
+
+          // Fai saltare il giocatore (rimbalzo sulla testa)
+          p.jump(JUMP_MULTIPLIERS.NORMAL, this.levelManager.level);
+
+          // Effetto visivo di schiacciamento (essendo l'origin Y a 1, si rimpicciolisce verso il basso)
+          this.tweens.add({
+            targets: b,
+            scaleY: 0.1,
+            duration: 150,
+            onComplete: () => b.destroy()
+          });
+
+          // Punteggio o effetto bonus opzionale
+          this.scoreManager.addBonus(300);
+
+          return; // Interrompe il flusso normale del lancio
+        }
+
         // --- FASE 1: PRESA — blocca il player nella mano del bouncer ---
         p.stun(BOUNCER.STUN_DURATION_MS);
         p.setVelocity(0, 0);
@@ -423,7 +451,16 @@ export class GameScene extends Phaser.Scene {
             p.startPinball(BOUNCER.PINBALL_DURATION_MS);
           }
           b.stop();
-          b.setFrame(0);
+          
+          // --- SCOMPARSA DEL BOUNCER POST-LANCIO ---
+          // Il bouncer fa un fade out e scompare per evitare loop o ricatture accidentali
+          b.body!.enable = false;
+          this.tweens.add({
+            targets: b,
+            alpha: 0,
+            duration: 400,
+            onComplete: () => b.destroy()
+          });
         });
       },
     );

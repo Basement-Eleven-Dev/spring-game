@@ -64,24 +64,6 @@ src/
 │   ├── PartyManager.ts    ← Party system + stato wasted
 │   ├── LevelManager.ts    ← Progressione livelli + gravità
 │   └── SpawnManager.ts    ← Spawning/riciclo/pulizia entità
-│
-├── assets/                ← Asset interni (hero.png, vite.svg)
-└── style.css              ← Stili base (centramento canvas)
-
-public/
-└── assets/                ← Sprite di gioco (caricati da Phaser)
-    ├── drink.png
-    ├── platforms/          ← Asset piattaforme (varianti + spritesheet)
-    │   ├── platform erba.png               ← standard/moving, wide
-    │   ├── platform_ubriaco.png            ← standard/moving, wide
-    │   ├── platform_cassa.png              ← standard/moving, compact
-    │   ├── platform_cassa_erba.png         ← standard/moving, compact
-    │   ├── platform_cassa_rotta_sheet.png  ← fragile, 2 frame (intera → rotta)
-    │   └── subwoofer_sheet.png             ← subwoofer, 4 frame (cassa che pompa)
-    └── players/            ← Spritesheet personaggi
-        ├── player_sheet_dx_jump.png   ← player: 4 frame (su×3 + caduta×1), verso dx
-        ├── player_sheet_sx_jump.png   ← player: 4 frame (su×3 + caduta×1), verso sx
-        └── buttafuori.png             ← bouncer: 3 frame (guardia + presa + lancio)
 ```
 
 ### Diagramma delle dipendenze
@@ -120,7 +102,7 @@ main.ts
 
 **Tutte** le costanti di bilanciamento del gioco in un unico file:
 
-- `GAME` — dimensioni del canvas (400×altezza responsiva)
+- `GAME` — dimensioni del canvas (350×altezza responsiva)
 - `PHYSICS` — gravità base e scaling per livello
 - `TIME` — orologio narrativo: `START_MINUTES` (960 = 16:00), `DURATION_MINUTES` (720), `NIGHT_TRIGGER_MINUTES` (300 = 21:00)
 - `SKY` — colori di sfondo giorno (`0x87CEEB`) e notte (`0x0a0a2e`)
@@ -132,7 +114,7 @@ main.ts
 - `PLATFORM_STANDARD_TEXTURES` — lista texture per varianti standard/mobili
 - `MUD` — probabilità e dimensioni del fango
 - `DRINK` — intervallo spawn, velocità caduta, guadagno party
-- `BOUNCER` — dimensioni, velocità, intervallo spawn, knockback
+- `BOUNCER` — dimensioni, velocità, intervallo spawn, knockback, durata pinball
 - `PARTY` — soglie colore barra, moltiplicatori punteggio
 - `LEVEL` — parametri DJ Stage, bonus level up
 - `JUMP_MULTIPLIERS` — normale (×1), subwoofer (×1.7), fango (×0.75)
@@ -151,7 +133,7 @@ Orchestratore che:
 4. **`setupColliders()`** — registra le interazioni fisiche:
    - Player ↔ Platform → salto (con modificatori per tipo)
    - Player ↔ Drink → raccolta (incrementa party)
-   - Player ↔ Bouncer → sequenza grab-throw in 3 fasi (vedi sezione Bouncer)
+   - Player ↔ Bouncer → sequenza grab-throw e schiacciamento stile Super Mario
 5. **`update()`** — delega ai manager nell'ordine:
    - Input giocatore → Camera → Punteggio → Spawn → Riciclo → Cleanup → Game Over
 
@@ -173,19 +155,12 @@ Orchestratore che:
   2. **Touch** (tap nella metà sx/dx dello schermo) — per smartphone
   3. **Device orientation** (`deviceorientation` → valore `gamma`) — sovrascrive gli altri se il tilt supera la deadzone
 - **Mappatura gamma → velocità**: `clamp((|gamma| - DEADZONE) / (MAX_TILT - DEADZONE), 0, 1) × MOVE_SPEED × sign(gamma)`. Tra 0° e 8° (deadzone) non si muove nulla; a 28° si raggiunge la velocità piena.
-- **Permessi**: la logica di `requestPermission()` è gestita interamente dall'overlay in `main.ts`, non qui. `Player` si limita ad aggiungere il listener `deviceorientation`: su iOS riceve eventi solo dopo il permesso, su Android funziona subito.
 - **Effetto inerzia**: il party level rende il movimento più "scivoloso" — il player è lento a cambiare direzione (lerp factor quadratico, percettibile già al 50% del party level)
 - **Wrap ai bordi**: effetto Pac-Man (esce da un lato, rientra dall'altro)
-- **Animazioni**: due spritesheet separati (L/R) da 4 frame ciascuno (256×256 per frame):
-  - Frame 0-2: animazione di salita (`playerJumpUpRight` o `playerJumpUpLeft` in base a `facingRight`)
-  - Frame 3: frame di caduta (braccia su) — attivato quando `velocityY > 0` via `setTexture(sheet, 3)`
-  - La direzione `facingRight` viene aggiornata ad ogni input — la texture giusta viene scelta automaticamente
-- **Stun system**: `stun(durationMs)` imposta `stunUntil = scene.time.now + durationMs`. Mentre `isStunned`, tutti gli input sono ignorati e il salto è bloccato. Usato dal bouncer per la sequenza di lancio.
+- **Stun / Pinball**: quando stordito dal Bouncer, entra in modalità "pinball", rimbalzando violentemente tra i lati (o sul fondo) dello schermo e ruotando su sé stesso senza possibilità di input per l'intervallo `PINBALL_DURATION_MS`.
 - **Cleanup**: rimuove il listener `deviceorientation` su `destroy()` per evitare memory leak tra un game over e l'altro
 
 ### `Platform.ts` — Piattaforme
-
-4 tipi con comportamenti diversi, con varianti grafiche e due categorie dimensionali:
 
 | Tipo        | Asset                                             | Dimensione gioco           | Comportamento                                              |
 | ----------- | ------------------------------------------------- | -------------------------- | ---------------------------------------------------------- |
@@ -194,54 +169,19 @@ Orchestratore che:
 | `fragile`   | `platform_cassa_rotta_sheet.png` (2 frame)        | compact 70×32              | Animazione di rottura al contatto, poi distruzione         |
 | `subwoofer` | `subwoofer_sheet.png` (4 frame)                   | 60×32                      | Loop animazione "cassa che pompa", salto potenziato (×1.7) |
 
-**Categorie dimensionali:**
-
-- **Wide** (erba, ubriaco) — piattaforme più larghe e piatte, ratio ~2.65:1
-- **Compact** (cassa, cassa_erba, fragile) — piattaforme più strette, ratio ~2.18:1
-
-La texture viene scelta casualmente allo spawn → varietà visiva senza cambiare la meccanica.
-
-**Animazioni:**
-
-- `subwooferPump` — loop 4 frame a 8 fps, parte automaticamente all'init
-- `fragileBreak` — 2 frame one-shot (intera → rotta), il body viene disabilitato subito e la piattaforma distrutta al completamento dell'animazione
-
-Proprietà speciali:
-
-- `isBasePlatform` — piattaforme non riciclabili (pavimento iniziale, DJ Stage)
-- `isDJStage` — checkpoint di livello (atterrandoci si passa al livello successivo)
-- Collisioni solo dall'alto (il giocatore può saltare attraverso dal basso)
-
-### `Drink.ts` — Drink Collezionabili
-
-- **Statico**: fermo su una piattaforma (10% di probabilità)
-- **Cadente**: piove dall'alto ogni 250px di salita
-- Ogni drink raccolto incrementa il party level di +8 (su 100)
-
 ### `Bouncer.ts` — Buttafuori
 
 - Posizionato su un **bordo** (sx o dx, casuale) delle piattaforme standard e fragili
-- Dimensione di display **42×54 px** — l'asset è più alto che largo (ratio ~0.77:1)
-- È immobile: niente gravità né velocità, solidale alla piattaforma su cui si trova
-- Appare dal livello 2, con probabilità crescente: `15% + 4%/livello` (max 40%)
-
-**Spritesheet** (`public/assets/players/buttafuori.png`) — 3 frame orizzontali, 128×158 px ciascuno:
-
-| Frame | Stato          | Quando                    |
-| ----- | -------------- | ------------------------- |
-| 0     | Guardia (idle) | Default — fermo sul bordo |
-| 1     | Presa          | Afferr il player          |
-| 2     | Lancio         | Scaglia il player         |
-
-**Meccanica grab-then-throw** — interazione via `physics.add.overlap` (non collider), in 3 fasi:
-
-1. **FASE 1 – Presa** (`STUN_DURATION_MS: 500ms`): il player entra in stun, la velocità viene azzerata e la gravità disabilitata — il player è "congelato in aria" accanto al bouncer.
-2. **FASE 2 – Animazione** (`bouncerThrow`, `THROW_ANIM_FPS: 6fps`): il bouncer esegue l'animazione one-shot frame 0→1→2 (~500ms). Il player resta bloccato.
-3. **FASE 3 – Lancio** (callback `animationcomplete`): la gravità viene riattivata e il player viene scagliato **verso il basso** (`KNOCKBACK_FORCE: 400`) e **lateralmente** nella direzione opposta al bouncer (`LATERAL_FORCE: 300`). Il bouncer torna al frame 0.
-
-**Anti-spam**: `COOLDOWN_MS: 600ms` tra un lancio e l'altro — evita trigger multipli su contatto prolungato.
-
-> L'overlap è necessario perché il collider fisico avrebbe separato le hitbox prima che il callback potesse essere eseguito, rendendo impossibile bloccare il player in posizione.
+- Appare dal livello 1, con probabilità crescente: `15% + 4%/livello` (max 40%)
+- **Nemico difensivo ma eludibile**:
+   1. **Super Mario Stomp**: se il giocatore cade sopra la sua testa, annulla la presa avversaria, schiaccia fisicamente il PNG e lo distrugge, ottenendo punti bonus (+300) ed uno slancio verticale salvifico.
+   2. **Flusso Grab-Throw**:
+      - **Presa**: Se intercettato di lato/fondo ostacola il player congelandolo in aria.
+      - **Animazione Lancio**: Esegue stringa animazione `bouncerThrow` per ~500ms.
+      - **Lancio "Intelligente"**: Scaglia il giocatore impostando la fase di vulnerabilità **pinball**:
+        - Se il giocatore è nella parte alta della telecamera, lo lancia verso il basso.
+        - Se il giocatore è nella parte bassa (a serio rischio morte), lo sbalza verso l'**alto** ad altissima velocità scongiurando loop involontari.
+      - **Scomparsa**: Dopo il lancio, il Buttafuori innesca un fadeout autonomo disabilitando eventuali ulteriori blocchi al player.
 
 ---
 
@@ -250,63 +190,25 @@ Proprietà speciali:
 ### `CameraManager` — Camera + Effetti Visivi
 
 - **Smooth scroll**: segue il giocatore verso l'alto con lerp 0.1 (non scende mai)
-- **Background giorno/notte**: un rettangolo fixed (`scrollFactor 0`, `depth -1`) parte con il colore giorno. Al primo level up dopo le 21:00, `switchToNight()` anima un tween di 2s verso blu notte.
-- **Effetti ubriachezza progressivi** — gestiti ogni frame da `updateDrunkEffects()`:
-  - _Rotazione sinusoidale_ (30%+): ampiezza interpolata via lerp ogni frame (curva quadratica). La rotazione cresce gradualmente all'aumentare del party level e rientra altrettanto gradualmente al level up — nessuno snap brusco a zero.
-  - _Vista doppia_ (wasted only): una ghost camera clona la scena con offset orizzontale (`DRUNK_GHOST_OFFSET` px) e alpha variabile. L'alpha segue `max(0, sin(time/period)) × DRUNK_GHOST_ALPHA`, che la fa comparire e sparire con cadenza naturale di ~2.2s. Un ulteriore lerp (`DRUNK_GHOST_LERP`) smussa ogni transizione — zero click visivi, zero pixelazione.
-- **`clearEffects()`**: intenzionalmente vuoto. Il sistema si auto-smonta: quando `partyLevel` torna a 0 e `isWasted` diventa false, il lerp porta gradualmente a zero sia l'ampiezza della rotazione sia l'alpha della ghost camera, che viene poi rimossa automaticamente.
+- **Background giorno/notte**: rettangolo fixed che varia da azzurro a blu notte interpolandosi nei trigger dell'orologio interno (es: start 16:00, animazione di cambio passate le 21:00).
+- **Effetti ubriachezza progressivi**: gestiti ad ogni frame basandosi su funzioni logaritmiche di lerping che disorientano lo schermo col _Dual Camera Ghosting_ nello stadio "Wasted".
 
 ### `ScoreManager` — Punteggio + HUD
 
-- **Punteggio** basato su distanza verticale percorsa (10px = 1 unità) × livello × moltiplicatore party:
-
-| Party Level  | Soglia  | Moltiplicatore |
-| ------------ | ------- | -------------- |
-| 0-33         | Verde   | ×1             |
-| 34-66        | Giallo  | ×1.5           |
-| 67-99        | Arancio | ×2             |
-| 100 (wasted) | Rosso   | ×3             |
-
-- **Bonus**: +1500 × livello al completamento di ogni livello
-- **HUD**: orario narrativo in alto a sinistra `HH:MM | Y pts | Lv Z`. L'orario è gestito dall'orologio indipendente di `GameScene` (1 sec reale = 1 min).
+- Calcola il **Punteggio** convertito dalla tolleranza `y` percorsa incrementata dal multiplier dei Drink presi. Costruisce visivamente HUD, statistiche e clock game-time in sovrimpressione.
 
 ### `PartyManager` — Party System + Wasted
 
-- **Party Bar**: barra colorata in alto a destra (240, 15)
 - **Raccolta drink**: +8 party level per drink raccolto
-- **Stato Wasted** (party = 100):
-  1. Imposta `isWasted = true` — `CameraManager` attiva automaticamente la ghost camera al frame successivo
-  2. Dopo 4500ms emette l'evento `"wasted-ready"`
-  3. `GameScene` riceve l'evento e chiede a `SpawnManager` di generare il DJ Stage
-- **Reset**: al level up, party torna a 0, wasted si disattiva, gli effetti visivi si smontano gradualmente via lerp
+- **Stato Wasted** (party = 100): Attiva i trigger dell'evento di checkpoint (DJ Stage). Questo causerà nel GameManager il reset dell'ubriachezza ad avvenuto level up. 
 
 ### `LevelManager` — Progressione Livelli
 
-- **Gravità crescente**: `800 × (1 + (livello - 1) × 0.15)`
-  - Livello 1: 800 | Livello 2: 920 | Livello 3: 1040 | ...
-- **Level Up**: incrementa livello, aggiorna gravità, mostra animazione
-- **Animazione**: testo "LEVEL X!" che sale e sfuma in 1.5 secondi
+- **Gravità logaritmica**: `BASE × (1 + 0.22 × ln(livello))`. Gestisce la complessa scalatura matematica dell'engine limitando l'ingovernabilità del balzo via via all'ascesa limitando pesi estremi.
 
 ### `SpawnManager` — Spawning/Riciclo/Pulizia
 
-Il manager più grande (~280 righe). Gestisce:
-
-- **Gruppi Phaser**: `platforms`, `drinks`, `muds`, `bouncers`
-- **Texture procedurali**: crea runtime le texture per fango e DJ Stage
-- **Spawn piattaforme**: posizione X vincolata (max ±140px dalla precedente)
-- **Probabilità spawn per livello**:
-
-| Tipo                | Base  | Per Livello | Max             |
-| ------------------- | ----- | ----------- | --------------- |
-| Moving              | 10%   | +5%/lvl     | 35%             |
-| Fragile             | 10%   | +5%/lvl     | 30%             |
-| Subwoofer           | 10%   | fisso       | 10%             |
-| Standard            | resto | —           | —               |
-| Fango (su standard) | 20%   | +5%/lvl     | 50% (dal lvl 2) |
-
-- **Riciclo**: piattaforme uscite dal basso vengono distrutte e rigenerate in alto
-- **Cleanup**: drink, fango e bouncer usciti dal basso vengono distrutti
-- **DJ Stage**: piattaforma checkpoint larga quanto lo schermo, con flag `isDJStage`
+- Cuore operativo del setup instanziato via `Factory method`. Crea entità per fasce basandosi su array a probabilità e cap procedurali, calcolando i posizionamenti per impedire l'overcrowding offscreen o blocchi statici (generazione costante on fly). 
 
 ---
 
@@ -319,148 +221,22 @@ START
 ┌─────────────────┐
 │  GameScene       │
 │  create()        │
-│  - 12 piattaforme│
-│  - player a 600Y │
+│  - 14 piattaforme│
+│  - player Y-Start│
 └────────┬────────┘
          │
          ▼
 ┌─────────────────────────────────────────────┐
 │  GAME LOOP (update ogni frame)              │
-│                                             │
 │  1. Player input (tastiera/touch/gyro)      │
 │  2. Camera segue il player verso l'alto     │
 │  3. Calcola punteggio e distanza            │
 │  4. Spawna drink cadenti e bouncer          │
 │  5. Ricicla piattaforme fuori schermo       │
 │  6. Pulisci entità fuori schermo            │
-│  7. Controlla game over                     │
-│                                             │
-│  COLLISIONI:                                │
-│  - Player atterra su piattaforma → SALTA    │
-│  - Player tocca drink → party level ↑       │
-│  - Player tocca bouncer → respinto giù      │
-│                                             │
-│  PARTY LEVEL:                               │
-│  - Drink raccolti alzano il party (0-100)   │
-│  - A 100 → WASTED (blur leggero + rotazione + inerzia)│
-│  - Dopo 4.5s → appare DJ Stage             │
-│  - Atterrando sul DJ Stage → LEVEL UP      │
-│  - Party resetta a 0, si ricomincia        │
-│                                             │
-│  GAME OVER:                                 │
-│  - Il player cade sotto lo schermo          │
-│  - → GameOverScene con statistiche          │
-│  - → "Riprova" per ricominciare             │
+│  7. Controlla game over per drop screen     │
 └─────────────────────────────────────────────┘
 ```
-
----
-
-## 🐛 Bug Noti & Roadmap
-
-### Bug Critici
-
-- [x] **🔴 BUG #1 — Bouncer spawna a metà schermo** ✅ FIXATO
-  - **Causa**: `camScrollY` veniva catturato quando partiva il telegraph "!" (~900ms prima dello spawn). Durante l'animazione la camera saliva col giocatore, rendendo la posizione salvata ormai a metà schermo.
-  - **Fix**: in `SpawnManager.spawnBouncerTelegraph()`, la scrollY viene letta nel callback `onComplete` del tween (non al momento del trigger).
-
-- [x] **🔴 BUG #2 — Il livello non scatta senza toccare il DJ Stage** ✅ FIXATO
-  - **Causa**: il DJ Stage aveva collisione solo dall'alto (`checkCollision.down = false`). Il giocatore lo attraversava dal basso e atterrava sulle piattaforme sopra, saltando il livello.
-  - **Fix**: in `SpawnManager.spawnDJStage()`, il DJ Stage ora ha collisione da tutte le direzioni. In `GameScene.setupColliders()`, il level-up scatta a qualsiasi contatto col DJ Stage, poi la collisione viene resettata a "solo dall'alto" per permettere il salto successivo.
-
-### Miglioramenti Necessari
-
-- [ ] **🟡 #3 — Responsive design / dimensioni adattive**: attualmente le dimensioni del canvas sono fisse (400×700). Su schermi di dimensioni diverse la percezione del gioco cambia drasticamente. Serve una soluzione che adatti le dimensioni di gioco (piattaforme, player, spacing) al dispositivo, mantenendo le proporzioni coerenti. Possibili approcci:
-- [x] **🟡 #3 — Responsive design / dimensioni adattive** ✅ FIXATO
-  - **Soluzione**: l'altezza del canvas viene calcolata dinamicamente in `GameConfig.ts` basandosi sull'aspect ratio del dispositivo (`window.innerHeight / window.innerWidth`), clampato tra 1.5 e 2.3.
-  - La larghezza resta fissa a 400px (gameplay orizzontale coerente), solo l'altezza varia.
-  - Tutte le posizioni iniziali (player, piattaforma base) sono ora derivate da `INITIAL.PLAYER_START_Y` e `INITIAL.BASE_PLATFORM_Y`.
-  - Esempi: iPhone 14 → 400×864, iPhone SE → 400×711, Pixel 7 → 400×888.
-  - `Scale.FIT` + `CENTER_BOTH` gestiscono lo scaling al viewport.
-
-- [x] **🟡 #4 — Supporto device orientation (gamma)** ✅ COMPLETATO
-  - **Tecnologia corretta**: non il giroscopio grezzo ma `DeviceOrientationEvent.gamma` (sensor fusion OS) — inclinazione sinistra/destra, range -90°/+90°.
-  - **HTTPS in LAN**: `vite.config.ts` con `@vitejs/plugin-basic-ssl` genera un certificato self-signed. Basta avviare con `npm run dev -- --host` per servire in HTTPS su tutta la rete locale. Necessario per Safari iOS anche in sviluppo.
-  - **Permesso iOS**: gestito da un `<button>` HTML puro nell'overlay di `main.ts` — fuori da Phaser. Safari richiede che `DeviceOrientationEvent.requestPermission()` venga chiamato sincronicamente dall'handler nativo di un gesto utente; Phaser bufferizza tutto nel game loop rompendo questo requisito.
-  - **Overlay start screen**: blocca l'avvio di Phaser finché l'utente non preme GIOCA. Su Android avvia direttamente; su iOS richiede prima il permesso sensore.
-  - **Player.ts**: aggiunge il listener `deviceorientation` direttamente. Deadzone 2°, velocità piena a 28°. Listener rimosso su `destroy()`.
-  - **File toccati**: `vite.config.ts` (nuovo), `main.ts`, `Player.ts`, `GameConfig.ts`
-
-- [x] **🟠 #5 — Ridefinire la UI** ✅ COMPLETATO
-  - **HUD premium**: barra scura semitrasparente in alto, distanza/punteggio a sinistra, livello/moltiplicatore a destra
-  - **Font custom**: Google Fonts "Outfit" importato nel CSS
-  - **Party bar**: centrata sotto l'HUD, angoli arrotondati, sfondo scuro, percentuale dinamica, flash bianco al raccoglimento drink, etichetta "🍺 WASTED"
-  - **Moltiplicatore visibile**: il moltiplicatore punteggio attivo è mostrato con colore corrispondente (verde/giallo/arancio/rosso)
-  - **Level Up**: animazione gold con glow, scale-in con bounce + fade out
-  - **Game Over**: due versioni a seconda della causa:
-    - **Caduta** (`isTimeout: false`): titolo "GAME OVER" rosso, sottotitolo "Sei tornato a casa troppo presto"
-    - **Sopravvissuto** (`isTimeout: true`): titolo "04:00" oro, sottotitolo "Hai retto fino all'alba! 🌅"
-    - Statistiche: orario raggiunto (`HH:MM`), punteggio, livello — pulsante "RIPROVA" con hover interattivo
-  - **Mobile-friendly**: touch-action: manipulation (no zoom), user-select: none, viewport 100dvh
-
-- [x] **🟠 #6 — Bilanciamento elementi e punteggio** ✅ COMPLETATO
-  - Party gain: 10 per drink (servono 10 drink per wasted, prima erano 13)
-  - Drink su piattaforma: 12% (prima 10%)
-  - Drink cadenti: ogni 300px (prima 250px) — meno spam
-  - Moltiplicatori punteggio: ×1 / ×1.5 / ×2.5 / ×4 (prima ×1/1.5/2/3)
-  - Bouncer: appare dal livello 2 (prima dal 1), knockback ridotto a 700 (prima 800)
-  - Bouncer intervallo base: 800px (prima 700px), riduzione più lenta per livello
-  - Piattaforme fragili: 0% al livello 1, crescono dal 2 (+6%/lvl, max 25%)
-  - Fango: appare dal livello 3 (prima dal 2)
-  - Piattaforme mobili: 5% al livello 1 (prima 10%), crescita più graduale
-  - Spacing: 55-115px (prima 50-130px) — range più coerente
-  - 14 piattaforme iniziali (prima 12) — inizio meno claustrofobico
-  - DJ Stage: più lontano (180px offset vs 150), più piattaforme dopo (10 vs 8)
-  - Bonus level up: 1500 × livello (prima 1000)
-
-- [x] **🟠 #7 — Curva di difficoltà** ✅ COMPLETATO
-  - **Gravità logaritmica**: `BASE × (1 + 0.22 × ln(livello))` invece che lineare +15%/livello
-    - Lvl 1: 750 → 2: 866 → 3: 931 → 5: 1016 → 10: 1130
-    - Cresce veloce ai primi livelli, poi si stabilizza — molto meno punitiva ai livelli alti
-  - **Introduzione graduale degli ostacoli**:
-    - Livello 1: solo piattaforme standard + mobili (rare) + subwoofer
-    - Livello 2: si aggiungono bouncer e piattaforme fragili
-    - Livello 3: si aggiunge il fango
-  - **Velocità piattaforme mobili**: +15%/livello (prima +20%) con cap più basso
-
-- [x] **🟣 #8 — Orologio narrativo + background giorno/notte** ✅ COMPLETATO
-  - Il tempo scorre in modo **indipendente dal gameplay**: 1 secondo reale = 1 minuto narrativo
-  - La serata parte alle **16:00** e termina alle **04:00** (720 secondi = ~12 minuti reali)
-  - **HUD**: mostra l'ora corrente `HH:MM` — il punteggio rimane basato sulla salita verticale del giocatore
-  - **Background**: solo 2 stati (giorno / notte). Dopo le **21:00** (300 sec), al **prossimo level up** scatta un tween di 2s da azzurro a blu notte
-  - **Fine gioco alle 04:00**: `GameScene` intercetta il timeout e mostra la `GameOverScene` con titolo speciale "04:00" e messaggio "Hai retto fino all'alba!"
-  - **File toccati**: `GameConfig.ts`, `ScoreManager.ts`, `CameraManager.ts`, `GameScene.ts`, `GameOverScene.ts`
-
-- [x] **🟣 #9 — Bouncer su piattaforma** ✅ COMPLETATO
-  - I bouncer non cadono più dall'alto: sono **fissi su un bordo** (sx o dx, casuale) delle piattaforme standard e fragili
-  - Dimensione ridotta a **40px** (da 70px) — resta interamente dentro la pedana con ~22px liberi sul lato opposto
-  - Rimossi: telegraph "!", velocità di caduta, `lastBouncerSpawnY`, `spawnBouncerTelegraph()`
-  - Probabilità spawn: `15% + 4%/livello` (max 40%) — le piattaforme mobili e subwoofer non hanno bouncer
-  - **File toccati**: `GameConfig.ts`, `Bouncer.ts`, `SpawnManager.ts`
-
-- [x] **🟣 #10 — Asset piattaforme + animazioni spritesheet** ✅ COMPLETATO
-  - Sostituiti i 4 PNG generici con **6 asset dedicati** in `public/assets/platforms/`
-  - **4 varianti standard/mobili** (PNG singoli): erba, ubriaco, cassa, cassa_erba — scelta casuale allo spawn
-  - **2 categorie dimensionali**: _wide_ (90×34 — erba, ubriaco) e _compact_ (70×32 — cassa, cassa_erba, fragile)
-  - **Piattaforma fragile animata**: spritesheet 2 frame (`platform_cassa_rotta_sheet.png`). Al contatto: body disabilitato → animazione rottura → destroy al completamento
-  - **Subwoofer animato**: spritesheet 4 frame (`subwoofer_sheet.png`), loop continuo a 8 fps ("cassa che pompa")
-  - Bouncer offset calcolato **dinamicamente** dalla larghezza effettiva della piattaforma (non più costante fissa)
-  - Rimossa `BOUNCER.PLATFORM_OFFSET` (ora calcolato come `platWidth/2 - SIZE/2 - 4`)
-  - **File toccati**: `GameConfig.ts`, `GameScene.ts`, `Platform.ts`, `SpawnManager.ts`
-
-- [x] **🟣 #11 — Spritesheet player + bouncer grab-throw** ✅ COMPLETATO
-  - **Player animations**: 2 spritesheet separati (L/R), 4 frame 256×256 ciascuno in `public/assets/players/`
-    - Frame 0-2: animazione di salita (loop) — `playerJumpUpRight` / `playerJumpUpLeft`
-    - Frame 3: frame di caduta (braccia su) — attivato via `setTexture(sheet, 3)` quando `velocityY > 0`
-    - `facingRight` tracciato in `Player.ts` per scegliere il foglio corretto ad ogni frame
-  - **Bouncer spritesheet**: 3 frame 128×158 (`buttafuori.png`) — guardia / presa / lancio
-  - **Meccanica grab-throw a 3 fasi**: presa (stun + freeze) → animazione → lancio (giù + laterale)
-    - Usa `physics.add.overlap` invece di `collider` per poter bloccare il player in posizione
-    - Stun: 500ms blocca tutti gli input; cooldown: 600ms anti-spam
-    - Knockback finale: velocityY +400 (giù) + velocityX ±300 (lato opposto al bouncer)
-  - **Stun system in `Player.ts`**: `stun(ms)` / `isStunned` getter — blocca input e salto durante la presa
-  - **GAME_WIDTH ridotto a 350** (da 400): equivale a un 1.15× zoom percettivo senza clipping della UI
-  - **File toccati**: `GameConfig.ts`, `GameScene.ts`, `Player.ts`, `Bouncer.ts`, `SpawnManager.ts`
 
 ---
 
@@ -468,27 +244,11 @@ START
 
 ### Come modificare il bilanciamento
 
-Tutti i numeri che influenzano il gameplay sono in **`src/GameConfig.ts`**. Ogni costante ha un commento che spiega cosa fa. Modifica i valori lì e il cambiamento si propagherà ovunque.
+Tutti i numeri che influenzano il gameplay sono interamente centralizzati ed esportabili in **`src/GameConfig.ts`**. Modifica i valori lì e il cambiamento si propagherà ovunque.
 
-### Come aggiungere un nuovo tipo di piattaforma
+### Aggiungere nuovi contenuti
 
-1. Aggiungi il tipo a `PlatformType` in `Platform.ts`
-2. Aggiungi la texture al `preload()` di `GameScene.ts`
-3. Implementa il comportamento in `Platform.initPlatform()`
-4. Aggiungi le probabilità di spawn in `GameConfig.ts`
-5. Aggiorna la logica in `SpawnManager.spawnPlatform()`
-
-### Come aggiungere un nuovo nemico
-
-1. Crea una classe in `src/` che estende `Phaser.Physics.Arcade.Sprite`
-2. Aggiungi un gruppo in `SpawnManager.createGroups()`
-3. Aggiungi il metodo di spawn in `SpawnManager`
-4. Registra il collider in `GameScene.setupColliders()`
-5. Aggiungi le costanti in `GameConfig.ts`
-
-### Evento personalizzato usato
-
-- **`"wasted-ready"`**: emesso da `PartyManager` quando il delay dello stato wasted scade. `GameScene` lo ascolta per chiamare `SpawnManager.spawnDJStage()`.
+La factory passiva su `SpawnManager.ts` per le generazioni in real time ti permetterà di inserire asset grafici integrando checks su metodi specifici (e.g., `spawnPlatform`).
 
 ---
 
