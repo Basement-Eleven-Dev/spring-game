@@ -462,8 +462,8 @@ export const JUMP_MULTIPLIERS = {
 
 // --- Impostazioni di gioco (modificabili dal menu di pausa) ---
 export const SETTINGS = {
-  /** Abilita/disabilita il controllo tramite accelerometro */
-  gyroEnabled: true,
+  /** Abilita/disabilita il controllo tramite accelerometro (OFF di default, attivabile dal menu di pausa) */
+  gyroEnabled: false,
   /** Abilita/disabilita l'audio di gioco */
   audioEnabled: true,
 };

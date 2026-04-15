@@ -208,25 +208,25 @@ export class UIManager {
    * Main camera ha backgroundColor colorato, UI camera ha backgroundColor trasparente.
    */
   private configureUICameraExclusivity(): void {
-    const uiElements = [
-      this.timeIcon,
-      this.timeText,
-      this.pointsBar,
-      this.pointsText,
-      this.controlButton,
-      this.partyBarIcon,
-    ];
+    const allObjects = this.scene.children.list;
 
-    // Camera principale: ignora SOLO gli elementi UI
+    // Filtra per depth: UI (>= 100) vs mondo di gioco (< 100)
+    // Questo cattura automaticamente TUTTI gli elementi UI, incluso il menu di pausa (depth 200-201)
+    const uiObjects = allObjects.filter(
+      (obj: any) => obj.depth !== undefined && obj.depth >= 100,
+    );
+    const worldObjects = allObjects.filter(
+      (obj: any) => obj.depth !== undefined && obj.depth < 100,
+    );
+
+    // Camera principale: ignora TUTTI gli elementi UI (depth >= 100)
     // Il mondo (depth 0-99) e il background (depth < 0) vengono renderizzati con rotazione/blur
-    this.scene.cameras.main.ignore(uiElements);
+    if (uiObjects.length > 0) {
+      this.scene.cameras.main.ignore(uiObjects);
+    }
 
     // Camera UI: ignora SOLO gli oggetti del mondo di gioco (depth < 100)
     // Gli elementi UI (depth >= 100) vengono renderizzati senza effetti
-    const worldObjects = this.scene.children.list.filter((obj: any) => {
-      return obj.depth !== undefined && obj.depth < 100;
-    });
-
     if (worldObjects.length > 0) {
       this.uiCamera.ignore(worldObjects);
     }

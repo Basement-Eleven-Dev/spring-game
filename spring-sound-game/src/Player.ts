@@ -74,9 +74,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    * inclinazione > deadzone sovrascriveva la tastiera causando stuttering.
    * navigator.maxTouchPoints > 0 esclude tutti i desktop non-touch.
    *
-   * Su iOS il permesso viene richiesto da main.ts tramite bottone HTML puro.
-   * Qui il listener è silenzioso finché il permesso non viene concesso;
+   * Su iOS il permesso viene richiesto dal toggle ACCELEROMETRO nel menu di pausa.
+   * Il listener è silenzioso finché il permesso non viene concesso;
    * su Android funziona subito senza permessi.
+   * L'uso effettivo dei dati è gated da SETTINGS.gyroEnabled in updateMovement().
    */
   private setupOrientationListener(): void {
     if (typeof DeviceOrientationEvent === "undefined") return;

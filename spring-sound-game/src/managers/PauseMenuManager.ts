@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { GAME, UI } from "../GameConfig";
+import { GAME, SETTINGS } from "../GameConfig";
 
 /**
  * PauseMenuManager
@@ -7,10 +7,17 @@ import { GAME, UI } from "../GameConfig";
  * Gestisce il menu di pausa con overlay semi-trasparente e opzioni:
  * - Livello attuale
  * - Riprendi
- * - Accelerometro on/off
+ * - Accelerometro on/off (SOLO su smartphone — gestisce permesso iOS)
  * - Audio on/off
  *
  * Lo stile è coerente con il gioco: colori vivaci, font ChillPixels.
+ *
+ * ACCELEROMETRO:
+ * - Visibile solo su dispositivi touch (navigator.maxTouchPoints > 0)
+ * - Parte OFF di default
+ * - Al primo toggle ON, su iOS chiede il permesso DeviceOrientation
+ *   direttamente dal handler del tap (user gesture trusted)
+ * - Se il permesso viene negato, resta OFF
  */
 export class PauseMenuManager {
   private scene: Phaser.Scene;
@@ -22,7 +29,7 @@ export class PauseMenuManager {
   private titleText!: Phaser.GameObjects.Text;
   private levelText!: Phaser.GameObjects.Text;
   private resumeButton!: Phaser.GameObjects.Container;
-  private gyroButton!: Phaser.GameObjects.Container;
+  private gyroButton!: Phaser.GameObjects.Container | null;
   private audioButton!: Phaser.GameObjects.Container;
 
   // --- Callbacks ---
@@ -32,10 +39,15 @@ export class PauseMenuManager {
 
   // --- Stato ---
   private isVisible: boolean = false;
+  /** true = dispositivo touch (smartphone/tablet) */
+  private isMobile: boolean = false;
+  /** true = il permesso iOS è già stato concesso (evita ripetizioni) */
+  private iosPermissionGranted: boolean = false;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     this.r = (v: number) => Math.round(v * GAME.SCALE);
+    this.isMobile = navigator.maxTouchPoints > 0;
   }
 
   /**
@@ -102,17 +114,88 @@ export class PauseMenuManager {
     );
     this.menuContainer.add(this.resumeButton);
 
-    // --- Bottone ACCELEROMETRO ---
-    this.gyroButton = this.createToggleButton(0, r(30), "ACCELEROMETRO", () =>
-      this.onToggleGyro?.(),
-    );
-    this.menuContainer.add(this.gyroButton);
+    // --- Layout dei bottoni sotto RIPRENDI ---
+    // La posizione Y cambia in base alla presenza del toggle accelerometro
+    let nextY = r(30);
+
+    // --- Bottone ACCELEROMETRO (solo su smartphone) ---
+    if (this.isMobile) {
+      this.gyroButton = this.createToggleButton(
+        0,
+        nextY,
+        "ACCELEROMETRO",
+        () => this.handleGyroToggle(),
+      );
+      this.menuContainer.add(this.gyroButton);
+      nextY += r(70);
+    } else {
+      this.gyroButton = null;
+    }
 
     // --- Bottone AUDIO ---
-    this.audioButton = this.createToggleButton(0, r(100), "AUDIO", () =>
+    this.audioButton = this.createToggleButton(0, nextY, "AUDIO", () =>
       this.onToggleAudio?.(),
     );
     this.menuContainer.add(this.audioButton);
+  }
+
+  /**
+   * Gestisce il toggle dell'accelerometro con permesso iOS.
+   *
+   * FLUSSO:
+   * 1. Se il gyro è attivo → lo disattiva direttamente
+   * 2. Se il gyro è spento e serve il permesso iOS → lo chiede
+   *    (requestPermission() viene chiamato sincronicamente dal user gesture,
+   *    come richiesto da Safari)
+   * 3. Se il permesso è concesso → attiva il gyro
+   * 4. Se il permesso è negato → non fa nulla
+   * 5. Se non serve permesso (Android, o già concesso) → attiva direttamente
+   */
+  private handleGyroToggle(): void {
+    if (SETTINGS.gyroEnabled) {
+      // Disabilita: semplice toggle
+      this.onToggleGyro?.();
+      return;
+    }
+
+    // Abilita: potrebbe servire il permesso iOS
+    if (this.iosPermissionGranted) {
+      // Permesso già concesso in precedenza
+      this.onToggleGyro?.();
+      return;
+    }
+
+    const needsIOSPermission =
+      typeof DeviceOrientationEvent !== "undefined" &&
+      typeof (
+        DeviceOrientationEvent as unknown as {
+          requestPermission?: () => Promise<string>;
+        }
+      ).requestPermission === "function";
+
+    if (needsIOSPermission) {
+      // Chiedi il permesso iOS — requestPermission() è chiamato
+      // sincronicamente dal handler del tap (user gesture trusted)
+      (
+        DeviceOrientationEvent as unknown as {
+          requestPermission: () => Promise<string>;
+        }
+      )
+        .requestPermission()
+        .then((result: string) => {
+          if (result === "granted") {
+            this.iosPermissionGranted = true;
+            this.onToggleGyro?.();
+          }
+          // Se "denied" o altro, non attiva il gyro
+        })
+        .catch(() => {
+          // Errore nel richiedere il permesso — non attiva il gyro
+        });
+    } else {
+      // Android o browser senza requisito di permesso — attiva direttamente
+      this.onToggleGyro?.();
+    }
   }
 
   /**
@@ -247,42 +330,26 @@ export class PauseMenuManager {
     this.menuContainer.setVisible(true);
     this.isVisible = true;
 
-    // Animazione di entrata
-    this.menuContainer.setAlpha(0);
-    this.menuContainer.setScale(0.8);
-    this.scene.tweens.add({
-      targets: this.menuContainer,
-      alpha: 1,
-      scaleX: 1,
-      scaleY: 1,
-      duration: 200,
-      ease: "Back.easeOut",
-    });
+    // Imposta direttamente alpha e scala (i tweens sono in pausa durante la pausa)
+    this.menuContainer.setAlpha(1);
+    this.menuContainer.setScale(1);
   }
 
   /**
    * Nasconde il menu di pausa.
    */
   public hide(): void {
-    this.scene.tweens.add({
-      targets: this.menuContainer,
-      alpha: 0,
-      scaleX: 0.8,
-      scaleY: 0.8,
-      duration: 150,
-      ease: "Back.easeIn",
-      onComplete: () => {
-        this.overlay.setVisible(false);
-        this.menuContainer.setVisible(false);
-        this.isVisible = false;
-      },
-    });
+    // Nascondi direttamente (i tweens potrebbero avere stati inconsistenti)
+    this.overlay.setVisible(false);
+    this.menuContainer.setVisible(false);
+    this.isVisible = false;
   }
 
   /**
    * Aggiorna lo stato visivo dei toggle button.
    */
   public updateGyroState(enabled: boolean): void {
+    if (!this.gyroButton) return; // Non presente su desktop
     const stateText = (this.gyroButton as any)
       .stateText as Phaser.GameObjects.Text;
     stateText.setText(enabled ? "ON" : "OFF");
@@ -301,5 +368,13 @@ export class PauseMenuManager {
    */
   public get visible(): boolean {
     return this.isVisible;
+  }
+
+  /**
+   * Restituisce gli elementi di gioco del menu di pausa.
+   * Usato da UIManager per configurare l'esclusività delle camere.
+   */
+  public getGameObjects(): Phaser.GameObjects.GameObject[] {
+    return [this.overlay, this.menuContainer];
   }
 }
