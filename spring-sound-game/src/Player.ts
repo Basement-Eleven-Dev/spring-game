@@ -277,14 +277,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     // --- AGGIORNA TEXTURE SE LA DIREZIONE È CAMBIATA ---
     if (oldFacing !== this.facingRight) {
-      if (this.showingFallFrame) {
-        // Sta cadendo: aggiorna il frame di discesa nella nuova direzione
+      // Controlla lo stato REALE del player (salita/discesa) basandosi su velocityY
+      if (this.body.velocity.y > 0) {
+        // STA CADENDO: mostra il frame statico 3 (braccia alzate)
+        this.showingFallFrame = true;
+        this.stop();
         const fallSheet = this.facingRight
           ? "playerJumpRight"
           : "playerJumpLeft";
         this.setTexture(fallSheet, 3);
-      } else if (this.anims.isPlaying) {
-        // Sta saltando: replay l'animazione di salto nella nuova direzione
+      } else {
+        // STA SALENDO: play animazione di salto (frame 0→2)
+        this.showingFallFrame = false;
         const animKey = this.facingRight
           ? "playerJumpUpRight"
           : "playerJumpUpLeft";
