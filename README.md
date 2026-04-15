@@ -70,16 +70,18 @@ src/
 
 public/
 └── assets/                ← Sprite di gioco (caricati da Phaser)
-    ├── player.png
     ├── drink.png
-    ├── buttafuori.png
-    └── platforms/          ← Asset piattaforme (varianti + spritesheet)
-        ├── platform erba.png           ← standard/moving, wide
-        ├── platform_ubriaco.png        ← standard/moving, wide
-        ├── platform_cassa.png          ← standard/moving, compact
-        ├── platform_cassa_erba.png     ← standard/moving, compact
-        ├── platform_cassa_rotta_sheet.png  ← fragile, 2 frame (intera → rotta)
-        └── subwoofer_sheet.png         ← subwoofer, 4 frame (cassa che pompa)
+    ├── platforms/          ← Asset piattaforme (varianti + spritesheet)
+    │   ├── platform erba.png               ← standard/moving, wide
+    │   ├── platform_ubriaco.png            ← standard/moving, wide
+    │   ├── platform_cassa.png              ← standard/moving, compact
+    │   ├── platform_cassa_erba.png         ← standard/moving, compact
+    │   ├── platform_cassa_rotta_sheet.png  ← fragile, 2 frame (intera → rotta)
+    │   └── subwoofer_sheet.png             ← subwoofer, 4 frame (cassa che pompa)
+    └── players/            ← Spritesheet personaggi
+        ├── player_sheet_dx_jump.png   ← player: 4 frame (su×3 + caduta×1), verso dx
+        ├── player_sheet_sx_jump.png   ← player: 4 frame (su×3 + caduta×1), verso sx
+        └── buttafuori.png             ← bouncer: 3 frame (guardia + presa + lancio)
 ```
 
 ### Diagramma delle dipendenze
@@ -135,17 +137,22 @@ main.ts
 - `LEVEL` — parametri DJ Stage, bonus level up
 - `JUMP_MULTIPLIERS` — normale (×1), subwoofer (×1.7), fango (×0.75)
 
-### `GameScene.ts` — Scena Principale (~170 righe)
+### `GameScene.ts` — Scena Principale
 
 Orchestratore che:
 
-1. **`preload()`** — carica tutti gli asset da `public/assets/`
-2. **`create()`** — inizializza manager, piattaforme, player, collider
-3. **`setupColliders()`** — registra le interazioni fisiche:
+1. **`preload()`** — carica tutti gli asset da `public/assets/`, inclusi i 4 spritesheet (`playerJumpRight`, `playerJumpLeft`, `bouncerSheet`, `fragileBreak`, `subwooferPump`)
+2. **`createAnimations()`** — definisce le animazioni Phaser:
+   - `playerJumpUpRight` / `playerJumpUpLeft` — frame 0-2 loop durante la salita
+   - `bouncerThrow` — frame 0→1→2 one-shot al contatto col player
+   - `fragileBreak` — 2 frame one-shot al contatto con la piattaforma fragile
+   - `subwooferPump` — 4 frame loop continuo a 8 fps
+3. **`create()`** — inizializza manager, piattaforme, player, collider
+4. **`setupColliders()`** — registra le interazioni fisiche:
    - Player ↔ Platform → salto (con modificatori per tipo)
    - Player ↔ Drink → raccolta (incrementa party)
-   - Player ↔ Bouncer → respinta verso il basso
-4. **`update()`** — delega ai manager nell'ordine:
+   - Player ↔ Bouncer → sequenza grab-throw in 3 fasi (vedi sezione Bouncer)
+5. **`update()`** — delega ai manager nell'ordine:
    - Input giocatore → Camera → Punteggio → Spawn → Riciclo → Cleanup → Game Over
 
 ### `GameOverScene.ts` — Schermata Game Over
@@ -169,6 +176,11 @@ Orchestratore che:
 - **Permessi**: la logica di `requestPermission()` è gestita interamente dall'overlay in `main.ts`, non qui. `Player` si limita ad aggiungere il listener `deviceorientation`: su iOS riceve eventi solo dopo il permesso, su Android funziona subito.
 - **Effetto inerzia**: il party level rende il movimento più "scivoloso" — il player è lento a cambiare direzione (lerp factor quadratico, percettibile già al 50% del party level)
 - **Wrap ai bordi**: effetto Pac-Man (esce da un lato, rientra dall'altro)
+- **Animazioni**: due spritesheet separati (L/R) da 4 frame ciascuno (256×256 per frame):
+  - Frame 0-2: animazione di salita (`playerJumpUpRight` o `playerJumpUpLeft` in base a `facingRight`)
+  - Frame 3: frame di caduta (braccia su) — attivato quando `velocityY > 0` via `setTexture(sheet, 3)`
+  - La direzione `facingRight` viene aggiornata ad ogni input — la texture giusta viene scelta automaticamente
+- **Stun system**: `stun(durationMs)` imposta `stunUntil = scene.time.now + durationMs`. Mentre `isStunned`, tutti gli input sono ignorati e il salto è bloccato. Usato dal bouncer per la sequenza di lancio.
 - **Cleanup**: rimuove il listener `deviceorientation` su `destroy()` per evitare memory leak tra un game over e l'altro
 
 ### `Platform.ts` — Piattaforme
@@ -209,10 +221,27 @@ Proprietà speciali:
 ### `Bouncer.ts` — Buttafuori
 
 - Posizionato su un **bordo** (sx o dx, casuale) delle piattaforme standard e fragili
-- Dimensione ridotta (40px) per lasciare spazio al giocatore sul lato opposto
-- È immobile: non ha gravità né velocità, è solidale alla posizione della piattaforma
-- Al contatto respinge il giocatore verso il basso con forza 700
+- Dimensione di display **42×54 px** — l'asset è più alto che largo (ratio ~0.77:1)
+- È immobile: niente gravità né velocità, solidale alla piattaforma su cui si trova
 - Appare dal livello 2, con probabilità crescente: `15% + 4%/livello` (max 40%)
+
+**Spritesheet** (`public/assets/players/buttafuori.png`) — 3 frame orizzontali, 128×158 px ciascuno:
+
+| Frame | Stato          | Quando                    |
+| ----- | -------------- | ------------------------- |
+| 0     | Guardia (idle) | Default — fermo sul bordo |
+| 1     | Presa          | Afferr il player          |
+| 2     | Lancio         | Scaglia il player         |
+
+**Meccanica grab-then-throw** — interazione via `physics.add.overlap` (non collider), in 3 fasi:
+
+1. **FASE 1 – Presa** (`STUN_DURATION_MS: 500ms`): il player entra in stun, la velocità viene azzerata e la gravità disabilitata — il player è "congelato in aria" accanto al bouncer.
+2. **FASE 2 – Animazione** (`bouncerThrow`, `THROW_ANIM_FPS: 6fps`): il bouncer esegue l'animazione one-shot frame 0→1→2 (~500ms). Il player resta bloccato.
+3. **FASE 3 – Lancio** (callback `animationcomplete`): la gravità viene riattivata e il player viene scagliato **verso il basso** (`KNOCKBACK_FORCE: 400`) e **lateralmente** nella direzione opposta al bouncer (`LATERAL_FORCE: 300`). Il bouncer torna al frame 0.
+
+**Anti-spam**: `COOLDOWN_MS: 600ms` tra un lancio e l'altro — evita trigger multipli su contatto prolungato.
+
+> L'overlap è necessario perché il collider fisico avrebbe separato le hitbox prima che il callback potesse essere eseguito, rendendo impossibile bloccare il player in posizione.
 
 ---
 
@@ -418,6 +447,20 @@ START
   - Bouncer offset calcolato **dinamicamente** dalla larghezza effettiva della piattaforma (non più costante fissa)
   - Rimossa `BOUNCER.PLATFORM_OFFSET` (ora calcolato come `platWidth/2 - SIZE/2 - 4`)
   - **File toccati**: `GameConfig.ts`, `GameScene.ts`, `Platform.ts`, `SpawnManager.ts`
+
+- [x] **🟣 #11 — Spritesheet player + bouncer grab-throw** ✅ COMPLETATO
+  - **Player animations**: 2 spritesheet separati (L/R), 4 frame 256×256 ciascuno in `public/assets/players/`
+    - Frame 0-2: animazione di salita (loop) — `playerJumpUpRight` / `playerJumpUpLeft`
+    - Frame 3: frame di caduta (braccia su) — attivato via `setTexture(sheet, 3)` quando `velocityY > 0`
+    - `facingRight` tracciato in `Player.ts` per scegliere il foglio corretto ad ogni frame
+  - **Bouncer spritesheet**: 3 frame 128×158 (`buttafuori.png`) — guardia / presa / lancio
+  - **Meccanica grab-throw a 3 fasi**: presa (stun + freeze) → animazione → lancio (giù + laterale)
+    - Usa `physics.add.overlap` invece di `collider` per poter bloccare il player in posizione
+    - Stun: 500ms blocca tutti gli input; cooldown: 600ms anti-spam
+    - Knockback finale: velocityY +400 (giù) + velocityX ±300 (lato opposto al bouncer)
+  - **Stun system in `Player.ts`**: `stun(ms)` / `isStunned` getter — blocca input e salto durante la presa
+  - **GAME_WIDTH ridotto a 350** (da 400): equivale a un 1.15× zoom percettivo senza clipping della UI
+  - **File toccati**: `GameConfig.ts`, `GameScene.ts`, `Player.ts`, `Bouncer.ts`, `SpawnManager.ts`
 
 ---
 

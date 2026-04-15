@@ -155,6 +155,14 @@ export const PLAYER = {
   GYRO_DEADZONE: 2,
   /** Angolo di gamma (gradi) a cui si raggiunge la velocità orizzontale massima */
   GYRO_MAX_TILT: 23,
+
+  // --- Spritesheet animazione salto ---
+
+  /** Dimensione frame nello spritesheet (4 frame orizzontali, 1024×256 → 256×256) */
+  FRAME_WIDTH: 256,
+  FRAME_HEIGHT: 256,
+  /** Frame rate animazione salto */
+  JUMP_ANIM_FPS: 12,
 } as const;
 
 // --- Piattaforme ---
@@ -284,17 +292,51 @@ export const DRINK = {
 // --- Bouncer (buttafuori) ---
 export const BOUNCER = {
   /**
-   * Dimensione del bouncer. Deve essere < della piattaforma più stretta
-   * (COMPACT_WIDTH = 70) per stare interamente sulla pedana.
+   * Dimensione di display del bouncer.
+   * Deve essere visivamente imponente rispetto al giocatore (SIZE 40×40).
+   * L'asset ha content ratio ~0.77:1 (più alto che largo).
    */
-  SIZE: 40,
+  WIDTH: 42,
+  HEIGHT: 54,
+
+  // --- Spritesheet animazione ---
+
+  /** Dimensione frame nello spritesheet (3 frame orizzontali, 384×158 → 128×158) */
+  FRAME_WIDTH: 128,
+  FRAME_HEIGHT: 158,
+  /**
+   * Frame rate animazione lancio (frame 0→1→2, one-shot al contatto).
+   * A 6 fps i 3 frame durano ~500ms: abbastanza per percepire l'azione
+   * senza rallentare il ritmo di gioco.
+   */
+  THROW_ANIM_FPS: 6,
+
   /** Probabilità base che una piattaforma idonea abbia un bouncer */
   BASE_PROB: 0.15,
   PROB_PER_LEVEL: 0.04,
   MAX_PROB: 0.4,
   /** I bouncer appaiono solo dal livello 2 */
   MIN_LEVEL: 2,
-  KNOCKBACK_FORCE: 700,
+  /**
+   * Forza verticale del lancio (verso il basso = positiva in Phaser).
+   * Il buttafuori ti respinge GIÙ, è punitivo: perdi quota.
+   * Combinata con LATERAL_FORCE dà una traiettoria diagonale discendente.
+   */
+  KNOCKBACK_FORCE: 400,
+  /** Forza laterale del lancio — il player viene spinto dal lato opposto al bouncer */
+  LATERAL_FORCE: 300,
+  /**
+   * Cooldown in ms tra un lancio e l'altro (per evitare trigger multipli).
+   * 600ms ≈ durata dell'animazione di lancio a 6fps.
+   */
+  COOLDOWN_MS: 600,
+  /**
+   * Durata dello stordimento del player dopo il lancio (ms).
+   * Durante questo periodo il player non può muoversi né saltare:
+   * il buttafuori lo "tiene" e lo scaglia via.
+   * Deve essere ≥ della durata dell'animazione di lancio.
+   */
+  STUN_DURATION_MS: 500,
 } as const;
 
 // --- Party System ---

@@ -7,10 +7,12 @@ import {
   JUMP_MULTIPLIERS,
   LEVEL,
   PLATFORM,
+  PLAYER,
   TIME,
 } from "./GameConfig";
 import { Player } from "./Player";
 import { Platform } from "./Platform";
+import { Bouncer } from "./Bouncer";
 import { CameraManager } from "./managers/CameraManager";
 import { ScoreManager } from "./managers/ScoreManager";
 import { PartyManager } from "./managers/PartyManager";
@@ -67,9 +69,31 @@ export class GameScene extends Phaser.Scene {
    * I file risiedono nella cartella public/assets/.
    */
   preload(): void {
-    this.load.image("playerTexture", "/assets/player.png");
     this.load.image("drinkTexture", "/assets/drink.png");
-    this.load.image("bouncerTexture", "/assets/buttafuori.png");
+
+    // --- Player: 2 spritesheet per direzione (4 frame salto ciascuno) ---
+    this.load.spritesheet(
+      "playerJumpRight",
+      "/assets/players/player_sheet_dx_jump.png",
+      {
+        frameWidth: PLAYER.FRAME_WIDTH,
+        frameHeight: PLAYER.FRAME_HEIGHT,
+      },
+    );
+    this.load.spritesheet(
+      "playerJumpLeft",
+      "/assets/players/player_sheet_sx_jump.png",
+      {
+        frameWidth: PLAYER.FRAME_WIDTH,
+        frameHeight: PLAYER.FRAME_HEIGHT,
+      },
+    );
+
+    // --- Bouncer: spritesheet 3 frame (idle + lancio) ---
+    this.load.spritesheet("bouncerSheet", "/assets/players/buttafuori.png", {
+      frameWidth: BOUNCER.FRAME_WIDTH,
+      frameHeight: BOUNCER.FRAME_HEIGHT,
+    });
 
     // --- Varianti piattaforma standard/mobile (4 PNG singole) ---
     this.load.image(
@@ -138,12 +162,12 @@ export class GameScene extends Phaser.Scene {
     // --- Piattaforme iniziali ---
     this.spawnManager.spawnInitialPlatforms(this.levelManager.level);
 
-    // --- Giocatore ---
+    // --- Giocatore (usa il primo frame dello sheet destro come texture iniziale) ---
     this.player = new Player(
       this,
       GAME.WIDTH / 2,
       INITIAL.PLAYER_START_Y,
-      "playerTexture",
+      "playerJumpRight",
     );
 
     // --- Collisioni ---
@@ -162,11 +186,63 @@ export class GameScene extends Phaser.Scene {
    * Definisce le animazioni spritesheet.
    * Chiamato una volta in create() — Phaser condivide le animazioni tra tutti gli sprite.
    *
-   * - fragileBreak: 2 frame (intera → rotta), play singolo al contatto
-   * - subwooferPump: 4 frame (cassa che pompa), loop continuo
+   * Player:
+   * - playerJumpUpRight/Left: frame 0→2 (salita: gambe che spingono)
+   * - Frame 3 (discesa, braccia alzate) viene impostato direttamente via setTexture/setFrame
+   *
+   * Bouncer:
+   * - bouncerThrow: frame 0→1→2 one-shot (fermo → afferra → lancia)
+   * - Frame 0 idle viene impostato direttamente via setFrame(0)
+   *
+   * Piattaforme:
+   * - fragileBreak:   2 frame one-shot (intera → rotta)
+   * - subwooferPump:  4 frame loop (cassa che pompa)
    */
   private createAnimations(): void {
     // Evita duplicati se la scena viene riavviata
+
+    // --- Player ---
+    // Salita: frame 0→2 (gambe che spingono)
+    if (!this.anims.exists("playerJumpUpRight")) {
+      this.anims.create({
+        key: "playerJumpUpRight",
+        frames: this.anims.generateFrameNumbers("playerJumpRight", {
+          start: 0,
+          end: 2,
+        }),
+        frameRate: PLAYER.JUMP_ANIM_FPS,
+        repeat: 0,
+      });
+    }
+    if (!this.anims.exists("playerJumpUpLeft")) {
+      this.anims.create({
+        key: "playerJumpUpLeft",
+        frames: this.anims.generateFrameNumbers("playerJumpLeft", {
+          start: 0,
+          end: 2,
+        }),
+        frameRate: PLAYER.JUMP_ANIM_FPS,
+        repeat: 0,
+      });
+    }
+    // Discesa: frame 3 statico (braccia alzate)
+    // Non servono animazioni — il Player imposta setFrame(3) direttamente.
+
+    // --- Bouncer ---
+    // Lancio: frame 0→1→2 (posizione → afferra → lancia)
+    if (!this.anims.exists("bouncerThrow")) {
+      this.anims.create({
+        key: "bouncerThrow",
+        frames: this.anims.generateFrameNumbers("bouncerSheet", {
+          start: 0,
+          end: 2,
+        }),
+        frameRate: BOUNCER.THROW_ANIM_FPS,
+        repeat: 0,
+      });
+    }
+
+    // --- Piattaforme ---
     if (!this.anims.exists("fragileBreak")) {
       this.anims.create({
         key: "fragileBreak",
@@ -287,15 +363,38 @@ export class GameScene extends Phaser.Scene {
       },
     );
 
-    // --- Collisione Giocatore ↔ Bouncer (respinta verso il basso) ---
-    this.physics.add.collider(
+    // --- Overlap Giocatore ↔ Bouncer (presa + lancio laterale) ---
+    // Flusso: il bouncer afferra il player (lo blocca in posizione),
+    // gioca l'animazione di presa, e al completamento lo scaglia via.
+    this.physics.add.overlap(
       this.player,
       this.spawnManager.bouncers,
-      (playerObj, _bouncerObj) => {
+      (playerObj, bouncerObj) => {
         const p = playerObj as Player;
-        if (p.body) {
-          p.setVelocityY(BOUNCER.KNOCKBACK_FORCE);
-        }
+        const b = bouncerObj as Bouncer;
+        if (!p.body) return;
+
+        const now = this.time.now;
+        if (!b.canThrow(now)) return; // Cooldown attivo — ignora
+
+        // --- FASE 1: PRESA — blocca il player accanto al bouncer ---
+        p.stun(BOUNCER.STUN_DURATION_MS);
+        p.setVelocity(0, 0);
+        p.body.allowGravity = false; // Congela in aria durante la presa
+
+        // --- FASE 2: ANIMAZIONE di presa (frame 0→1→2) ---
+        const lateralDir = p.x < b.x ? -1 : 1;
+        b.performThrow(now);
+        b.once("animationcomplete", () => {
+          // --- FASE 3: LANCIO — scaglia il player GIÙ e di lato (punitivo) ---
+          if (p.body) {
+            p.body.allowGravity = true;
+            p.setVelocityX(lateralDir * BOUNCER.LATERAL_FORCE);
+            p.setVelocityY(BOUNCER.KNOCKBACK_FORCE); // positivo = verso il basso
+          }
+          b.stop();
+          b.setFrame(0);
+        });
       },
     );
   }

@@ -11,6 +11,12 @@ import { GAME, PLAYER } from "./GameConfig";
  *
  * Il movimento orizzontale è soggetto a inerzia crescente
  * con il party level (effetto "ubriachezza").
+ *
+ * Stato "stordito" (stunned):
+ * Quando il buttafuori afferra il player, questo entra in stordimento:
+ * tutti gli input vengono ignorati e il salto è bloccato.
+ * Il player viene scagliato via con la velocità impostata dal bouncer
+ * e può solo subire la traiettoria fino allo scadere del timer.
  */
 export class Player extends Phaser.Physics.Arcade.Sprite {
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -21,6 +27,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   /** Handler registrato su window, tenuto in memoria per poterlo rimuovere */
   private orientationHandler: ((e: DeviceOrientationEvent) => void) | null =
     null;
+
+  /** Direzione corrente del giocatore: usata per scegliere l'animazione di salto */
+  private facingRight: boolean = true;
+  /** Se true, il player sta mostrando il frame di discesa */
+  private showingFallFrame: boolean = false;
+
+  /**
+   * Timestamp di fine stordimento.
+   * Quando scene.time.now < stunUntil, il player è bloccato:
+   * nessun input, nessun salto, nessun override della velocità.
+   */
+  private stunUntil: number = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string) {
     super(scene, x, y, texture);
@@ -67,10 +85,38 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    * Fa saltare il giocatore verso l'alto.
    * La forza del salto è proporzionale al livello e al moltiplicatore
    * (es. 1.6 per subwoofer, 0.8 per fango, 1.3 per DJ Stage).
+   *
+   * Se il player è stordito (dopo un lancio del bouncer), il salto
+   * viene ignorato per non sovrascrivere la traiettoria del lancio.
+   *
+   * Animazione: frame 0→2 (salita). Il frame 3 (discesa, braccia alzate)
+   * viene applicato in updateMovement() quando velocityY diventa positiva.
    */
   public jump(multiplier: number = 1, currentLevel: number = 1): void {
+    // Blocca il salto durante lo stordimento
+    if (this.scene.time.now < this.stunUntil) return;
+
     const levelSpeedMultiplier = 1 + (currentLevel - 1) * 0.15;
     this.setVelocityY(-PLAYER.JUMP_FORCE * levelSpeedMultiplier * multiplier);
+
+    // Animazione salita nella direzione corrente (frame 0→2)
+    const animKey = this.facingRight ? "playerJumpUpRight" : "playerJumpUpLeft";
+    this.play(animKey, true);
+    this.showingFallFrame = false;
+  }
+
+  /**
+   * Attiva lo stato stordito per la durata specificata.
+   * Chiamato dal bouncer al contatto: il player perde il controllo
+   * e viene scagliato via con la velocità già impostata.
+   */
+  public stun(durationMs: number): void {
+    this.stunUntil = this.scene.time.now + durationMs;
+  }
+
+  /** Restituisce true se il player è attualmente stordito */
+  public get isStunned(): boolean {
+    return this.scene.time.now < this.stunUntil;
   }
 
   /**
@@ -88,6 +134,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    * è lento a cambiare direzione (lerp factor scende da 1 a 0.15).
    */
   public updateMovement(partyLevel: number, isWasted: boolean): void {
+    // --- STORDIMENTO: input bloccato, il player subisce la traiettoria del lancio ---
+    if (this.scene.time.now < this.stunUntil) {
+      // Aggiorna solo la direzione (per l'animazione) e il wrap ai bordi
+      if (this.body.velocity.x > 10) this.facingRight = true;
+      else if (this.body.velocity.x < -10) this.facingRight = false;
+
+      const halfWidth = this.displayWidth / 2;
+      if (this.x < -halfWidth) this.x = GAME.WIDTH + halfWidth;
+      else if (this.x > GAME.WIDTH + halfWidth) this.x = -halfWidth;
+      return;
+    }
+
     let targetSpeed = 0;
 
     const pointer = this.scene.input.activePointer;
@@ -129,6 +187,24 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setVelocityX(
       Phaser.Math.Linear(currentSpeed, targetSpeed, lerpFactor),
     );
+
+    // --- AGGIORNAMENTO DIREZIONE (per animazione salto) ---
+    if (this.body.velocity.x > 10) {
+      this.facingRight = true;
+    } else if (this.body.velocity.x < -10) {
+      this.facingRight = false;
+    }
+
+    // --- FRAME DI DISCESA (braccia alzate) ---
+    // Quando il player sta cadendo (velocityY > 0), mostra il frame 3 dello sheet
+    // corretto in base alla direzione. Lo switch avviene una volta sola per evitare
+    // di interrompere continuamente il frame.
+    if (this.body.velocity.y > 0 && !this.showingFallFrame) {
+      this.showingFallFrame = true;
+      this.stop();
+      const fallSheet = this.facingRight ? "playerJumpRight" : "playerJumpLeft";
+      this.setTexture(fallSheet, 3);
+    }
 
     // --- EFFETTO PAC-MAN AI BORDI ---
     // Se il giocatore esce da un lato, rientra dall'altro

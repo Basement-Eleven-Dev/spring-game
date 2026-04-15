@@ -208,18 +208,20 @@ export class SpawnManager {
         )
     ) {
       // Offset calcolato dalla larghezza effettiva della piattaforma
-      const bouncerOffset = platWidth / 2 - BOUNCER.SIZE / 2 - 4;
+      const bouncerOffset = platWidth / 2 - BOUNCER.WIDTH / 2 - 4;
       const side = Math.random() < 0.5 ? -1 : 1;
       const bouncerX = randomX + side * bouncerOffset;
       const platHeight =
         platWidth === PLATFORM.COMPACT_WIDTH
           ? PLATFORM.COMPACT_HEIGHT
           : PLATFORM.WIDE_HEIGHT;
-      const bouncerY = y - BOUNCER.SIZE / 2 - platHeight / 2;
+      // Il bouncer appoggia i piedi sul bordo superiore della piattaforma:
+      // centro bouncer = bordo superiore piattaforma - metà altezza bouncer
+      const bouncerY = y - platHeight / 2 - BOUNCER.HEIGHT / 2;
       const bouncer = this.bouncers.get(
         bouncerX,
         bouncerY,
-        "bouncerTexture",
+        "bouncerSheet",
       ) as Bouncer;
       if (bouncer) bouncer.initBouncer();
     }
