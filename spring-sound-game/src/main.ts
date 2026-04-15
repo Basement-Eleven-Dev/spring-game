@@ -24,9 +24,8 @@ const config: Phaser.Types.Core.GameConfig = {
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    // autoDensity moltiplica il canvas buffer per devicePixelRatio
-    // → buffer = GAME_WIDTH × dpr = pixel fisici esatti (niente upscale)
-    autoDensity: true,
+    // autoDensity NON funziona in Phaser 3.90: il canvas resta a 1×.
+    // Il DPR è gestito direttamente in GameConfig.ts (GAME_WIDTH = CSS_WIDTH × DPR).
   } as Phaser.Types.Core.ScaleConfig,
   render: {
     antialias: true,

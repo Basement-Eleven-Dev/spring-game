@@ -42,56 +42,58 @@ npm run build
 
 ---
 
-## � Sistema di Risoluzione Dinamica
+## 🔬 Sistema di Risoluzione Nativa (DPR-Aware)
 
-Il gioco utilizza un **sistema di risoluzione nativa** che garantisce la massima nitidezza su ogni dispositivo, eliminando completamente lo scaling del browser.
+Il gioco utilizza un **sistema di risoluzione nativa DPR-aware** che garantisce la massima nitidezza su ogni dispositivo, operando alla risoluzione fisica esatta dello schermo.
 
 ### Problema Risolto
 
-Nelle versioni precedenti, il canvas aveva dimensioni fisse (`GAME_WIDTH = 350`), causando:
+`autoDensity: true` di Phaser 3.90 **non funziona**: il canvas buffer resta a 1× risoluzione indipendentemente dalla configurazione. Su iPhone (DPR=3), un canvas di 375×640 viene upscalato dal browser a 1125×1920 pixel fisici → **sfocatura totale** su testo, sprite e SVG.
 
-- **Upscaling del browser**: su iPhone (390px CSS, dpr=3 → 1170px fisici), il buffer di 1050px veniva upscalato dell'11% → **sfocatura generale**
-- **Perdita di dettagli**: texture downscalate 51:1 (drink 1536×1536 → 30×30 display) perdevano bordi e dettagli per aliasing estremo
-- **Contrasto con UI HTML**: l'overlay "GIOCA" era nitido (risoluzione nativa), il canvas era sgranato
+### Soluzione: DPR nelle Dimensioni di Gioco
 
-### Soluzione Implementata
-
-**1. Risoluzione Dinamica** (`GameConfig.ts`)
+Incorporiamo il `devicePixelRatio` direttamente in `GAME_WIDTH`/`GAME_HEIGHT` in `GameConfig.ts`:
 
 ```typescript
-const REFERENCE_WIDTH = 350; // Risoluzione di riferimento per il bilanciamento
-const GAME_WIDTH = Math.min(window.innerWidth, 800); // Adatta al viewport (max 800)
-const S = GAME_WIDTH / REFERENCE_WIDTH; // Fattore di scala
-const r = (v: number) => Math.round(v * S); // Helper di scaling
+const DPR = window.devicePixelRatio || 1;
+const CSS_WIDTH = Math.min(window.innerWidth, 800); // Cap a 800 CSS px
+const GAME_WIDTH = Math.round(CSS_WIDTH * DPR);     // Risoluzione fisica
+const S = GAME_WIDTH / REFERENCE_WIDTH;              // Fattore di scala (include DPR)
+const r = (v: number) => Math.round(v * S);          // Helper di scaling
 ```
 
-- **iPhone 390px**: `S ≈ 1.114` → tutti i valori scalati del +11%
-- **Desktop 800px**: `S ≈ 2.286` → tutto scalato del +129%
-- Buffer canvas = `GAME_WIDTH × dpr` = pixel fisici esatti
+Il canvas opera a **risoluzione fisica nativa**. `Scale.FIT` riduce il CSS display alla dimensione viewport, dove 1 CSS pixel = DPR pixel fisici → mapping **1:1** con il buffer.
 
-**2. Scaling Automatico di Tutti i Valori**
+| Dispositivo | CSS | DPR | Buffer Canvas | Fisici | Rapporto |
+|---|---|---|---|---|---|
+| iPhone 11 Pro | 375×670 | 3 | **1125×2010** | 1125×2010 | **1:1** ✅ |
+| Desktop | 800×1200 | 1 | **800×1200** | 800×1200 | **1:1** ✅ |
+| Retina Mac | 800×1200 | 2 | **1600×2400** | 1600×2400 | **1:1** ✅ |
 
-Ogni costante spaziale usa la funzione `r()`:
+### Dettagli Tecnici
+
+**1. Scaling Automatico via `r()`**
+
+Siccome `S = GAME_WIDTH / 350` include il DPR, ogni valore scalato con `r()` produce automaticamente la dimensione fisica corretta:
 
 ```typescript
-// Prima (fisso)
-PLAYER.SIZE: 40,
-DRINK.WIDTH: 30,
+// iPhone 375px DPR=3: S = 1125/350 ≈ 3.21
+PLAYER.SIZE: r(40)  → 129 px in un canvas 1125px → 11.5% dello schermo
 
-// Dopo (dinamico)
-PLAYER.SIZE: r(40),
-DRINK.WIDTH: r(30),
+// Desktop 800px DPR=1: S = 800/350 ≈ 2.29
+PLAYER.SIZE: r(40)  → 91 px in un canvas 800px → 11.4% dello schermo
+// → Proporzioni identiche ✅
 ```
 
-**3. PNG Ridimensionati per Rapporti Sensati**
+**2. PNG con Rapporti Ottimizzati**
 
-| Asset                         | Sorgente Originale  | Ridotto a             | Rapporto Display |
-| ----------------------------- | ------------------- | --------------------- | ---------------- |
-| drink/beer                    | 1536×1536           | **512×512**           | 51:1 → **17:1**  |
-| piattaforme                   | 3200×1600           | **800×400**           | 47:1 → **9:1**   |
-| spritesheet fragile/subwoofer | 1600×400 / 3200×400 | **400×100 / 800×100** | idem             |
+| Asset                         | Sorgente | Display iPhone (r×) | Rapporto |
+| ----------------------------- | -------- | ------------------- | -------- |
+| drink/beer                    | 512×512  | ~97×97              | 5.3:1    |
+| piattaforme                   | 800×400  | ~289×109            | 2.8:1    |
+| player spritesheet            | 256×256  | ~129×129            | 2.0:1    |
 
-**4. Mipmapping + RoundPixels** (`main.ts`)
+**3. Mipmapping + RoundPixels** (`main.ts`)
 
 ```typescript
 render: {
@@ -102,9 +104,10 @@ render: {
 
 ### Risultato
 
-✅ **Nitidezza perfetta** su smartphone, tablet, desktop  
+✅ **Nitidezza perfetta** su smartphone, tablet, desktop (verificato iPhone 11 Pro + PC)  
 ✅ **Zero upscaling** — il buffer coincide con i pixel fisici  
-✅ **Performance ottimale** — nessun carico GPU aggiuntivo  
+✅ **autoDensity bypassato** — DPR gestito direttamente in GameConfig  
+✅ **Performance ottimale** — nessun overhead, il canvas è alla risoluzione nativa  
 ✅ **Gameplay identico** — le proporzioni restano invariate grazie al fattore `S`
 
 ---
@@ -115,7 +118,7 @@ Il progetto segue un'architettura **Manager Pattern**: la scena principale (`Gam
 
 ```
 src/
-├── main.ts                ← Entry point + overlay start/permesso sensore
+├── main.ts                ← Entry point (avvio diretto, nessun overlay)
 ├── GameConfig.ts          ← Costanti centralizzate (bilanciamento)
 ├── GameScene.ts           ← Scena principale (orchestratore)
 ├── GameOverScene.ts       ← Schermata di Game Over
@@ -129,7 +132,7 @@ src/
 │   ├── BackgroundManager.ts  ← Background scrollabile infinito
 │   ├── CameraManager.ts      ← Sistema 3 camere + effetti visivi (rotazione, ghosting)
 │   ├── UIManager.ts          ← Interfaccia SVG + camera UI dedicata
-│   ├── PauseMenuManager.ts   ← Menu di pausa con opzioni
+│   ├── PauseMenuManager.ts   ← Menu di pausa con opzioni + permesso accelerometro iOS
 │   ├── ScoreManager.ts       ← Calcolo punteggio (logica)
 │   ├── PartyManager.ts       ← Party level + stato wasted (logica)
 │   ├── LevelManager.ts       ← Progressione livelli + gravità
@@ -175,7 +178,7 @@ public/assets/
 
 ```
 main.ts
-  ├── Overlay HTML (start screen + permesso iOS) → startGame()
+  ├── Avvio diretto Phaser (nessun overlay)
   └── GameScene (orchestratore)
         ├── BackgroundManager ← background scrollabile infinito (depth -10)
         ├── CameraManager ← scrolling + rotazione + vista doppia (3 camere)
@@ -230,10 +233,12 @@ public/assets/ui/
 
 - Livello corrente
 - Bottone RIPRENDI (verde)
-- Toggle ACCELEROMETRO (on/off, controlla giroscopio)
+- Toggle ACCELEROMETRO (on/off, **solo su smartphone**) — gestisce anche il permesso iOS
 - Toggle AUDIO (on/off, controlla audio di gioco)
 
 Durante la pausa, fisica/animazioni/tween/orologio sono sospesi completamente.
+
+**Permesso Accelerometro iOS**: Il toggle ACCELEROMETRO nel menu di pausa sostituisce l'overlay iniziale. L'accelerometro parte **OFF** di default. Quando l'utente lo attiva su iOS, viene richiesto il permesso `DeviceOrientationEvent.requestPermission()` direttamente dal handler del tap (user gesture trusted, come richiesto da Safari). Su Android si attiva senza popup. Su desktop il toggle non è visibile.
 
 ### Come Modificare gli SVG
 
@@ -373,29 +378,30 @@ this.uiCamera.ignore(worldObjects);
 
 ### `main.ts` — Entry Point
 
-- Configurazione Phaser (dimensioni dinamiche, fisica, scene, scaling)
-- **Risoluzione nativa**: `width: GAME.WIDTH` (= `window.innerWidth`, max 800), `autoDensity: true` → buffer canvas = pixel fisici esatti
+- Configurazione Phaser (dimensioni DPR-aware, fisica, scene, scaling)
+- **Risoluzione nativa**: `width: GAME.WIDTH` (= `CSS_WIDTH × DPR`), `Scale.FIT` per adattare il CSS display al viewport
+- **Niente autoDensity**: Phaser 3.90 non supporta `autoDensity` correttamente. Il DPR è gestito in `GameConfig.ts`
 - **Rendering ottimizzato**:
   - `mipmapFilter: "LINEAR_MIPMAP_NEAREST"` — genera mipmaps per texture grandi, evita aliasing
   - `roundPixels: true` — arrotonda posizioni sprite a pixel interi, elimina blur da sub-pixel
 - Importa `GameConfig` per le costanti di dimensione e gravità
 - Registra `GameScene` e `GameOverScene`
-- **Overlay start screen**: un `<div>` HTML fullscreen con bottone **GIOCA** viene mostrato prima che Phaser venga inizializzato. Il gioco non parte fino al tap dell'utente.
-- **Permesso iOS**: se il browser espone `DeviceOrientationEvent.requestPermission` (iOS 13+), il click sul bottone chiama il metodo sincronicamente — unico modo affidabile per soddisfare il requisito "user gesture trusted" di Safari. Su Android/desktop il bottone avvia direttamente `startGame()` senza logica di permessi.
-- `startGame()` — funzione che istanzia `new Phaser.Game(config)` solo dopo l'interazione dell'utente.
+- **Avvio diretto**: `new Phaser.Game(config)` istanziato immediatamente su tutti i dispositivi. Non c'è più overlay HTML né richiesta di permesso sensore (il permesso accelerometro iOS è gestito dal toggle nel menu di pausa).
 
 ### `GameConfig.ts` — Configurazione Centralizzata
 
-**Sistema di Risoluzione Dinamica + Costanti di Bilanciamento**
+**Sistema di Risoluzione Nativa DPR-Aware + Costanti di Bilanciamento**
 
 Questo file centralizza:
 
-**Risoluzione Nativa:**
+**Risoluzione Nativa (DPR-Aware):**
 
 - `REFERENCE_WIDTH` (350) — risoluzione di riferimento su cui sono calibrati tutti i valori
-- `GAME_WIDTH` — `Math.min(window.innerWidth, 800)` — si adatta al viewport reale
-- `GAME.SCALE` — fattore di scala `S = GAME_WIDTH / 350` esportato per uso nei manager
-- `r(v)` — helper interno che scala e arrotonda: `Math.round(v * S)`
+- `DPR` — `window.devicePixelRatio || 1` — rapporto pixel fisici/CSS
+- `CSS_WIDTH` — `Math.min(window.innerWidth, 800)` — larghezza CSS cappata
+- `GAME_WIDTH` — `Math.round(CSS_WIDTH * DPR)` — larghezza in **pixel fisici**
+- `GAME.SCALE` — fattore di scala `S = GAME_WIDTH / 350` (include DPR automaticamente)
+- `r(v)` — helper che scala e arrotonda: `Math.round(v * S)`
 
 **Costanti di Bilanciamento** (tutte scalate via `r()`):
 
@@ -557,18 +563,27 @@ Gestisce il menu di pausa con overlay e opzioni di gioco:
 **Elementi UI**:
 
 - **Overlay semi-trasparente**: rettangolo blu scuro (85% opacità) che copre tutto lo schermo
-- **Container menu**: centrato sullo schermo con animazione di entrata (scale + alpha)
+- **Container menu**: centrato sullo schermo, visibilità immediata (no tween per evitare conflitti con `tweens.pauseAll()`)
 - **Titolo "PAUSA"**: font ChillPixels, colore oro, stroke nero
 - **Livello corrente**: mostra il livello attuale del giocatore
 - **Bottone RIPRENDI**: verde, riprende il gioco dalla pausa
-- **Toggle ACCELEROMETRO**: abilita/disabilita controllo giroscopio (ON/OFF)
+- **Toggle ACCELEROMETRO**: abilita/disabilita controllo giroscopio (ON/OFF) — **solo su smartphone** (`navigator.maxTouchPoints > 0`). Su desktop non viene mostrato.
 - **Toggle AUDIO**: abilita/disabilita audio di gioco (ON/OFF)
+
+**Permesso Accelerometro iOS**:
+
+- L'accelerometro parte **OFF** di default (`SETTINGS.gyroEnabled = false`)
+- Al primo toggle ON su iOS, viene richiesto `DeviceOrientationEvent.requestPermission()`
+- La chiamata avviene sincronicamente dal handler del tap (user gesture trusted per Safari)
+- Se il permesso viene negato, il toggle resta OFF
+- Su Android si attiva direttamente senza popup
+- Il permesso iOS viene cachato (`iosPermissionGranted`) per non ripetere la richiesta
 
 **Comportamento**:
 
 - **Depth 200-201**: renderizzato sopra la UI normale (100+)
 - **ScrollFactor(0)**: fisso sullo schermo, non scorre con la camera
-- **Animazioni**: entrata con Back.easeOut, uscita con Back.easeIn
+- **Visibilità diretta**: `setVisible(true/false)` + `setAlpha(1)` immediato (non tramite tween, per evitare conflitti con `tweens.pauseAll()`)
 - **Effetti hover**: i bottoni si ingrandiscono leggermente al passaggio del mouse
 - **Integrazione GameScene**: quando in pausa, fisica/animazioni/tween sono sospesi
 
@@ -581,8 +596,9 @@ Gestisce il menu di pausa con overlay e opzioni di gioco:
 
 **Configurazione Camere**:
 
+- UIManager filtra per depth (≥100) anziché lista hardcoded per includere automaticamente tutti gli elementi UI
 - Il menu viene creato dopo l'inizializzazione delle camere
-- Metodo `reconfigureCameras()` in UIManager assicura che il menu sia visibile
+- `reconfigureCameras()` in UIManager assicura che il menu sia visibile
 - Main camera ignora il menu di pausa per evitare effetti di rotazione
 
 ### `

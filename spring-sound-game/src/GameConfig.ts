@@ -4,34 +4,59 @@
  * Tutte le costanti di bilanciamento, dimensioni e probabilità
  * risiedono qui. Modifica questi valori per calibrare il gameplay.
  *
- * RISOLUZIONE DINAMICA
- * --------------------
- * GAME_WIDTH = window.innerWidth (max 800) anziché il vecchio 350 fisso.
- * Con autoDensity: true, Phaser crea un buffer = GAME_WIDTH × dpr che ora
- * coincide esattamente coi pixel fisici del display → zero upscaling → nitido.
+ * RISOLUZIONE NATIVA (DPR-AWARE)
+ * --------------------------------
+ * GAME_WIDTH = CSS_WIDTH × devicePixelRatio
  *
- * Per mantenere le stesse proporzioni visive, tutti i valori spaziali
- * sono moltiplicati per S = GAME_WIDTH / 350 (la risoluzione di riferimento).
+ * Phaser 3.90 non supporta correttamente autoDensity: il canvas buffer
+ * resta a 1× risoluzione anche con autoDensity: true. Su iPhone (DPR=3)
+ * questo causa un upscale 3× da parte del browser → sfocatura totale.
+ *
+ * Soluzione: incorporiamo il DPR direttamente nelle dimensioni del gioco.
+ * Il canvas opera a risoluzione fisica nativa (1125×1920 su iPhone 375px DPR=3).
+ * Scale.FIT riduce il CSS display a 375×640 CSS = 1125×1920 fisici → 1:1 → nitido.
+ *
+ * Siccome tutti i valori spaziali usano r(v) = v × S, e S = GAME_WIDTH / 350,
+ * moltiplicare GAME_WIDTH per DPR scala automaticamente tutto in modo proporzionale.
+ * Le proporzioni di gioco (salto, gravità, dimensioni) restano identiche.
  */
 
-// --- Dimensioni del gioco (responsive) ---
+// --- Dimensioni del gioco (responsive + DPR) ---
 
 /** Larghezza di riferimento su cui sono stati calibrati tutti i valori originali. */
 const REFERENCE_WIDTH = 350;
 
 /**
- * Larghezza logica del mondo di gioco: usa la larghezza reale del viewport
- * (cappata a 800 per evitare buffer enormi su desktop ultra-wide).
- * Su smartphone coincide con la larghezza CSS → buffer = pixel fisici esatti.
+ * Device Pixel Ratio: quanti pixel fisici per pixel CSS.
+ * iPhone: 3, Android: 2-3, Desktop: 1 (retina Mac: 2).
  */
-const GAME_WIDTH =
+const DPR =
+  typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+
+/**
+ * Larghezza CSS del viewport, cappata a 800 CSS px per evitare
+ * buffer enormi su desktop ultra-wide.
+ */
+const CSS_WIDTH =
   typeof window !== "undefined"
     ? Math.min(window.innerWidth, 800)
     : REFERENCE_WIDTH;
 
 /**
+ * Larghezza del mondo di gioco in PIXEL FISICI.
+ * Su iPhone 375px DPR=3: 375 × 3 = 1125 pixel.
+ * Su desktop 800px DPR=1: 800 × 1 = 800 pixel.
+ * Il canvas opera a questa risoluzione → nessun upscale del browser → nitido.
+ */
+const GAME_WIDTH = Math.round(CSS_WIDTH * DPR);
+
+/**
  * Fattore di scala: converte i valori calibrati a 350 nella risoluzione corrente.
- * Es. su iPhone 390px → S ≈ 1.114. Su desktop cappato a 800 → S ≈ 2.286.
+ * Include automaticamente il DPR: la stessa formula r(v) scala tutto
+ * proporzionalmente sia per il viewport (CSS) sia per la densità (DPR).
+ *
+ * Es. su iPhone 375px DPR=3 → S = 1125/350 ≈ 3.21
+ * Es. su desktop 800px DPR=1 → S = 800/350 ≈ 2.29
  */
 const S = GAME_WIDTH / REFERENCE_WIDTH;
 
@@ -39,7 +64,8 @@ const S = GAME_WIDTH / REFERENCE_WIDTH;
 const r = (v: number) => Math.round(v * S);
 
 /**
- * Calcola l'altezza del canvas in base all'aspect ratio del dispositivo.
+ * Calcola l'altezza del canvas in pixel fisici, basata sull'aspect ratio
+ * CSS del dispositivo (innerHeight / innerWidth) applicata a GAME_WIDTH.
  * Su smartphone moderni (19.5:9) il gioco riempie lo schermo verticalmente.
  * Su tablet/desktop viene clampato a un ratio ragionevole.
  */

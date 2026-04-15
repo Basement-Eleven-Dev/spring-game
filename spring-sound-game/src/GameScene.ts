@@ -156,6 +156,7 @@ export class GameScene extends Phaser.Scene {
    * Crea manager, piattaforme, giocatore e registra i collider.
    */
   create(): void {
+
     // --- Pulizia di eventuali listener da run precedenti ---
     this.events.off("wasted-ready");
 

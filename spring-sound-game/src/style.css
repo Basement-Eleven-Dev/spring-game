@@ -35,5 +35,11 @@ body {
 }
 
 #game-container {
+  /* Il body gestisce il centering via flex.
+     Phaser autoCenter + Scale.FIT posizionano il canvas internamente. */
+  display: block;
+}
+
+#game-container canvas {
   display: block;
 }

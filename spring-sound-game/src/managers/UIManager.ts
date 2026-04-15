@@ -422,7 +422,10 @@ export class UIManager {
 
   /**
    * Metodo statico per caricare gli asset SVG nel preload della scene.
-   * Carica con dimensioni scalate per evitare sgranature.
+   *
+   * Le dimensioni usano r() che già include il DPR (via GAME.SCALE).
+   * Il canvas opera a risoluzione fisica nativa, quindi r(size) produce
+   * il numero esatto di pixel necessari → nessun upscale → perfettamente nitido.
    */
   public static preloadAssets(scene: Phaser.Scene): void {
     const r = (v: number) => Math.round(v * GAME.SCALE);
