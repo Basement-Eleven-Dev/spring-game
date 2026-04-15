@@ -29,6 +29,8 @@ export class Platform extends Phaser.Physics.Arcade.Sprite {
 
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string) {
     super(scene, x, y, texture);
+    // Depth basso: le piattaforme stanno sotto il player (depth 5)
+    this.setDepth(1);
   }
 
   /**

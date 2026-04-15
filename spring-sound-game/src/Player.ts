@@ -53,6 +53,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
 
     this.setDisplaySize(PLAYER.SIZE, PLAYER.SIZE);
+    // Depth alto: il player appare sempre sopra le piattaforme (depth 1)
+    this.setDepth(5);
 
     if (scene.input.keyboard) {
       this.cursors = scene.input.keyboard.createCursorKeys();
@@ -195,11 +197,14 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       }
 
       // Rimbalzo sul bordo inferiore (per evitare morte istantanea)
-      const bottomY = this.scene.cameras.main.scrollY + this.scene.cameras.main.height - (this.displayHeight / 2);
+      const bottomY =
+        this.scene.cameras.main.scrollY +
+        this.scene.cameras.main.height -
+        this.displayHeight / 2;
       if (this.y >= bottomY) {
         this.y = bottomY - 1;
         this.setVelocityY(
-          -Math.abs(this.body.velocity.y) * BOUNCER.PINBALL_BOUNCE_DAMPING
+          -Math.abs(this.body.velocity.y) * BOUNCER.PINBALL_BOUNCE_DAMPING,
         );
         // Perturbazione laterale
         this.setVelocityX(
@@ -207,7 +212,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
             Phaser.Math.Between(
               -BOUNCER.PINBALL_Y_PERTURBATION,
               BOUNCER.PINBALL_Y_PERTURBATION,
-            )
+            ),
         );
       }
 
@@ -237,23 +242,25 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
+    // --- RILEVAMENTO INPUT RAW + FLIP ISTANTANEO ---
     let targetSpeed = 0;
+    const oldFacing = this.facingRight;
 
     const pointer = this.scene.input.activePointer;
     const isTouching = pointer.isDown;
 
     // 1. INPUT TOUCH — priorità massima: sovrascrive tastiera e gyro
     if (isTouching) {
-      targetSpeed =
-        pointer.x < this.scene.cameras.main.width / 2
-          ? -PLAYER.MOVE_SPEED
-          : PLAYER.MOVE_SPEED;
+      const isLeftSide = pointer.x < this.scene.cameras.main.width / 2;
+      this.facingRight = !isLeftSide; // Flip ISTANTANEO
+      targetSpeed = isLeftSide ? -PLAYER.MOVE_SPEED : PLAYER.MOVE_SPEED;
     }
     // 2. INPUT DEVICE ORIENTATION (gamma = inclinazione sx/dx)
     // Si attiva solo se non si sta toccando lo schermo, così touch e gyro
     // non si ostacolano. La velocità è proporzionale all'angolo tra
     // DEADZONE e MAX_TILT.
     else if (Math.abs(this.gyroGamma) > PLAYER.GYRO_DEADZONE) {
+      this.facingRight = this.gyroGamma > 0; // Flip ISTANTANEO
       const range = PLAYER.GYRO_MAX_TILT - PLAYER.GYRO_DEADZONE;
       const tilt = Math.abs(this.gyroGamma) - PLAYER.GYRO_DEADZONE;
       const ratio = Math.min(tilt / range, 1);
@@ -261,9 +268,28 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
     // 3. INPUT TASTIERA (PC)
     else if (this.cursors.left.isDown) {
+      this.facingRight = false; // Flip ISTANTANEO
       targetSpeed = -PLAYER.MOVE_SPEED;
     } else if (this.cursors.right.isDown) {
+      this.facingRight = true; // Flip ISTANTANEO
       targetSpeed = PLAYER.MOVE_SPEED;
+    }
+
+    // --- AGGIORNA TEXTURE SE LA DIREZIONE È CAMBIATA ---
+    if (oldFacing !== this.facingRight) {
+      if (this.showingFallFrame) {
+        // Sta cadendo: aggiorna il frame di discesa nella nuova direzione
+        const fallSheet = this.facingRight
+          ? "playerJumpRight"
+          : "playerJumpLeft";
+        this.setTexture(fallSheet, 3);
+      } else if (this.anims.isPlaying) {
+        // Sta saltando: replay l'animazione di salto nella nuova direzione
+        const animKey = this.facingRight
+          ? "playerJumpUpRight"
+          : "playerJumpUpLeft";
+        this.play(animKey, true);
+      }
     }
 
     // --- EFFETTO INERZIA DA UBRIACHEZZA ---
@@ -278,13 +304,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setVelocityX(
       Phaser.Math.Linear(currentSpeed, targetSpeed, lerpFactor),
     );
-
-    // --- AGGIORNAMENTO DIREZIONE (per animazione salto) ---
-    if (this.body.velocity.x > 10) {
-      this.facingRight = true;
-    } else if (this.body.velocity.x < -10) {
-      this.facingRight = false;
-    }
 
     // --- FRAME DI DISCESA (braccia alzate) ---
     // Quando il player sta cadendo (velocityY > 0), mostra il frame 3 dello sheet
