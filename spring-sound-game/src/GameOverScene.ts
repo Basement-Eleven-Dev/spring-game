@@ -52,7 +52,7 @@ export class GameOverScene extends Phaser.Scene {
 
     // --- Titolo ---
     const titleText = this.add
-      .text(cx, cy - r(180), isTimeout ? "04:00" : "GAME OVER", {
+      .text(cx, cy - r(180), isTimeout ? "02:00" : "GAME OVER", {
         fontFamily: "ChillPixels",
         fontSize: isTimeout ? `${r(52)}px` : `${r(44)}px`,
         color: isTimeout ? "#ffd700" : "#ff4455",

@@ -841,7 +841,7 @@ Oltre allo scaling progressivo per la salita verticale (diviso da moltiplicatori
 - **+150pt**: Raccolta drink fermo
 - **+350pt**: Riflesso su drink in caduta al volo
 - **+600pt**: "Stomp" stile Super-Mario sulla testa del Buttafuori
-- **+15.000pt [Survival Bonus]**: Sopravvivi al Game-Over timeout senza morire nel pozzo fino alle 04:00 (fine orologio narrativo).
+- **+15.000pt [Survival Bonus]**: Sopravvivi al Game-Over timeout senza morire nel pozzo fino alle 02:00 (fine orologio narrativo).
 
 ### `SpawnManager` — Spawning/Riciclo/Pulizia
 
