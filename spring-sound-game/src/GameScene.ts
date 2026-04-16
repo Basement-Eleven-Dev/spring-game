@@ -160,14 +160,29 @@ export class GameScene extends Phaser.Scene {
       "pauseLogo",
       "/assets/ui/gamestart-over-pause/logo pixel.svg",
       {
-        width: 120,
-        height: 120,
+        width: 80,
+        height: 80,
       },
     );
     this.load.svg("pausePlayIcon", "/assets/ui/play.svg", {
       width: 24,
       height: 24,
     });
+    this.load.svg(
+      "pauseBlockRed",
+      "/assets/ui/gamestart-over-pause/block_red.svg",
+      { width: 240, height: 60 },
+    );
+    this.load.svg(
+      "pauseBlockWhite",
+      "/assets/ui/gamestart-over-pause/block_white.svg",
+      { width: 240, height: 60 },
+    );
+    this.load.svg(
+      "pauseBlockBlue",
+      "/assets/ui/gamestart-over-pause/block_blue.svg",
+      { width: 240, height: 60 },
+    );
     this.load.image("pauseGrass", "/assets/ui/gamestart-over-pause/grass.png");
     this.load.svg("pauseSpring", "/assets/ui/gamestart-over-pause/spring.svg", {
       width: 150,

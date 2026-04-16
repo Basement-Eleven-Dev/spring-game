@@ -76,47 +76,60 @@ export class PauseMenuManager {
       .setVisible(false);
 
     // --- LOGO ---
-    // Cerchio beige di sfondo
+    // Cerchio beige di sfondo (ridotto ulteriormente)
     const logoCircle = this.scene.add
-      .circle(0, r(-220), r(70), 0xf8f0cd)
+      .circle(0, r(-240), r(45), 0xf8f0cd)
       .setStrokeStyle(r(3), 0x000000);
     this.menuContainer.add(logoCircle);
 
-    // Logo sopra il cerchio
+    // Logo sopra il cerchio (ridotto)
     const logo = this.scene.add
-      .image(0, r(-220), "pauseLogo")
-      .setDisplaySize(r(110), r(110));
+      .image(0, r(-240), "pauseLogo")
+      .setDisplaySize(r(70), r(70));
     this.menuContainer.add(logo);
 
     // --- Bottone RIPRENDI ---
-    const resumeBtn = this.createButtonWithIcon(
+    const resumeBtn = this.createButtonWithBlock(
       0,
       r(-150),
       "RIPRENDI",
-      0xff4b1e,
+      "pauseBlockRed",
       "pausePlayIcon",
       () => this.onResume?.(),
     );
     this.menuContainer.add(resumeBtn);
 
     // --- Bottone NUOVA PARTITA ---
-    const restartBtn = this.createSimpleButton(
+    const restartBtn = this.createButtonWithBlock(
       0,
       r(-70),
       "NUOVA PARTITA",
-      0xf8f0cd,
+      "pauseBlockWhite",
+      null,
       () => this.onRestart?.(),
     );
     this.menuContainer.add(restartBtn);
 
     // --- Blocco COMANDI (solo su mobile) ---
     if (this.isMobile) {
+      // Testo "COMANDI" sopra il blocco
+      const commandsLabel = this.scene.add
+        .text(0, r(-15), "COMANDI", {
+          fontFamily: "ChillPixels",
+          fontSize: `${r(14)}px`,
+          color: "#ffffff",
+          fontStyle: "bold",
+        })
+        .setOrigin(0.5);
+      this.menuContainer.add(commandsLabel);
+
       // Blocco cliccabile TAP DITO / MOVIMENTO
-      const controlBtn = this.createControlButton(
+      const controlBtn = this.createButtonWithBlock(
         0,
-        r(10),
+        r(15),
         SETTINGS.gyroEnabled ? "MOVIMENTO" : "TAP DITO",
-        0x118dfc,
+        "pauseBlockBlue",
+        null,
         () => this.switchControlMode(),
       );
       this.menuContainer.add(controlBtn);
@@ -268,208 +281,65 @@ export class PauseMenuManager {
   }
 
   /**
-   * Crea bottone con icona (RIPRENDI)
+   * Crea bottone con blocco SVG
    */
-  private createButtonWithIcon(
+  private createButtonWithBlock(
     x: number,
     y: number,
     label: string,
-    color: number,
-    iconKey: string,
+    blockKey: string,
+    iconKey: string | null,
     onClick: () => void,
   ): Phaser.GameObjects.Container {
     const r = this.r;
     const container = this.scene.add.container(x, y);
 
-    // Background con bordi neri e angoli leggermente arrotondati
-    const graphics = this.scene.add.graphics();
-    const width = r(240);
-    const height = r(60);
-    const radius = r(8); // Angoli leggermente arrotondati
+    // Blocco SVG
+    const block = this.scene.add
+      .image(0, 0, blockKey)
+      .setDisplaySize(r(240), r(60));
+    container.add(block);
 
-    // Disegna il rettangolo arrotondato
-    graphics.fillStyle(color, 1);
-    graphics.fillRoundedRect(-width / 2, -height / 2, width, height, radius);
+    // Icona (opzionale)
+    if (iconKey) {
+      const icon = this.scene.add
+        .image(r(-70), r(-2), iconKey) // Più a sinistra e leggermente più in alto
+        .setDisplaySize(r(30), r(30)); // Icona più grande
+      container.add(icon);
 
-    // Bordi neri: sottile sui lati e sopra, più spesso sotto
-    graphics.lineStyle(r(2), 0x000000, 1);
-    graphics.strokeRoundedRect(
-      -width / 2,
-      -height / 2,
-      width,
-      height - r(2),
-      radius,
-    );
-    graphics.lineStyle(r(4), 0x000000, 1);
-    graphics.beginPath();
-    graphics.moveTo(-width / 2 + radius, height / 2);
-    graphics.lineTo(width / 2 - radius, height / 2);
-    graphics.strokePath();
+      // Testo spostato a destra per fare spazio all'icona
+      const text = this.scene.add
+        .text(r(-36), r(-2), label, {
+          fontFamily: "ChillPixels",
+          fontSize: `${r(20)}px`,
+          color: "#000000", // Testo nero per RIPRENDI
+          fontStyle: "bold",
+        })
+        .setOrigin(0, 0.5);
+      container.add(text);
+    } else {
+      // Testo centrato (nessuna icona)
+      // Nero per blocchi bianco e blu
+      const textColor =
+        blockKey === "pauseBlockWhite" || blockKey === "pauseBlockBlue"
+          ? "#000000"
+          : "#ffffff";
+      const text = this.scene.add
+        .text(0, r(-3), label, {
+          // Alzato di 3px per compensare l'ombra
+          fontFamily: "ChillPixels",
+          fontSize: `${r(20)}px`,
+          color: textColor,
+          fontStyle: "bold",
+        })
+        .setOrigin(0.5);
+      container.add(text);
+    }
 
-    container.add(graphics);
-
-    // Icona play
-    const icon = this.scene.add
-      .image(r(-50), 0, iconKey)
-      .setDisplaySize(r(20), r(20))
-      .setTint(0xffffff);
-    container.add(icon);
-
-    // Testo
-    const text = this.scene.add
-      .text(r(-20), 0, label, {
-        fontFamily: "ChillPixels",
-        fontSize: `${r(20)}px`,
-        color: "#ffffff",
-        fontStyle: "bold",
-      })
-      .setOrigin(0, 0.5);
-    container.add(text);
-
-    container.setSize(width, height);
+    container.setSize(r(240), r(60));
     container.setInteractive({ useHandCursor: true });
 
     // Hover effects
-    container.on("pointerover", () => {
-      container.setScale(1.03);
-    });
-
-    container.on("pointerout", () => {
-      container.setScale(1);
-    });
-
-    container.on("pointerdown", () => {
-      container.setScale(0.97);
-    });
-
-    container.on("pointerup", () => {
-      container.setScale(1);
-      onClick();
-    });
-
-    return container;
-  }
-
-  /**
-   * Crea bottone semplice (NUOVA PARTITA)
-   */
-  private createSimpleButton(
-    x: number,
-    y: number,
-    label: string,
-    color: number,
-    onClick: () => void,
-  ): Phaser.GameObjects.Container {
-    const r = this.r;
-    const container = this.scene.add.container(x, y);
-
-    const graphics = this.scene.add.graphics();
-    const width = r(240);
-    const height = r(60);
-    const radius = r(8);
-
-    graphics.fillStyle(color, 1);
-    graphics.fillRoundedRect(-width / 2, -height / 2, width, height, radius);
-
-    graphics.lineStyle(r(2), 0x000000, 1);
-    graphics.strokeRoundedRect(
-      -width / 2,
-      -height / 2,
-      width,
-      height - r(2),
-      radius,
-    );
-    graphics.lineStyle(r(4), 0x000000, 1);
-    graphics.beginPath();
-    graphics.moveTo(-width / 2 + radius, height / 2);
-    graphics.lineTo(width / 2 - radius, height / 2);
-    graphics.strokePath();
-
-    container.add(graphics);
-
-    const text = this.scene.add
-      .text(0, 0, label, {
-        fontFamily: "ChillPixels",
-        fontSize: `${r(20)}px`,
-        color: "#000000",
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5);
-    container.add(text);
-
-    container.setSize(width, height);
-    container.setInteractive({ useHandCursor: true });
-
-    container.on("pointerover", () => {
-      container.setScale(1.03);
-    });
-
-    container.on("pointerout", () => {
-      container.setScale(1);
-    });
-
-    container.on("pointerdown", () => {
-      container.setScale(0.97);
-    });
-
-    container.on("pointerup", () => {
-      container.setScale(1);
-      onClick();
-    });
-
-    return container;
-  }
-
-  /**
-   * Crea blocco controlli (TAP DITO / MOVIMENTO)
-   */
-  private createControlButton(
-    x: number,
-    y: number,
-    label: string,
-    color: number,
-    onClick: () => void,
-  ): Phaser.GameObjects.Container {
-    const r = this.r;
-    const container = this.scene.add.container(x, y);
-
-    const graphics = this.scene.add.graphics();
-    const width = r(240);
-    const height = r(60);
-    const radius = r(8);
-
-    graphics.fillStyle(color, 1);
-    graphics.fillRoundedRect(-width / 2, -height / 2, width, height, radius);
-
-    graphics.lineStyle(r(2), 0x000000, 1);
-    graphics.strokeRoundedRect(
-      -width / 2,
-      -height / 2,
-      width,
-      height - r(2),
-      radius,
-    );
-    graphics.lineStyle(r(4), 0x000000, 1);
-    graphics.beginPath();
-    graphics.moveTo(-width / 2 + radius, height / 2);
-    graphics.lineTo(width / 2 - radius, height / 2);
-    graphics.strokePath();
-
-    container.add(graphics);
-
-    const text = this.scene.add
-      .text(0, 0, label, {
-        fontFamily: "ChillPixels",
-        fontSize: `${r(20)}px`,
-        color: "#ffffff",
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5);
-    container.add(text);
-
-    container.setSize(width, height);
-    container.setInteractive({ useHandCursor: true });
-
     container.on("pointerover", () => {
       container.setScale(1.03);
     });
