@@ -643,6 +643,15 @@ Orchestratore che:
 | `fragile`   | `platform_cassa_rotta_sheet.png` (2 frame)        | compact 70×32              | Animazione di rottura al contatto, poi distruzione                                |
 | `subwoofer` | `subwoofer_sheet.png` (4 frame)                   | 60×32                      | Loop animazione "cassa che pompa", salto potenziato (×1.7)                        |
 
+### `Card.ts` — Achievements (Collezionabili)
+
+- **Cards**: Oggetti rari che cadono dall'alto (`FALLING_SPEED` e `WIDTH`/`HEIGHT` inferiori ai classici Drink per essere resi più piccoli e riconoscibili).
+- **Hard-cap per Partita**: Possono scendere al massimo **5 cards in un'unica partita** (valore personalizzabile in `GameConfig`). La limitazione è gestita direttamente in `SpawnManager` con la variabile `cardsSpawnedThisRun`.
+- **Diluizione sui Livelli**: Vengono spawnate in modo estremamente dilatato (intervalli random molto ampi) sparpagliandosi così lungo i primi 12 livelli del gioco.
+- **Persistenza**: Implementato il salvataggio progressivo via **localStorage**.
+- **Schermata GameOver**: I risultati raccolti verranno comunicati automaticamente nella statistica dei contatori a *Pagina 1* e presentati visivamente negli appositi 5 slot a *Pagina 2* della dashboard. All'interno della quale, gli slot dei soli oggetti presi presenteranno la relativa icona visibile, gli altri un semplice placeholder.
+- **Rotazione**: Incorporano un'animazione nativa via modulo `preUpdate`, avvitandosi morbidamente lungo l'asse mentre piovono sul livello.
+
 ### `Bouncer.ts` — Buttafuori
 
 - Posizionato su un **bordo** (sx o dx, casuale) delle piattaforme standard e fragili

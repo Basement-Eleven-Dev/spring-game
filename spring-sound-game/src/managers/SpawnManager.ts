@@ -46,6 +46,7 @@ export class SpawnManager {
   /** Y dell'ultimo subwoofer spawnato — per evitare clustering */
   private lastSubwooferSpawnY: number = -Infinity;
   private lastCardSpawnY: number = INITIAL.PLAYER_START_Y;
+  private cardsSpawnedThisRun: number = 0;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -146,6 +147,7 @@ export class SpawnManager {
     this.lastPlatformX = GAME.WIDTH / 2;
     this.lastDrinkSpawnY = INITIAL.PLAYER_START_Y;
     this.lastCardSpawnY = INITIAL.PLAYER_START_Y;
+    this.cardsSpawnedThisRun = 0;
   }
 
   /**
@@ -700,15 +702,14 @@ export class SpawnManager {
       this.lastDrinkSpawnY = highestYReached;
     }
 
-    // Spawn delle card nei primi 12 livelli: uno circa ogni livello / livello e mezzo
-    // Facciamo un intervallo di spawn molto alto per averne ~5 nei 12 livelli
-    // Il livello è lungo circa GAME.HEIGHT * qualcosa. 
-    // Mettiamo un intervallo ampio, es r(2000) o simile
-    if (level <= 12) {
-      const cardInterval = this.r(1500 + Math.random() * 500); 
+    // Spawn delle card nei primi 12 livelli: limitate a un massimo di 5 per run.
+    // Usiamo un intervallo molto più grande (es. ~3000/4000) così da distribuirle sui livelli.
+    if (level <= 12 && this.cardsSpawnedThisRun < 5) {
+      const cardInterval = this.r(3500 + Math.random() * 1500); 
       if (highestYReached < this.lastCardSpawnY - cardInterval) {
          this.spawnFallingCard(camScrollY);
          this.lastCardSpawnY = highestYReached;
+         this.cardsSpawnedThisRun++;
       }
     }
   }
