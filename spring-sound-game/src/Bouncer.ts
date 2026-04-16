@@ -38,6 +38,7 @@ export class Bouncer extends Phaser.Physics.Arcade.Sprite {
   public initBouncer(): void {
     this.setOrigin(0.5, 1);
     this.setDisplaySize(BOUNCER.WIDTH, BOUNCER.HEIGHT);
+    this.setDepth(12);
 
     if (this.body) {
       this.body.setSize(this.width, this.height);

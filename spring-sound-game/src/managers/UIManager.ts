@@ -267,7 +267,7 @@ export class UIManager {
    * Aggiorna l'icona orario in base alla fascia oraria.
    * - Day:    16:00 - 19:00 (0 - 180 min)
    * - Sunset: 19:00 - 23:00 (180 - 420 min)
-   * - Night:  23:00 - 04:00 (420+ min)
+   * - Night:  23:00 - 02:00 (420+ min)
    */
   private updateTimeIcon(clockMinutes: number): void {
     let newPhase: "day" | "sunset" | "night";

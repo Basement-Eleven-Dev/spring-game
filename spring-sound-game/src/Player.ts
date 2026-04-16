@@ -53,8 +53,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
 
     this.setDisplaySize(PLAYER.SIZE, PLAYER.SIZE);
-    // Depth alto: il player appare sempre sopra le piattaforme (depth 1)
-    this.setDepth(5);
+    // Depth alto: il player appare sempre sopra a drink (15), bouncer (12) e piattaforme (0)
+    this.setDepth(20);
 
     if (scene.input.keyboard) {
       this.cursors = scene.input.keyboard.createCursorKeys();

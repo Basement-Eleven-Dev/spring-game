@@ -29,6 +29,7 @@ export class Drink extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
 
     this.setDisplaySize(DRINK.WIDTH, DRINK.HEIGHT);
+    this.setDepth(15); // Davanti a piattaforme e Bouncer
   }
 
   /**
