@@ -514,9 +514,9 @@ Questo file centralizza:
 - `PLATFORM` — dimensioni per categoria (wide `r(90)×r(34)`, compact `r(70)×r(32)`, subwoofer `r(60)×r(32)`), spacing, probabilità di spawn, frame dimensions per spritesheet
 - `PLATFORM_TEXTURE_CATEGORY` — mappa texture → categoria dimensionale
 - `PLATFORM_STANDARD_TEXTURES` — lista texture per varianti standard/mobili
-- `MUD` — larghezza (`r(45)`, metà piattaforma wide), probabilità, offset specifici per texture (ubriaco: destra, erba: randomizzato)
-- `DRINK` — dimensioni (`r(30)×r(30)`), intervallo spawn (`r(300)`), velocità caduta (`r(110)`), guadagno party
-- `BOUNCER` — dimensioni (`r(42)×r(54)`), forze (`r(300)`, `r(650)`), durata pinball, perturbazione Y (`r(120)`)
+- `MUD` — larghezza (`r(45)`, metà piattaforma wide), probabilità progressiva dal livello 3 (5% base + 5%/livello, max 40%), offset specifici per texture (ubriaco: destra, erba: randomizzato)
+- `DRINK` — dimensioni (`r(30)×r(30)`), probabilità per livello (20% lvl1 → 9% lvl7+), drink cadenti dal livello 2, intervallo spawn (`r(300)`), velocità caduta (`r(110)`), guadagno party
+- `BOUNCER` — dimensioni (`r(42)×r(54)`), probabilità progressiva dal livello 4 (5% base + 5%/livello, max 35%), forze (`r(300)`, `r(650)`), durata pinball, perturbazione Y (`r(120)`)
 - `PARTY` — dimensioni barra (`r(140)×r(14)`), soglie colore, moltiplicatori punteggio
 - `LEVEL` — offset DJ stage (`r(180)`), spacing, bonus
 - `JUMP_MULTIPLIERS` — normale (×1), subwoofer (×1.7), fango (×0.75)
@@ -577,7 +577,7 @@ Orchestratore che:
 ### `Bouncer.ts` — Buttafuori
 
 - Posizionato su un **bordo** (sx o dx, casuale) delle piattaforme standard e fragili
-- Appare dal livello 1, con probabilità crescente: `15% + 4%/livello` (max 40%)
+- Appare dal **livello 4**, inizialmente rarissimo poi cresce: `5% base + 5%/livello` (max 35%)
 - **Nemico difensivo ma eludibile**:
   1.  **Super Mario Stomp**: se il giocatore cade sopra la sua testa, annulla la presa avversaria, schiaccia fisicamente il PNG e lo distrugge, ottenendo punti bonus (+300) ed uno slancio verticale salvifico.
   2.  **Flusso Grab-Throw**: - **Presa**: Se intercettato di lato/fondo ostacola il player congelandolo in aria. - **Animazione Lancio**: Esegue stringa animazione `bouncerThrow` per ~500ms. - **Lancio "Intelligente"**: Scaglia il giocatore impostando la fase di vulnerabilità **pinball**: - Se il giocatore è nella parte alta della telecamera, lo lancia verso il basso. - Se il giocatore è nella parte bassa (a serio rischio morte), lo sbalza verso l'**alto** ad altissima velocità scongiurando loop involontari. - **Scomparsa**: Dopo il lancio, il Buttafuori innesca un fadeout autonomo disabilitando eventuali ulteriori blocchi al player.
@@ -750,6 +750,93 @@ Gestisce il menu di pausa con overlay e opzioni di gioco:
 
 - **Gravità logaritmica**: `BASE × (1 + 0.22 × ln(livello))`. Gestisce la complessa scalatura matematica dell'engine limitando l'ingovernabilità del balzo via via all'ascesa limitando pesi estremi
 - **Visual "LEVEL X!"**: animazione scalata dinamicamente per ogni risoluzione
+- **Curva di difficoltà progressiva**: ogni livello introduce nuovi elementi in modo didattico (vedi sezione Progressione Gameplay sotto)
+
+---
+
+## 🎯 Progressione Gameplay per Livello
+
+Il gioco introduce gradualmente meccaniche e ostacoli per una curva di apprendimento bilanciata:
+
+### **Livello 1: Fondamenta**
+
+_"Impara a saltare e raccogliere drink"_
+
+- **Piattaforme**: Solo wide standard (erba/ubriaco) - 100%
+- **Spacing**: Generoso (70-130px invece di 55-115px)
+- **Drink**: Abbondanti su piattaforme (20%) - NO drink cadenti
+- **Gravità**: Base (750)
+- **Obiettivo**: Timing del salto, raccolta drink, party level
+
+### **Livello 2: Varietà**
+
+_"Piattaforme diverse e primi drink dall'alto"_
+
+- **Piattaforme**: Wide 60%, Compact 30%, Moving 10%
+- **Spacing**: Intermedio (65-125px)
+- **Drink**: 18% su piattaforme + **drink cadenti** (ogni 350px)
+- **Gravità**: +15%
+- **Obiettivo**: Adattamento a piattaforme mobili e più piccole
+
+### **Livello 3: Subwoofer + Fango**
+
+_"Il trampolino ti aiuta, il fango rallenta"_
+
+- **Piattaforme**: Wide 45%, Compact 25%, Moving 15%, **Subwoofer 15%**
+- **Spacing**: Normale (55-115px)
+- **Drink**: 14% piattaforme, cadenti ogni 300px
+- **Fango**: Primo ostacolo! 5% (rarissimo all'inizio)
+- **Gravità**: +25%
+- **Obiettivo**: Sfruttare i subwoofer, iniziare a evitare il fango
+
+### **Livello 4: Fragili + Bouncer**
+
+_"Piattaforme che si rompono e primi buttafuori"_
+
+- **Piattaforme**: Wide 40%, Compact 20%, Moving 15%, Subwoofer 10%, **Fragile 15%**
+- **Drink**: 12% piattaforme, cadenti ogni 280px
+- **Fango**: ~10% (più frequente)
+- **Bouncer**: Primi nemici! 5% (rarissimi all'inizio)
+- **Gravità**: +35%
+- **Obiettivo**: Precisione nel salto, evitare bouncer o schiacciarli
+
+### **Livello 5: Intensificazione**
+
+_"Ostacoli più frequenti"_
+
+- **Piattaforme**: Wide 39%, Compact 20%, Moving 15%, Subwoofer 8%, Fragile 18%
+- **Drink**: 11% piattaforme, cadenti ogni 260px
+- **Fango**: ~15% (moderato)
+- **Bouncer**: ~10% (occasionali)
+- **Gravità**: +45%
+- **Obiettivo**: Gestione di più ostacoli contemporaneamente
+
+### **Livello 6: Sfida Completa**
+
+_"Tutti gli elementi attivi"_
+
+- **Piattaforme**: Wide 38%, Compact 20%, Moving 15%, Subwoofer 7%, Fragile 20%
+- **Drink**: 10% piattaforme, cadenti ogni 250px
+- **Fango**: ~20% (frequente)
+- **Bouncer**: ~15% (frequenti)
+- **Gravità**: +55%
+
+### **Livello 7+: Inferno Progressivo**
+
+_"Densità crescente fino al limite"_
+
+- **Drink**: 9% piattaforme, cadenti ogni 240px
+- **Fango**: Cresce progressivamente fino a 40% max
+- **Bouncer**: Cresce progressivamente fino a 35% max
+- **Fragile**: Cresce fino a 25% max
+- **Gravità**: Continua a salire logaritmicamente
+
+**Note tecniche**:
+
+- Gli spacing tornano normali dal livello 3 (55-115px)
+- I drink cadenti hanno intervalli decrescenti per aumentare il ritmo
+- La probabilità dei drink su piattaforme decresce per bilanciare i cadenti
+- Max 1 bouncer attivo a schermo, con distanza minima tra spawn consecutivi
 
 ### `SpawnManager` — Spawning/Riciclo/Pulizia
 

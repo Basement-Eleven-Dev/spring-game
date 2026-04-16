@@ -105,13 +105,23 @@ export class SpawnManager {
       basePlatform.body.setSize(basePlatform.width, basePlatform.height);
     }
 
+    // Spacing variabile per livello (come in spawnPlatform)
+    let spacingMin: number, spacingMax: number;
+    if (level === 1) {
+      spacingMin = PLATFORM.SPACING_MIN_LVL1;
+      spacingMax = PLATFORM.SPACING_MAX_LVL1;
+    } else if (level === 2) {
+      spacingMin = PLATFORM.SPACING_MIN_LVL2;
+      spacingMax = PLATFORM.SPACING_MAX_LVL2;
+    } else {
+      spacingMin = PLATFORM.SPACING_MIN;
+      spacingMax = PLATFORM.SPACING_MAX;
+    }
+
     // Genera le piattaforme verso l'alto
     let currentY = INITIAL.BASE_PLATFORM_Y;
     for (let i = 1; i <= PLATFORM.INITIAL_COUNT; i++) {
-      currentY -= Phaser.Math.Between(
-        PLATFORM.SPACING_MIN,
-        PLATFORM.SPACING_MAX,
-      );
+      currentY -= Phaser.Math.Between(spacingMin, spacingMax);
       this.spawnPlatform(currentY, level);
     }
 
@@ -122,19 +132,22 @@ export class SpawnManager {
 
   /**
    * Genera una piattaforma alla coordinata Y specificata.
-   * Il tipo viene scelto casualmente con probabilità basate sul livello:
-   * - Moving:    5% + 4%/lvl (max 30%) — nessun bouncer
-   * - Fragile:   0% + 6%/lvl (max 25%) — può avere bouncer
-   * - Subwoofer: 8% fisso — nessun bouncer
-   * - Standard:  il resto — può avere fango e/o bouncer
-   *
-   * Le piattaforme standard e mobili scelgono una variante grafica casuale
-   * tra le 4 disponibili (erba, ubriaco, cassa, cassa_erba).
-   *
-   * I bouncer vengono piazzati su un bordo (sx o dx) della piattaforma,
-   * così da lasciare spazio al giocatore sul lato opposto.
+   * Il mix di piattaforme è definito PER LIVELLO per progressione didattica.
    */
   public spawnPlatform(y: number, level: number): void {
+    // Spacing variabile per livello
+    let spacingMin: number, spacingMax: number;
+    if (level === 1) {
+      spacingMin = PLATFORM.SPACING_MIN_LVL1;
+      spacingMax = PLATFORM.SPACING_MAX_LVL1;
+    } else if (level === 2) {
+      spacingMin = PLATFORM.SPACING_MIN_LVL2;
+      spacingMax = PLATFORM.SPACING_MAX_LVL2;
+    } else {
+      spacingMin = PLATFORM.SPACING_MIN;
+      spacingMax = PLATFORM.SPACING_MAX;
+    }
+
     // Posizione X raggiungibile dalla piattaforma precedente
     const minX = Math.max(this.r(40), this.lastPlatformX - PLATFORM.REACH_X);
     const maxX = Math.min(
@@ -146,93 +159,240 @@ export class SpawnManager {
 
     const plat = this.platforms.get(randomX, y) as Platform;
 
-    // Calcolo probabilità
-    const movingProb = Math.min(
-      PLATFORM.MOVING_BASE_PROB + level * PLATFORM.MOVING_PROB_PER_LEVEL,
-      PLATFORM.MOVING_MAX_PROB,
-    );
-    const fragileProb = Math.min(
-      PLATFORM.FRAGILE_BASE_PROB + level * PLATFORM.FRAGILE_PROB_PER_LEVEL,
-      PLATFORM.FRAGILE_MAX_PROB,
-    );
-
-    // Selezione del tipo di piattaforma
+    // --- PROGRESSIONE PER LIVELLO ---
     const rand = Math.random();
     let canHaveBouncer = false;
-
-    /** Larghezza effettiva della piattaforma — usata per il posizionamento del bouncer */
     let platWidth: number;
+    let texture: string;
+    let cat: "wide" | "compact";
 
-    if (rand < movingProb) {
-      // Variante grafica casuale per la piattaforma mobile
-      const texture = Phaser.Utils.Array.GetRandom(PLATFORM_STANDARD_TEXTURES);
-      plat.initPlatform("moving", texture, level);
-      const cat = PLATFORM_TEXTURE_CATEGORY[texture] ?? "wide";
-      platWidth =
-        cat === "compact" ? PLATFORM.COMPACT_WIDTH : PLATFORM.WIDE_WIDTH;
-      // Le piattaforme mobili non hanno bouncer (complessità fisica da evitare)
-    } else if (rand < movingProb + fragileProb) {
-      plat.initPlatform("fragile", "fragileSheet", level);
-      platWidth = PLATFORM.COMPACT_WIDTH;
-      canHaveBouncer = true;
-    } else if (rand < movingProb + fragileProb + PLATFORM.SUBWOOFER_PROB) {
-      plat.initPlatform("subwoofer", "subwooferSheet", level);
-      platWidth = PLATFORM.SUBWOOFER_WIDTH;
-      // Il subwoofer è un bonus: senza bouncer per non penalizzare chi lo usa
-    } else {
-      // Variante grafica casuale per la piattaforma standard
-      const texture = Phaser.Utils.Array.GetRandom(PLATFORM_STANDARD_TEXTURES);
+    if (level === 1) {
+      // LIVELLO 1: Solo wide standard
+      texture = Phaser.Utils.Array.GetRandom([
+        "platformErbaTexture",
+        "platformUbriacoTexture",
+      ]);
       plat.initPlatform("standard", texture, level);
-      const cat = PLATFORM_TEXTURE_CATEGORY[texture] ?? "wide";
-      platWidth =
-        cat === "compact" ? PLATFORM.COMPACT_WIDTH : PLATFORM.WIDE_WIDTH;
-      canHaveBouncer = true;
+      cat = "wide";
+      platWidth = PLATFORM.WIDE_WIDTH;
+      canHaveBouncer = false;
+    } else if (level === 2) {
+      // LIVELLO 2: 60% wide, 30% compact, 10% moving (wide)
+      if (rand < 0.6) {
+        texture = Phaser.Utils.Array.GetRandom([
+          "platformErbaTexture",
+          "platformUbriacoTexture",
+        ]);
+        plat.initPlatform("standard", texture, level);
+        cat = "wide";
+        platWidth = PLATFORM.WIDE_WIDTH;
+        canHaveBouncer = false;
+      } else if (rand < 0.9) {
+        texture = Phaser.Utils.Array.GetRandom([
+          "platformCassaTexture",
+          "platformCassaErbaTexture",
+        ]);
+        plat.initPlatform("standard", texture, level);
+        cat = "compact";
+        platWidth = PLATFORM.COMPACT_WIDTH;
+        canHaveBouncer = false;
+      } else {
+        texture = Phaser.Utils.Array.GetRandom([
+          "platformErbaTexture",
+          "platformUbriacoTexture",
+        ]);
+        plat.initPlatform("moving", texture, level);
+        cat = "wide";
+        platWidth = PLATFORM.WIDE_WIDTH;
+        canHaveBouncer = false;
+      }
+    } else if (level === 3) {
+      // LIVELLO 3: 45% wide, 25% compact, 15% moving, 15% subwoofer
+      if (rand < 0.45) {
+        texture = Phaser.Utils.Array.GetRandom([
+          "platformErbaTexture",
+          "platformUbriacoTexture",
+        ]);
+        plat.initPlatform("standard", texture, level);
+        cat = "wide";
+        platWidth = PLATFORM.WIDE_WIDTH;
+        canHaveBouncer = false;
+      } else if (rand < 0.7) {
+        texture = Phaser.Utils.Array.GetRandom([
+          "platformCassaTexture",
+          "platformCassaErbaTexture",
+        ]);
+        plat.initPlatform("standard", texture, level);
+        cat = "compact";
+        platWidth = PLATFORM.COMPACT_WIDTH;
+        canHaveBouncer = false;
+      } else if (rand < 0.85) {
+        texture = Phaser.Utils.Array.GetRandom(PLATFORM_STANDARD_TEXTURES);
+        plat.initPlatform("moving", texture, level);
+        cat = PLATFORM_TEXTURE_CATEGORY[texture] ?? "wide";
+        platWidth =
+          cat === "compact" ? PLATFORM.COMPACT_WIDTH : PLATFORM.WIDE_WIDTH;
+        canHaveBouncer = false;
+      } else {
+        plat.initPlatform("subwoofer", "subwooferSheet", level);
+        platWidth = PLATFORM.SUBWOOFER_WIDTH;
+        cat = "compact";
+        canHaveBouncer = false;
+      }
+    } else if (level === 4) {
+      // LIVELLO 4: 40% wide, 20% compact, 15% moving, 10% subwoofer, 15% fragile
+      if (rand < 0.4) {
+        texture = Phaser.Utils.Array.GetRandom([
+          "platformErbaTexture",
+          "platformUbriacoTexture",
+        ]);
+        plat.initPlatform("standard", texture, level);
+        cat = "wide";
+        platWidth = PLATFORM.WIDE_WIDTH;
+        canHaveBouncer = true;
+      } else if (rand < 0.6) {
+        texture = Phaser.Utils.Array.GetRandom([
+          "platformCassaTexture",
+          "platformCassaErbaTexture",
+        ]);
+        plat.initPlatform("standard", texture, level);
+        cat = "compact";
+        platWidth = PLATFORM.COMPACT_WIDTH;
+        canHaveBouncer = true;
+      } else if (rand < 0.75) {
+        texture = Phaser.Utils.Array.GetRandom(PLATFORM_STANDARD_TEXTURES);
+        plat.initPlatform("moving", texture, level);
+        cat = PLATFORM_TEXTURE_CATEGORY[texture] ?? "wide";
+        platWidth =
+          cat === "compact" ? PLATFORM.COMPACT_WIDTH : PLATFORM.WIDE_WIDTH;
+        canHaveBouncer = false;
+      } else if (rand < 0.85) {
+        plat.initPlatform("subwoofer", "subwooferSheet", level);
+        platWidth = PLATFORM.SUBWOOFER_WIDTH;
+        cat = "compact";
+        canHaveBouncer = false;
+      } else {
+        plat.initPlatform("fragile", "fragileSheet", level);
+        platWidth = PLATFORM.COMPACT_WIDTH;
+        cat = "compact";
+        canHaveBouncer = true;
+      }
+    } else if (level === 5) {
+      // LIVELLO 5: Come 4 ma fragile 18%, inizia il fango
+      if (rand < 0.39) {
+        texture = Phaser.Utils.Array.GetRandom([
+          "platformErbaTexture",
+          "platformUbriacoTexture",
+        ]);
+        plat.initPlatform("standard", texture, level);
+        cat = "wide";
+        platWidth = PLATFORM.WIDE_WIDTH;
+        canHaveBouncer = true;
+      } else if (rand < 0.6) {
+        texture = Phaser.Utils.Array.GetRandom([
+          "platformCassaTexture",
+          "platformCassaErbaTexture",
+        ]);
+        plat.initPlatform("standard", texture, level);
+        cat = "compact";
+        platWidth = PLATFORM.COMPACT_WIDTH;
+        canHaveBouncer = true;
+      } else if (rand < 0.75) {
+        texture = Phaser.Utils.Array.GetRandom(PLATFORM_STANDARD_TEXTURES);
+        plat.initPlatform("moving", texture, level);
+        cat = PLATFORM_TEXTURE_CATEGORY[texture] ?? "wide";
+        platWidth =
+          cat === "compact" ? PLATFORM.COMPACT_WIDTH : PLATFORM.WIDE_WIDTH;
+        canHaveBouncer = false;
+      } else if (rand < 0.82) {
+        plat.initPlatform("subwoofer", "subwooferSheet", level);
+        platWidth = PLATFORM.SUBWOOFER_WIDTH;
+        cat = "compact";
+        canHaveBouncer = false;
+      } else {
+        plat.initPlatform("fragile", "fragileSheet", level);
+        platWidth = PLATFORM.COMPACT_WIDTH;
+        cat = "compact";
+        canHaveBouncer = true;
+      }
+    } else {
+      // LIVELLO 6+: 38% wide, 20% compact, 15% moving, 7% subwoofer, 20% fragile
+      if (rand < 0.38) {
+        texture = Phaser.Utils.Array.GetRandom([
+          "platformErbaTexture",
+          "platformUbriacoTexture",
+        ]);
+        plat.initPlatform("standard", texture, level);
+        cat = "wide";
+        platWidth = PLATFORM.WIDE_WIDTH;
+        canHaveBouncer = true;
+      } else if (rand < 0.58) {
+        texture = Phaser.Utils.Array.GetRandom([
+          "platformCassaTexture",
+          "platformCassaErbaTexture",
+        ]);
+        plat.initPlatform("standard", texture, level);
+        cat = "compact";
+        platWidth = PLATFORM.COMPACT_WIDTH;
+        canHaveBouncer = true;
+      } else if (rand < 0.73) {
+        texture = Phaser.Utils.Array.GetRandom(PLATFORM_STANDARD_TEXTURES);
+        plat.initPlatform("moving", texture, level);
+        cat = PLATFORM_TEXTURE_CATEGORY[texture] ?? "wide";
+        platWidth =
+          cat === "compact" ? PLATFORM.COMPACT_WIDTH : PLATFORM.WIDE_WIDTH;
+        canHaveBouncer = false;
+      } else if (rand < 0.8) {
+        plat.initPlatform("subwoofer", "subwooferSheet", level);
+        platWidth = PLATFORM.SUBWOOFER_WIDTH;
+        cat = "compact";
+        canHaveBouncer = false;
+      } else {
+        plat.initPlatform("fragile", "fragileSheet", level);
+        platWidth = PLATFORM.COMPACT_WIDTH;
+        cat = "compact";
+        canHaveBouncer = true;
+      }
+    }
 
-      // Fango sulle piattaforme standard wide (erba e ubriaco) dal livello 3
-      if (
-        cat === "wide" &&
-        level >= MUD.MIN_LEVEL &&
-        Math.random() <
-          Math.min(MUD.BASE_PROB + level * MUD.PROB_PER_LEVEL, MUD.MAX_PROB)
-      ) {
-        // Posizionamento specifico per texture:
-        // - platformErbaTexture: leggermente randomizzato per varietà
-        // - platformUbriacoTexture: metà destra per non coprire il personaggio a sinistra
-        let offsetX = 0;
-        if (texture === "platformUbriacoTexture") {
-          offsetX = MUD.UBRIACO_OFFSET_X;
-        } else if (texture === "platformErbaTexture") {
-          offsetX = Phaser.Math.Between(
-            -MUD.ERBA_RANDOMIZE,
-            MUD.ERBA_RANDOMIZE,
+    // --- FANGO sulle piattaforme standard wide (dal livello 5) ---
+    if (
+      plat.platformType === "standard" &&
+      cat === "wide" &&
+      level >= MUD.MIN_LEVEL &&
+      Math.random() <
+        Math.min(
+          MUD.BASE_PROB + (level - MUD.MIN_LEVEL) * MUD.PROB_PER_LEVEL,
+          MUD.MAX_PROB,
+        )
+    ) {
+      let offsetX = 0;
+      if (texture === "platformUbriacoTexture") {
+        offsetX = MUD.UBRIACO_OFFSET_X;
+      } else if (texture === "platformErbaTexture") {
+        offsetX = Phaser.Math.Between(-MUD.ERBA_RANDOMIZE, MUD.ERBA_RANDOMIZE);
+      }
+
+      const mud = this.muds.get(
+        randomX + offsetX,
+        y - this.r(7),
+        "fangoTexture",
+      ) as Phaser.Physics.Arcade.Sprite;
+
+      if (mud) {
+        mud.setDisplaySize(MUD.WIDTH, 0);
+        const aspectRatio = mud.height / mud.width;
+        mud.setDisplaySize(MUD.WIDTH, MUD.WIDTH * aspectRatio);
+        if (mud.body) {
+          (mud.body as Phaser.Physics.Arcade.Body).setSize(
+            mud.displayWidth,
+            mud.displayHeight,
           );
-        }
-
-        const mud = this.muds.get(
-          randomX + offsetX,
-          y - this.r(7),
-          "fangoTexture",
-        ) as Phaser.Physics.Arcade.Sprite;
-
-        if (mud) {
-          // Imposta la larghezza al valore configurato (metà piattaforma wide)
-          mud.setDisplaySize(MUD.WIDTH, 0);
-          // Auto-calcola l'altezza preservando l'aspect ratio del sprite
-          const aspectRatio = mud.height / mud.width;
-          mud.setDisplaySize(MUD.WIDTH, MUD.WIDTH * aspectRatio);
-          // Aggiorna il body per matchare le dimensioni visive
-          if (mud.body) {
-            (mud.body as Phaser.Physics.Arcade.Body).setSize(
-              mud.displayWidth,
-              mud.displayHeight,
-            );
-          }
         }
       }
     }
 
-    // Bouncer su un bordo della piattaforma (standard e fragile, dal livello 2)
-    // Vincoli: max 1 attivo a schermo + distanza minima tra spawn consecutivi
+    // --- BOUNCER (dal livello 6) ---
     const activeBouncerCount = this.bouncers
       .getChildren()
       .filter((c) => c.active).length;
@@ -243,11 +403,11 @@ export class SpawnManager {
       Math.abs(y - this.lastBouncerSpawnY) >= BOUNCER.MIN_SPAWN_SPACING &&
       Math.random() <
         Math.min(
-          BOUNCER.BASE_PROB + level * BOUNCER.PROB_PER_LEVEL,
+          BOUNCER.BASE_PROB +
+            (level - BOUNCER.MIN_LEVEL) * BOUNCER.PROB_PER_LEVEL,
           BOUNCER.MAX_PROB,
         )
     ) {
-      // Offset calcolato dalla larghezza effettiva della piattaforma
       const bouncerOffset = platWidth / 2 - BOUNCER.WIDTH / 2 - this.r(4);
       const side = Math.random() < 0.5 ? -1 : 1;
       const bouncerX = randomX + side * bouncerOffset;
@@ -255,8 +415,6 @@ export class SpawnManager {
         platWidth === PLATFORM.COMPACT_WIDTH
           ? PLATFORM.COMPACT_HEIGHT
           : PLATFORM.WIDE_HEIGHT;
-      // Y = bordo superiore della piattaforma, spostato in basso
-      // per poggiare ancora meglio sulla grafica effettiva della pedana.
       const bouncerY = y - platHeight / 2 + this.r(20);
       const bouncer = this.bouncers.get(
         bouncerX,
@@ -269,8 +427,25 @@ export class SpawnManager {
       }
     }
 
-    // Possibilità di drink sulla piattaforma
-    if (Math.random() < DRINK.SPAWN_PROB_ON_PLATFORM) {
+    // --- DRINK su piattaforma (probabilità variabile per livello) ---
+    let drinkProb: number;
+    if (level === 1) {
+      drinkProb = 0.2; // 20% - più drink per accelerare il party level
+    } else if (level === 2) {
+      drinkProb = 0.18; // 18% - ancora abbondanti
+    } else if (level === 3) {
+      drinkProb = 0.14; // 14% - inizia a ridursi
+    } else if (level === 4) {
+      drinkProb = 0.12;
+    } else if (level === 5) {
+      drinkProb = 0.11;
+    } else if (level === 6) {
+      drinkProb = 0.1;
+    } else {
+      drinkProb = 0.09;
+    }
+
+    if (Math.random() < drinkProb) {
       const drink = this.drinks.get(
         randomX,
         y - this.r(25),
@@ -397,14 +572,32 @@ export class SpawnManager {
   /**
    * Controlla se è il momento di spawnare drink cadenti
    * in base alla distanza percorsa dal giocatore.
+   * I drink cadenti iniziano dal livello 2.
    */
   public checkSpawns(
     highestYReached: number,
-    _level: number,
+    level: number,
     camScrollY: number,
   ): void {
-    // Drink cadenti: ogni SPAWN_INTERVAL pixel di salita
-    if (highestYReached < this.lastDrinkSpawnY - DRINK.SPAWN_INTERVAL) {
+    // Drink cadenti: solo dal livello 2, con intervallo variabile
+    if (level < DRINK.FALLING_MIN_LEVEL) return;
+
+    let interval: number;
+    if (level === 2) {
+      interval = this.r(350);
+    } else if (level === 3) {
+      interval = this.r(300);
+    } else if (level === 4) {
+      interval = this.r(280);
+    } else if (level === 5) {
+      interval = this.r(260);
+    } else if (level === 6) {
+      interval = this.r(250);
+    } else {
+      interval = this.r(240);
+    }
+
+    if (highestYReached < this.lastDrinkSpawnY - interval) {
       this.spawnFallingDrink(camScrollY);
       this.lastDrinkSpawnY = highestYReached;
     }

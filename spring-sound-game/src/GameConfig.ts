@@ -296,8 +296,17 @@ export const PLATFORM = {
   SUBWOOFER_WIDTH: r(60),
   SUBWOOFER_HEIGHT: r(32),
 
+  // --- Spacing tra piattaforme (varia per livello) ---
+  /** Livello 1: spacing generoso per apprendimento */
+  SPACING_MIN_LVL1: r(70),
+  SPACING_MAX_LVL1: r(130),
+  /** Livello 2: spacing intermedio */
+  SPACING_MIN_LVL2: r(65),
+  SPACING_MAX_LVL2: r(125),
+  /** Livello 3+: spacing normale/difficile */
   SPACING_MIN: r(55),
   SPACING_MAX: r(115),
+
   /** Max spostamento orizzontale tra piattaforme consecutive */
   REACH_X: r(130),
   /** Piattaforme iniziali generate al create */
@@ -306,18 +315,18 @@ export const PLATFORM = {
   BASE_WIDTH: r(400),
   BASE_HEIGHT: r(15),
 
-  // --- Probabilità di spawn (crescono col livello) ---
-  /** Le piattaforme mobili appaiono dal livello 1 ma sono rare all'inizio */
+  // --- Probabilità di spawn (gestite per livello in SpawnManager) ---
+  /** Le piattaforme mobili appaiono dal livello 2 */
   MOVING_BASE_PROB: 0.05,
   MOVING_PROB_PER_LEVEL: 0.04,
   MOVING_MAX_PROB: 0.3,
 
-  /** Le piattaforme fragili appaiono dal livello 2 */
+  /** Le piattaforme fragili appaiono dal livello 4 */
   FRAGILE_BASE_PROB: 0.0,
   FRAGILE_PROB_PER_LEVEL: 0.06,
   FRAGILE_MAX_PROB: 0.25,
 
-  /** Subwoofer: raro ma costante */
+  /** Subwoofer: costante, appare dal livello 3 */
   SUBWOOFER_PROB: 0.08,
 
   // --- Velocità piattaforme mobili ---
@@ -345,11 +354,11 @@ export const PLATFORM = {
 export const MUD = {
   /** Larghezza del fango: metà della piattaforma wide */
   WIDTH: r(45),
-  BASE_PROB: 0.15,
-  PROB_PER_LEVEL: 0.04,
+  BASE_PROB: 0.05,
+  PROB_PER_LEVEL: 0.05,
   MAX_PROB: 0.4,
-  /** Il fango appare solo dal livello 3 */
-  MIN_LEVEL: 1,
+  /** Il fango appare dal livello 3, inizialmente raro poi cresce */
+  MIN_LEVEL: 3,
   /** Offset X per posizionare il fango sulla metà destra della piattaforma ubriaco */
   UBRIACO_OFFSET_X: r(22.5),
   /** Randomizzazione del posizionamento sulla piattaforma erba (±5px) per varietà visiva */
@@ -360,10 +369,12 @@ export const MUD = {
 export const DRINK = {
   WIDTH: r(30),
   HEIGHT: r(30),
-  /** Probabilità drink su piattaforma — più alto = party più veloce */
+  /** Probabilità drink su piattaforma per livello (gestita in SpawnManager) */
   SPAWN_PROB_ON_PLATFORM: 0.12,
-  /** Distanza tra drink cadenti (px di salita) */
+  /** Distanza tra drink cadenti per livello (gestita in SpawnManager) */
   SPAWN_INTERVAL: r(300),
+  /** I drink cadenti iniziano dal livello 2 */
+  FALLING_MIN_LEVEL: 2,
   FALLING_SPEED: r(110),
   /** Party gain per drink: 10 drink per raggiungere il wasted */
   PARTY_GAIN: 10,
@@ -392,11 +403,11 @@ export const BOUNCER = {
   THROW_ANIM_FPS: 6,
 
   /** Probabilità base che una piattaforma idonea abbia un bouncer */
-  BASE_PROB: 0.15,
-  PROB_PER_LEVEL: 0.04,
-  MAX_PROB: 0.4,
-  /** I bouncer appaiono solo dal livello 2 */
-  MIN_LEVEL: 1,
+  BASE_PROB: 0.05,
+  PROB_PER_LEVEL: 0.05,
+  MAX_PROB: 0.35,
+  /** I bouncer appaiono dal livello 4, inizialmente rarissimi poi crescono */
+  MIN_LEVEL: 4,
   /**
    * Forza del lancio iniziale verso il BASSO (positiva in Phaser).
    * Il bouncer ti scaraventa giù — combinata con la velocità laterale
