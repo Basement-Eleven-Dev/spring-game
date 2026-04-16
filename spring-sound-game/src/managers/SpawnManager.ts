@@ -163,7 +163,7 @@ export class SpawnManager {
     const rand = Math.random();
     let canHaveBouncer = false;
     let platWidth: number;
-    let texture: string;
+    let texture: string = "";
     let cat: "wide" | "compact";
 
     if (level === 1) {
