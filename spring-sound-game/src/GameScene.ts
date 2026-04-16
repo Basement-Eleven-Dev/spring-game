@@ -213,9 +213,10 @@ export class GameScene extends Phaser.Scene {
     );
 
     // --- Background Music ---
-    this.load.audio("backgroundMusic", "/assets/music/willyMix.mp3");
+    this.load.audio("backgroundMusic", "/assets/music/smb.mp3");
   }
 
+  
   /**
    * Create: inizializzazione del mondo di gioco.
    * Crea manager, piattaforme, giocatore e registra i collider.
