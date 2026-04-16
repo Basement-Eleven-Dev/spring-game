@@ -2,22 +2,13 @@ import * as Phaser from "phaser";
 import { GAME, SETTINGS } from "../GameConfig";
 
 /**
- * PauseMenuManager
- * ================
- * Gestisce il menu di pausa con overlay semi-trasparente e opzioni:
- * - Livello attuale
- * - Riprendi
- * - Accelerometro on/off (SOLO su smartphone — gestisce permesso iOS)
- * - Audio on/off
- *
- * Lo stile è coerente con il gioco: colori vivaci, font ChillPixels.
- *
- * ACCELEROMETRO:
- * - Visibile solo su dispositivi touch (navigator.maxTouchPoints > 0)
- * - Parte OFF di default
- * - Al primo toggle ON, su iOS chiede il permesso DeviceOrientation
- *   direttamente dal handler del tap (user gesture trusted)
- * - Se il permesso viene negato, resta OFF
+ * PauseMenuManager — Design Premium
+ * ==================================
+ * Menu di pausa ridisegnato con:
+ * - Logo in alto
+ * - Bottoni Riprendi e Nuova Partita
+ * - Sezione Comandi con switch tap/movimento
+ * - Decorazione in basso (grass + personaggio)
  */
 export class PauseMenuManager {
   private scene: Phaser.Scene;
@@ -26,22 +17,23 @@ export class PauseMenuManager {
   // --- Elementi UI ---
   private overlay!: Phaser.GameObjects.Rectangle;
   private menuContainer!: Phaser.GameObjects.Container;
-  private titleText!: Phaser.GameObjects.Text;
-  private levelText!: Phaser.GameObjects.Text;
-  private resumeButton!: Phaser.GameObjects.Container;
-  private gyroButton!: Phaser.GameObjects.Container | null;
-  private audioButton!: Phaser.GameObjects.Container;
+
+  // Comandi
+  private controlModeText!: Phaser.GameObjects.Text;
+  private currentMode: "tap" | "gyro" = "tap";
+
+  // Audio
+  private audioIcon!: Phaser.GameObjects.Image;
 
   // --- Callbacks ---
   private onResume?: () => void;
+  private onRestart?: () => void;
   private onToggleGyro?: () => void;
   private onToggleAudio?: () => void;
 
   // --- Stato ---
   private isVisible: boolean = false;
-  /** true = dispositivo touch (smartphone/tablet) */
   private isMobile: boolean = false;
-  /** true = il permesso iOS è già stato concesso (evita ripetizioni) */
   private iosPermissionGranted: boolean = false;
 
   constructor(scene: Phaser.Scene) {
@@ -52,14 +44,15 @@ export class PauseMenuManager {
 
   /**
    * Crea tutti gli elementi del menu di pausa.
-   * Tutti gli elementi hanno depth 200+ per stare sopra la UI.
    */
   public create(
     onResume: () => void,
+    onRestart: () => void,
     onToggleGyro: () => void,
     onToggleAudio: () => void,
   ): void {
     this.onResume = onResume;
+    this.onRestart = onRestart;
     this.onToggleGyro = onToggleGyro;
     this.onToggleAudio = onToggleAudio;
 
@@ -69,98 +62,171 @@ export class PauseMenuManager {
 
     // --- Overlay semi-trasparente ---
     this.overlay = this.scene.add
-      .rectangle(0, 0, GAME.WIDTH, GAME.HEIGHT, 0x0a0a2e, 0.85)
+      .rectangle(0, 0, GAME.WIDTH, GAME.HEIGHT, 0x000000, 0.75)
       .setOrigin(0, 0)
       .setDepth(200)
       .setScrollFactor(0)
       .setVisible(false);
 
-    // --- Container principale del menu ---
+    // --- Container principale ---
     this.menuContainer = this.scene.add
       .container(centerX, centerY)
       .setDepth(201)
       .setScrollFactor(0)
       .setVisible(false);
 
-    // --- Titolo "PAUSA" ---
-    this.titleText = this.scene.add
-      .text(0, r(-180), "PAUSA", {
-        fontFamily: "ChillPixels",
-        fontSize: `${r(40)}px`,
-        color: "#FFD700",
-        stroke: "#000000",
-        strokeThickness: r(4),
-      })
-      .setOrigin(0.5);
-    this.menuContainer.add(this.titleText);
+    // --- LOGO ---
+    // Cerchio beige di sfondo
+    const logoCircle = this.scene.add
+      .circle(0, r(-220), r(70), 0xf8f0cd)
+      .setStrokeStyle(r(3), 0x000000);
+    this.menuContainer.add(logoCircle);
 
-    // --- Livello corrente ---
-    this.levelText = this.scene.add
-      .text(0, r(-120), "LIVELLO 1", {
-        fontFamily: "ChillPixels",
-        fontSize: `${r(24)}px`,
-        color: "#FFFFFF",
-      })
-      .setOrigin(0.5);
-    this.menuContainer.add(this.levelText);
+    // Logo sopra il cerchio
+    const logo = this.scene.add
+      .image(0, r(-220), "pauseLogo")
+      .setDisplaySize(r(110), r(110));
+    this.menuContainer.add(logo);
 
     // --- Bottone RIPRENDI ---
-    this.resumeButton = this.createButton(
+    const resumeBtn = this.createButtonWithIcon(
       0,
-      r(-40),
+      r(-150),
       "RIPRENDI",
-      "#4CAF50",
+      0xff4b1e,
+      "pausePlayIcon",
       () => this.onResume?.(),
     );
-    this.menuContainer.add(this.resumeButton);
+    this.menuContainer.add(resumeBtn);
 
-    // --- Layout dei bottoni sotto RIPRENDI ---
-    // La posizione Y cambia in base alla presenza del toggle accelerometro
-    let nextY = r(30);
+    // --- Bottone NUOVA PARTITA ---
+    const restartBtn = this.createSimpleButton(
+      0,
+      r(-70),
+      "NUOVA PARTITA",
+      0xf8f0cd,
+      () => this.onRestart?.(),
+    );
+    this.menuContainer.add(restartBtn);
 
-    // --- Bottone ACCELEROMETRO (solo su smartphone) ---
+    // --- Blocco COMANDI (solo su mobile) ---
     if (this.isMobile) {
-      this.gyroButton = this.createToggleButton(
+      // Blocco cliccabile TAP DITO / MOVIMENTO
+      const controlBtn = this.createControlButton(
         0,
-        nextY,
-        "ACCELEROMETRO",
-        () => this.handleGyroToggle(),
+        r(10),
+        SETTINGS.gyroEnabled ? "MOVIMENTO" : "TAP DITO",
+        0x118dfc,
+        () => this.switchControlMode(),
       );
-      this.menuContainer.add(this.gyroButton);
-      nextY += r(70);
+      this.menuContainer.add(controlBtn);
+
+      // Salva il testo per aggiornamenti futuri
+      this.controlModeText = controlBtn.getAt(1) as Phaser.GameObjects.Text;
+
+      // --- Icona AUDIO sotto i comandi ---
+      this.audioIcon = this.scene.add
+        .image(
+          0,
+          r(90),
+          SETTINGS.audioEnabled ? "pauseMusicOn" : "pauseMusicOff",
+        )
+        .setDisplaySize(r(50), r(50))
+        .setInteractive({ useHandCursor: true });
+      this.menuContainer.add(this.audioIcon);
+
+      this.audioIcon.on("pointerover", () =>
+        this.audioIcon.setDisplaySize(r(55), r(55)),
+      );
+      this.audioIcon.on("pointerout", () =>
+        this.audioIcon.setDisplaySize(r(50), r(50)),
+      );
+      this.audioIcon.on("pointerdown", () => this.onToggleAudio?.());
     } else {
-      this.gyroButton = null;
+      // Desktop: icona audio centrata (nessuna sezione comandi)
+      this.audioIcon = this.scene.add
+        .image(
+          0,
+          r(10),
+          SETTINGS.audioEnabled ? "pauseMusicOn" : "pauseMusicOff",
+        )
+        .setDisplaySize(r(50), r(50))
+        .setInteractive({ useHandCursor: true });
+      this.menuContainer.add(this.audioIcon);
+
+      this.audioIcon.on("pointerover", () =>
+        this.audioIcon.setDisplaySize(r(55), r(55)),
+      );
+      this.audioIcon.on("pointerout", () =>
+        this.audioIcon.setDisplaySize(r(50), r(50)),
+      );
+      this.audioIcon.on("pointerdown", () => this.onToggleAudio?.());
     }
 
-    // --- Bottone AUDIO ---
-    this.audioButton = this.createToggleButton(0, nextY, "AUDIO", () =>
-      this.onToggleAudio?.(),
-    );
-    this.menuContainer.add(this.audioButton);
+    // --- Decorazione in basso: GRASS + SPRING ---
+    // Il container è centrato, quindi GAME.HEIGHT/2 è la distanza dal centro al fondo
+    const grassHeight = GAME.HEIGHT / 2; // Distanza dal centro del container al fondo schermo
+
+    // Grass: copre tutta la larghezza e mantiene proporzioni naturali (1265x1360 ~ 1:1.075)
+    const grassWidth = GAME.WIDTH;
+    const grassNaturalHeight = Math.round(grassWidth * 1.075); // Mantiene proporzioni
+
+    // Personaggio spring PRIMA dell'erba (così è dietro), posizionato sull'erba in basso
+    // L'erba ha origin (0.5, 1) quindi grassHeight è il suo bottom
+    // Posiziono il personaggio leggermente sopra il fondo, così sta sull'erba
+    const spring = this.scene.add
+      .image(0, grassHeight - r(105), "pauseSpring")
+      .setDisplaySize(r(100), r(100));
+    this.menuContainer.add(spring);
+
+    // Grass sopra il personaggio
+    const grass = this.scene.add
+      .image(0, grassHeight, "pauseGrass")
+      .setDisplaySize(grassWidth, grassNaturalHeight)
+      .setOrigin(0.5, 1); // Ancora in basso, così tocca il fondo
+    this.menuContainer.add(grass);
+
+    // Piccola animazione bounce del personaggio
+    this.scene.tweens.add({
+      targets: spring,
+      y: grassHeight - r(120),
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
   }
 
   /**
-   * Gestisce il toggle dell'accelerometro con permesso iOS.
-   *
-   * FLUSSO:
-   * 1. Se il gyro è attivo → lo disattiva direttamente
-   * 2. Se il gyro è spento e serve il permesso iOS → lo chiede
-   *    (requestPermission() viene chiamato sincronicamente dal user gesture,
-   *    come richiesto da Safari)
-   * 3. Se il permesso è concesso → attiva il gyro
-   * 4. Se il permesso è negato → non fa nulla
-   * 5. Se non serve permesso (Android, o già concesso) → attiva direttamente
+   * Switch tra modalità tap e gyro
+   */
+  private switchControlMode(): void {
+    if (this.currentMode === "tap") {
+      // Passa a gyro
+      this.currentMode = "gyro";
+      this.controlModeText.setText("MOVIMENTO");
+
+      // Richiedi permesso se necessario
+      if (!SETTINGS.gyroEnabled) {
+        this.handleGyroToggle();
+      }
+    } else {
+      // Torna a tap
+      this.currentMode = "tap";
+      this.controlModeText.setText("TAP DITO");
+
+      // Disabilita gyro se attivo
+      if (SETTINGS.gyroEnabled) {
+        this.onToggleGyro?.();
+      }
+    }
+  }
+
+  /**
+   * Gestisce il permesso accelerometro su iOS
    */
   private handleGyroToggle(): void {
-    if (SETTINGS.gyroEnabled) {
-      // Disabilita: semplice toggle
-      this.onToggleGyro?.();
-      return;
-    }
-
-    // Abilita: potrebbe servire il permesso iOS
     if (this.iosPermissionGranted) {
-      // Permesso già concesso in precedenza
       this.onToggleGyro?.();
       return;
     }
@@ -174,8 +240,6 @@ export class PauseMenuManager {
       ).requestPermission === "function";
 
     if (needsIOSPermission) {
-      // Chiedi il permesso iOS — requestPermission() è chiamato
-      // sincronicamente dal handler del tap (user gesture trusted)
       (
         DeviceOrientationEvent as unknown as {
           requestPermission: () => Promise<string>;
@@ -186,66 +250,170 @@ export class PauseMenuManager {
           if (result === "granted") {
             this.iosPermissionGranted = true;
             this.onToggleGyro?.();
+          } else {
+            // Permesso negato, torna a tap
+            this.currentMode = "tap";
+            this.controlModeText.setText("TAP DITO");
           }
-          // Se "denied" o altro, non attiva il gyro
         })
         .catch(() => {
-          // Errore nel richiedere il permesso — non attiva il gyro
+          // Errore, torna a tap
+          this.currentMode = "tap";
+          this.controlModeText.setText("TAP DITO");
         });
     } else {
-      // Android o browser senza requisito di permesso — attiva direttamente
+      // Android o browser senza requisito di permesso
       this.onToggleGyro?.();
     }
   }
 
   /**
-   * Crea un bottone standard con sfondo colorato.
+   * Crea bottone con icona (RIPRENDI)
    */
-  private createButton(
+  private createButtonWithIcon(
     x: number,
     y: number,
     label: string,
-    color: string,
+    color: number,
+    iconKey: string,
     onClick: () => void,
   ): Phaser.GameObjects.Container {
     const r = this.r;
     const container = this.scene.add.container(x, y);
 
-    const bg = this.scene.add
-      .rectangle(0, 0, r(220), r(50), parseInt(color.replace("#", "0x")))
-      .setStrokeStyle(r(3), 0x000000);
+    // Background con bordi neri e angoli leggermente arrotondati
+    const graphics = this.scene.add.graphics();
+    const width = r(240);
+    const height = r(60);
+    const radius = r(8); // Angoli leggermente arrotondati
+
+    // Disegna il rettangolo arrotondato
+    graphics.fillStyle(color, 1);
+    graphics.fillRoundedRect(-width / 2, -height / 2, width, height, radius);
+
+    // Bordi neri: sottile sui lati e sopra, più spesso sotto
+    graphics.lineStyle(r(2), 0x000000, 1);
+    graphics.strokeRoundedRect(
+      -width / 2,
+      -height / 2,
+      width,
+      height - r(2),
+      radius,
+    );
+    graphics.lineStyle(r(4), 0x000000, 1);
+    graphics.beginPath();
+    graphics.moveTo(-width / 2 + radius, height / 2);
+    graphics.lineTo(width / 2 - radius, height / 2);
+    graphics.strokePath();
+
+    container.add(graphics);
+
+    // Icona play
+    const icon = this.scene.add
+      .image(r(-50), 0, iconKey)
+      .setDisplaySize(r(20), r(20))
+      .setTint(0xffffff);
+    container.add(icon);
+
+    // Testo
+    const text = this.scene.add
+      .text(r(-20), 0, label, {
+        fontFamily: "ChillPixels",
+        fontSize: `${r(20)}px`,
+        color: "#ffffff",
+        fontStyle: "bold",
+      })
+      .setOrigin(0, 0.5);
+    container.add(text);
+
+    container.setSize(width, height);
+    container.setInteractive({ useHandCursor: true });
+
+    // Hover effects
+    container.on("pointerover", () => {
+      container.setScale(1.03);
+    });
+
+    container.on("pointerout", () => {
+      container.setScale(1);
+    });
+
+    container.on("pointerdown", () => {
+      container.setScale(0.97);
+    });
+
+    container.on("pointerup", () => {
+      container.setScale(1);
+      onClick();
+    });
+
+    return container;
+  }
+
+  /**
+   * Crea bottone semplice (NUOVA PARTITA)
+   */
+  private createSimpleButton(
+    x: number,
+    y: number,
+    label: string,
+    color: number,
+    onClick: () => void,
+  ): Phaser.GameObjects.Container {
+    const r = this.r;
+    const container = this.scene.add.container(x, y);
+
+    const graphics = this.scene.add.graphics();
+    const width = r(240);
+    const height = r(60);
+    const radius = r(8);
+
+    graphics.fillStyle(color, 1);
+    graphics.fillRoundedRect(-width / 2, -height / 2, width, height, radius);
+
+    graphics.lineStyle(r(2), 0x000000, 1);
+    graphics.strokeRoundedRect(
+      -width / 2,
+      -height / 2,
+      width,
+      height - r(2),
+      radius,
+    );
+    graphics.lineStyle(r(4), 0x000000, 1);
+    graphics.beginPath();
+    graphics.moveTo(-width / 2 + radius, height / 2);
+    graphics.lineTo(width / 2 - radius, height / 2);
+    graphics.strokePath();
+
+    container.add(graphics);
 
     const text = this.scene.add
       .text(0, 0, label, {
         fontFamily: "ChillPixels",
-        fontSize: `${r(18)}px`,
-        color: "#FFFFFF",
+        fontSize: `${r(20)}px`,
+        color: "#000000",
+        fontStyle: "bold",
       })
       .setOrigin(0.5);
+    container.add(text);
 
-    container.add([bg, text]);
-    container.setSize(r(220), r(50));
+    container.setSize(width, height);
     container.setInteractive({ useHandCursor: true });
 
-    // Hover effect
     container.on("pointerover", () => {
-      bg.setScale(1.05);
-      text.setScale(1.05);
+      container.setScale(1.03);
     });
 
     container.on("pointerout", () => {
-      bg.setScale(1);
-      text.setScale(1);
+      container.setScale(1);
     });
 
     container.on("pointerdown", () => {
-      bg.setScale(0.95);
-      text.setScale(0.95);
+      container.setScale(0.97);
     });
 
     container.on("pointerup", () => {
-      bg.setScale(1.05);
-      text.setScale(1.05);
+      container.setScale(1);
       onClick();
     });
 
@@ -253,68 +421,69 @@ export class PauseMenuManager {
   }
 
   /**
-   * Crea un bottone toggle (ON/OFF) con sfondo che cambia colore.
+   * Crea blocco controlli (TAP DITO / MOVIMENTO)
    */
-  private createToggleButton(
+  private createControlButton(
     x: number,
     y: number,
     label: string,
+    color: number,
     onClick: () => void,
   ): Phaser.GameObjects.Container {
     const r = this.r;
     const container = this.scene.add.container(x, y);
 
-    const bg = this.scene.add
-      .rectangle(0, 0, r(220), r(50), 0x2196f3)
-      .setStrokeStyle(r(3), 0x000000);
+    const graphics = this.scene.add.graphics();
+    const width = r(240);
+    const height = r(60);
+    const radius = r(8);
 
-    const labelText = this.scene.add
-      .text(r(-60), 0, label, {
+    graphics.fillStyle(color, 1);
+    graphics.fillRoundedRect(-width / 2, -height / 2, width, height, radius);
+
+    graphics.lineStyle(r(2), 0x000000, 1);
+    graphics.strokeRoundedRect(
+      -width / 2,
+      -height / 2,
+      width,
+      height - r(2),
+      radius,
+    );
+    graphics.lineStyle(r(4), 0x000000, 1);
+    graphics.beginPath();
+    graphics.moveTo(-width / 2 + radius, height / 2);
+    graphics.lineTo(width / 2 - radius, height / 2);
+    graphics.strokePath();
+
+    container.add(graphics);
+
+    const text = this.scene.add
+      .text(0, 0, label, {
         fontFamily: "ChillPixels",
-        fontSize: `${r(16)}px`,
-        color: "#FFFFFF",
+        fontSize: `${r(20)}px`,
+        color: "#ffffff",
+        fontStyle: "bold",
       })
-      .setOrigin(0, 0.5);
+      .setOrigin(0.5);
+    container.add(text);
 
-    const stateText = this.scene.add
-      .text(r(70), 0, "ON", {
-        fontFamily: "ChillPixels",
-        fontSize: `${r(18)}px`,
-        color: "#4CAF50",
-      })
-      .setOrigin(1, 0.5);
-
-    container.add([bg, labelText, stateText]);
-    container.setSize(r(220), r(50));
+    container.setSize(width, height);
     container.setInteractive({ useHandCursor: true });
 
-    // Store references for updating
-    (container as any).bg = bg;
-    (container as any).stateText = stateText;
-
-    // Hover effect
     container.on("pointerover", () => {
-      bg.setScale(1.05);
-      labelText.setScale(1.05);
-      stateText.setScale(1.05);
+      container.setScale(1.03);
     });
 
     container.on("pointerout", () => {
-      bg.setScale(1);
-      labelText.setScale(1);
-      stateText.setScale(1);
+      container.setScale(1);
     });
 
     container.on("pointerdown", () => {
-      bg.setScale(0.95);
-      labelText.setScale(0.95);
-      stateText.setScale(0.95);
+      container.setScale(0.97);
     });
 
     container.on("pointerup", () => {
-      bg.setScale(1.05);
-      labelText.setScale(1.05);
-      stateText.setScale(1.05);
+      container.setScale(1);
       onClick();
     });
 
@@ -322,57 +491,80 @@ export class PauseMenuManager {
   }
 
   /**
-   * Mostra il menu di pausa.
+   * Mostra il menu di pausa
    */
-  public show(currentLevel: number): void {
-    this.levelText.setText(`LIVELLO ${currentLevel}`);
+  public show(): void {
     this.overlay.setVisible(true);
     this.menuContainer.setVisible(true);
     this.isVisible = true;
 
-    // Imposta direttamente alpha e scala (i tweens sono in pausa durante la pausa)
+    // Imposta direttamente alpha 1 (i tweens sono in pausa quando il gioco è in pausa)
     this.menuContainer.setAlpha(1);
     this.menuContainer.setScale(1);
+
+    // Aggiorna testo modalità in base allo stato gyro
+    if (this.isMobile && this.controlModeText) {
+      if (SETTINGS.gyroEnabled) {
+        this.currentMode = "gyro";
+        this.controlModeText.setText("MOVIMENTO");
+      } else {
+        this.currentMode = "tap";
+        this.controlModeText.setText("TAP DITO");
+      }
+    }
+
+    // Aggiorna icona audio
+    if (this.audioIcon) {
+      this.audioIcon.setTexture(
+        SETTINGS.audioEnabled ? "pauseMusicOn" : "pauseMusicOff",
+      );
+      this.audioIcon.setDisplaySize(this.r(50), this.r(50)); // Mantiene dimensioni corrette
+    }
   }
 
   /**
-   * Nasconde il menu di pausa.
+   * Nasconde il menu di pausa
    */
   public hide(): void {
-    // Nascondi direttamente (i tweens potrebbero avere stati inconsistenti)
     this.overlay.setVisible(false);
     this.menuContainer.setVisible(false);
     this.isVisible = false;
   }
 
   /**
-   * Aggiorna lo stato visivo dei toggle button.
+   * Aggiorna lo stato del gyro (usato quando viene cambiato esternamente)
    */
   public updateGyroState(enabled: boolean): void {
-    if (!this.gyroButton) return; // Non presente su desktop
-    const stateText = (this.gyroButton as any)
-      .stateText as Phaser.GameObjects.Text;
-    stateText.setText(enabled ? "ON" : "OFF");
-    stateText.setColor(enabled ? "#4CAF50" : "#F44336");
-  }
+    if (!this.isMobile || !this.controlModeText) return;
 
-  public updateAudioState(enabled: boolean): void {
-    const stateText = (this.audioButton as any)
-      .stateText as Phaser.GameObjects.Text;
-    stateText.setText(enabled ? "ON" : "OFF");
-    stateText.setColor(enabled ? "#4CAF50" : "#F44336");
+    if (enabled) {
+      this.currentMode = "gyro";
+      this.controlModeText.setText("MOVIMENTO");
+    } else {
+      this.currentMode = "tap";
+      this.controlModeText.setText("TAP DITO");
+    }
   }
 
   /**
-   * Getter per stato visibilità.
+   * Aggiorna lo stato dell'audio
+   */
+  public updateAudioState(enabled: boolean): void {
+    if (!this.audioIcon) return;
+    const r = this.r;
+    this.audioIcon.setTexture(enabled ? "pauseMusicOn" : "pauseMusicOff");
+    this.audioIcon.setDisplaySize(r(50), r(50)); // Mantiene le dimensioni corrette
+  }
+
+  /**
+   * Getter per stato visibilità
    */
   public get visible(): boolean {
     return this.isVisible;
   }
 
   /**
-   * Restituisce gli elementi di gioco del menu di pausa.
-   * Usato da UIManager per configurare l'esclusività delle camere.
+   * Restituisce gli elementi di gioco del menu di pausa
    */
   public getGameObjects(): Phaser.GameObjects.GameObject[] {
     return [this.overlay, this.menuContainer];

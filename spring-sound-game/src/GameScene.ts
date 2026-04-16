@@ -154,6 +154,45 @@ export class GameScene extends Phaser.Scene {
         frameHeight: PLATFORM.SUBWOOFER_FRAME_HEIGHT,
       },
     );
+
+    // --- Pause Menu Assets ---
+    this.load.svg(
+      "pauseLogo",
+      "/assets/ui/gamestart-over-pause/logo pixel.svg",
+      {
+        width: 120,
+        height: 120,
+      },
+    );
+    this.load.svg("pausePlayIcon", "/assets/ui/play.svg", {
+      width: 24,
+      height: 24,
+    });
+    this.load.image("pauseGrass", "/assets/ui/gamestart-over-pause/grass.png");
+    this.load.svg("pauseSpring", "/assets/ui/gamestart-over-pause/spring.svg", {
+      width: 150,
+      height: 150,
+    });
+    this.load.svg(
+      "pauseLeftArrow",
+      "/assets/ui/gamestart-over-pause/left.svg",
+      { width: 40, height: 40 },
+    );
+    this.load.svg(
+      "pauseRightArrow",
+      "/assets/ui/gamestart-over-pause/right.svg",
+      { width: 40, height: 40 },
+    );
+    this.load.svg(
+      "pauseMusicOn",
+      "/assets/ui/gamestart-over-pause/music on.svg",
+      { width: 40, height: 40 },
+    );
+    this.load.svg(
+      "pauseMusicOff",
+      "/assets/ui/gamestart-over-pause/music off.svg",
+      { width: 40, height: 40 },
+    );
   }
 
   /**
@@ -204,11 +243,12 @@ export class GameScene extends Phaser.Scene {
     this.pauseMenuManager = new PauseMenuManager(this);
     this.pauseMenuManager.create(
       () => this.resumeGame(),
+      () => this.restartGame(),
       () => this.toggleGyro(),
       () => this.toggleAudio(),
     );
 
-    // Aggiorna gli stati iniziali dei toggle button
+    // Aggiorna gli stati iniziali
     this.pauseMenuManager.updateGyroState(SETTINGS.gyroEnabled);
     this.pauseMenuManager.updateAudioState(SETTINGS.audioEnabled);
 
@@ -434,8 +474,12 @@ export class GameScene extends Phaser.Scene {
       this.player,
       this.spawnManager.drinks,
       (_playerObj, drinkObj) => {
-        const drink = drinkObj as import('./Drink').Drink;
+        const drink = drinkObj as import("./Drink").Drink;
+        const points = drink.isFalling
+          ? SCORING.DRINK_FALLING
+          : SCORING.DRINK_STATIC;
         this.scoreManager.addDrinkBonus(drink.isFalling);
+        this.showFloatingScore(drink.x, drink.y, points, "#FFD700");
         drink.destroy();
         this.partyManager.collectDrink();
       },
@@ -484,6 +528,12 @@ export class GameScene extends Phaser.Scene {
 
           // Punteggio o effetto bonus opzionale
           this.scoreManager.addBonus(SCORING.BOUNCER_STOMP);
+          this.showFloatingScore(
+            b.x,
+            b.y - BOUNCER.HEIGHT / 2,
+            SCORING.BOUNCER_STOMP,
+            "#FF6B35",
+          );
 
           return; // Interrompe il flusso normale del lancio
         }
@@ -570,6 +620,7 @@ export class GameScene extends Phaser.Scene {
         score: this.scoreManager.score,
         clockMinutes: this.clockMinutes,
         level: this.levelManager.level,
+        drinkCount: this.partyManager.drinkCount,
         isTimeout: true,
       });
       return;
@@ -637,9 +688,47 @@ export class GameScene extends Phaser.Scene {
         score: this.scoreManager.score,
         clockMinutes: this.clockMinutes,
         level: this.levelManager.level,
+        drinkCount: this.partyManager.drinkCount,
         isTimeout: false,
       });
     }
+  }
+
+  /**
+   * Mostra un punteggio floating che sale e scompare.
+   * @param x Posizione X del punteggio
+   * @param y Posizione Y del punteggio
+   * @param points Punti da visualizzare
+   * @param color Colore del testo (es. "#FFD700" per oro, "#FF6B35" per arancione)
+   */
+  private showFloatingScore(
+    x: number,
+    y: number,
+    points: number,
+    color: string,
+  ): void {
+    const scoreText = this.add.text(x, y, `+${points}`, {
+      fontFamily: "ChillPixels",
+      fontSize: `${Math.round(14 * GAME.SCALE)}px`,
+      color: color,
+      stroke: "#000000",
+      strokeThickness: Math.round(2 * GAME.SCALE),
+    });
+    scoreText.setOrigin(0.5, 0.5);
+    scoreText.setDepth(100); // Sopra tutto
+    scoreText.setScrollFactor(1); // Segue la camera
+
+    // Animazione: sale verso l'alto e scompare con fade out
+    this.tweens.add({
+      targets: scoreText,
+      y: y - Math.round(60 * GAME.SCALE),
+      alpha: 0,
+      duration: 1200,
+      ease: "Cubic.easeOut",
+      onComplete: () => {
+        scoreText.destroy();
+      },
+    });
   }
 
   /**
@@ -655,7 +744,7 @@ export class GameScene extends Phaser.Scene {
       this.tweens.pauseAll();
 
       // Mostra il menu di pausa
-      this.pauseMenuManager.show(this.levelManager.level);
+      this.pauseMenuManager.show();
     } else {
       this.resumeGame();
     }
@@ -674,6 +763,22 @@ export class GameScene extends Phaser.Scene {
 
     // Nascondi il menu di pausa
     this.pauseMenuManager.hide();
+  }
+
+  /**
+   * Riavvia il gioco dall'inizio.
+   */
+  private restartGame(): void {
+    // Riprendi la scena (necessario se era in pausa)
+    this.physics.resume();
+    this.anims.resumeAll();
+    this.tweens.resumeAll();
+
+    // Nascondi il menu
+    this.pauseMenuManager.hide();
+
+    // Riavvia la scena
+    this.scene.restart();
   }
 
   /**

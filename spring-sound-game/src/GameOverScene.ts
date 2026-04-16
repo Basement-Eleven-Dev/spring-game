@@ -4,57 +4,54 @@ import { GAME, minutesToClockString } from "./GameConfig";
 /**
  * Schermata di Game Over — Design Premium
  * =========================================
- * Layout centrato con animazioni sfalsate e pulsante interattivo.
+ * Layout centrato con background, animazioni e statistiche complete.
  */
 export class GameOverScene extends Phaser.Scene {
   constructor() {
     super("GameOverScene");
   }
 
+  preload(): void {
+    // Carica il background se non è già stato caricato
+    if (!this.textures.exists("menuBg")) {
+      this.load.image("menuBg", "/assets/background/background menu.png");
+    }
+  }
+
   create(data: {
     score: number;
     clockMinutes: number;
     level: number;
+    drinkCount: number;
     isTimeout: boolean;
   }) {
-    const { score, clockMinutes, level, isTimeout } = data;
+    const { score, clockMinutes, level, drinkCount, isTimeout } = data;
     const cx = GAME.WIDTH / 2;
     const cy = GAME.HEIGHT / 2;
     const S = GAME.SCALE;
     /** Shorthand: scala e arrotonda */
     const r = (v: number) => Math.round(v * S);
 
-    // Sfondo gradiente scuro
-    this.cameras.main.setBackgroundColor("#0a0a18");
+    // Background menu
+    const bg = this.add.image(cx, cy, "menuBg");
+    const scaleX = GAME.WIDTH / bg.width;
+    const scaleY = GAME.HEIGHT / bg.height;
+    const bgScale = Math.max(scaleX, scaleY);
+    bg.setScale(bgScale).setDepth(0);
 
-    // --- Particelle decorative (sfondo) ---
-    for (let i = 0; i < 20; i++) {
-      const particle = this.add
-        .circle(
-          Phaser.Math.Between(r(20), GAME.WIDTH - r(20)),
-          Phaser.Math.Between(r(20), GAME.HEIGHT - r(20)),
-          Phaser.Math.Between(1, r(3)),
-          0x6633ff,
-          Phaser.Math.FloatBetween(0.1, 0.4),
-        )
-        .setDepth(0);
+    // Overlay scuro per leggibilità
+    this.add
+      .rectangle(cx, cy, GAME.WIDTH, GAME.HEIGHT, 0x000000, 0.6)
+      .setDepth(1);
 
-      this.tweens.add({
-        targets: particle,
-        y: particle.y - Phaser.Math.Between(r(20), r(60)),
-        alpha: 0,
-        duration: Phaser.Math.Between(2000, 4000),
-        yoyo: true,
-        repeat: -1,
-        delay: Phaser.Math.Between(0, 2000),
-      });
-    }
+    // Container principale
+    const container = this.add.container(0, 0).setDepth(2);
 
     // --- Titolo ---
     const titleText = this.add
-      .text(cx, cy - r(180), isTimeout ? "02:00" : "GAME OVER", {
+      .text(cx, cy - r(200), isTimeout ? "🌅 COMPLIMENTI!" : "💔 GAME OVER", {
         fontFamily: "ChillPixels",
-        fontSize: isTimeout ? `${r(52)}px` : `${r(44)}px`,
+        fontSize: isTimeout ? `${r(48)}px` : `${r(42)}px`,
         color: isTimeout ? "#ffd700" : "#ff4455",
         fontStyle: "bold",
         stroke: isTimeout ? "#332200" : "#220011",
@@ -70,26 +67,25 @@ export class GameOverScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setAlpha(0)
       .setScale(0.5);
+    container.add(titleText);
 
     // Sottotitolo contestuale
-    this.add
+    const subtitle = this.add
       .text(
         cx,
-        cy - r(130),
-        isTimeout
-          ? "Hai retto fino all'alba! 🌅"
-          : "Sei tornato a casa troppo presto",
+        cy - r(150),
+        isTimeout ? "Hai retto fino all'alba!" : "La festa è finita presto...",
         {
           fontFamily: "ChillPixels",
-          fontSize: `${r(13)}px`,
+          fontSize: `${r(16)}px`,
           color: isTimeout ? "#ffdd88" : "#aa8888",
         },
       )
       .setOrigin(0.5)
-      .setAlpha(0)
-      .setDepth(1)
-      .setData("_anim", true);
+      .setAlpha(0);
+    container.add(subtitle);
 
+    // Animazione titolo
     this.tweens.add({
       targets: titleText,
       alpha: 1,
@@ -97,31 +93,42 @@ export class GameOverScene extends Phaser.Scene {
       duration: 600,
       ease: "Back.easeOut",
       onComplete: () => {
-        // Anima anche il sottotitolo
-        this.children.getAll().forEach((child) => {
-          if ((child as Phaser.GameObjects.GameObject).getData("_anim")) {
-            this.tweens.add({ targets: child, alpha: 1, duration: 400 });
-          }
-        });
+        this.tweens.add({ targets: subtitle, alpha: 1, duration: 400 });
       },
     });
 
-    // --- Statistiche finali ---
+    // --- PANNELLO STATISTICHE ---
+    const statsPanel = this.add
+      .rectangle(cx, cy - r(20), r(320), r(280), 0x000000, 0.7)
+      .setStrokeStyle(r(3), isTimeout ? 0xffd700 : 0xff4455, 0.8);
+    container.add(statsPanel);
+
+    // Statistiche finali
     const statsConfig = [
       {
-        y: cy - r(60),
+        y: cy - r(100),
+        icon: "🕐",
         label: "ORARIO",
         value: minutesToClockString(clockMinutes),
         color: "#88ccff",
       },
       {
-        y: cy - r(15),
+        y: cy - r(50),
+        icon: "⭐",
         label: "PUNTEGGIO",
         value: `${Math.floor(score)} pts`,
         color: "#ffd700",
       },
       {
-        y: cy + r(30),
+        y: cy,
+        icon: "🍺",
+        label: "DRINK BEVUTI",
+        value: `${drinkCount}`,
+        color: "#ff8844",
+      },
+      {
+        y: cy + r(50),
+        icon: "📊",
         label: "LIVELLO",
         value: `${level}`,
         color: "#66ffaa",
@@ -129,98 +136,95 @@ export class GameOverScene extends Phaser.Scene {
     ];
 
     statsConfig.forEach((stat, index) => {
-      // Label piccola
+      // Icona
+      const icon = this.add
+        .text(cx - r(130), stat.y, stat.icon, {
+          fontSize: `${r(24)}px`,
+        })
+        .setOrigin(0.5)
+        .setAlpha(0);
+      container.add(icon);
+
+      // Label
       const label = this.add
-        .text(cx - r(60), stat.y, stat.label, {
+        .text(cx - r(95), stat.y, stat.label, {
           fontFamily: "ChillPixels",
-          fontSize: `${r(11)}px`,
-          color: "#666688",
-          fontStyle: "bold",
+          fontSize: `${r(12)}px`,
+          color: "#999999",
         })
         .setOrigin(0, 0.5)
         .setAlpha(0);
+      container.add(label);
 
-      // Valore grande
+      // Valore
       const value = this.add
-        .text(cx + r(60), stat.y, stat.value, {
+        .text(cx + r(120), stat.y, stat.value, {
           fontFamily: "ChillPixels",
-          fontSize: `${r(20)}px`,
+          fontSize: `${r(22)}px`,
           color: stat.color,
           fontStyle: "bold",
         })
         .setOrigin(1, 0.5)
         .setAlpha(0);
+      container.add(value);
 
-      // Linea separatrice sotto ogni stat
-      const line = this.add
-        .rectangle(cx, stat.y + r(18), r(160), 1, 0x333355, 0.4)
-        .setAlpha(0);
-
-      const delay = 400 + index * 200;
+      // Animazione entrata sfalsata
+      const delay = 400 + index * 150;
       this.tweens.add({
-        targets: label,
+        targets: [icon, label, value],
         alpha: 1,
-        x: cx - r(70),
         duration: 400,
         delay,
         ease: "Power2",
-      });
-      this.tweens.add({
-        targets: value,
-        alpha: 1,
-        x: cx + r(70),
-        duration: 400,
-        delay,
-        ease: "Power2",
-      });
-      this.tweens.add({
-        targets: line,
-        alpha: 1,
-        duration: 300,
-        delay: delay + 100,
       });
     });
 
     // --- Pulsante "RIPROVA" ---
+    const btnY = cy + r(150);
     const btnBg = this.add
-      .rectangle(cx, cy + r(140), r(180), r(50), 0x6633ff, 1)
-      .setStrokeStyle(r(2), 0x9966ff)
+      .rectangle(cx, btnY, r(200), r(60), 0xff44aa, 1)
+      .setStrokeStyle(r(3), 0xffffff)
       .setInteractive({ useHandCursor: true })
       .setAlpha(0);
+    container.add(btnBg);
 
     const btnText = this.add
-      .text(cx, cy + r(140), "RIPROVA", {
+      .text(cx, btnY, "🔄 RIPROVA", {
         fontFamily: "ChillPixels",
-        fontSize: `${r(22)}px`,
+        fontSize: `${r(24)}px`,
         color: "#ffffff",
         fontStyle: "bold",
       })
       .setOrigin(0.5)
       .setAlpha(0);
+    container.add(btnText);
 
     // Animazione entrata pulsante
     this.tweens.add({
       targets: [btnBg, btnText],
       alpha: 1,
       duration: 500,
-      delay: 1200,
+      delay: 1100,
     });
 
     // Effetto hover
     btnBg.on("pointerover", () => {
-      btnBg.setFillStyle(0x8855ff);
+      btnBg.setFillStyle(0xff66cc);
       btnBg.setScale(1.05);
       btnText.setScale(1.05);
     });
     btnBg.on("pointerout", () => {
-      btnBg.setFillStyle(0x6633ff);
+      btnBg.setFillStyle(0xff44aa);
       btnBg.setScale(1);
       btnText.setScale(1);
     });
 
     // Click → riavvia il gioco
     btnBg.on("pointerdown", () => {
-      this.scene.start("GameScene");
+      this.cameras.main.fadeOut(300, 0, 0, 0);
+      this.cameras.main.once("camerafadeoutcomplete", () => {
+        this.scene.start("GameScene");
+      });
     });
 
     // Pulsing leggero
@@ -236,22 +240,24 @@ export class GameOverScene extends Phaser.Scene {
     });
 
     // --- Pulsante "TORNA AL MENU" ---
+    const menuBtnY = btnY + r(65);
     const menuBtnText = this.add
-      .text(cx, cy + r(200), "TORNA AL MENU", {
+      .text(cx, menuBtnY, "🏠 MENU", {
         fontFamily: "ChillPixels",
-        fontSize: `${r(14)}px`,
+        fontSize: `${r(16)}px`,
         color: "#aaaaff",
         fontStyle: "bold",
       })
       .setOrigin(0.5)
       .setAlpha(0)
       .setInteractive({ useHandCursor: true });
+    container.add(menuBtnText);
 
     this.tweens.add({
       targets: menuBtnText,
       alpha: 1,
       duration: 500,
-      delay: 1400,
+      delay: 1300,
     });
 
     menuBtnText.on("pointerover", () => {
@@ -263,7 +269,18 @@ export class GameOverScene extends Phaser.Scene {
       menuBtnText.setScale(1);
     });
     menuBtnText.on("pointerdown", () => {
-      this.scene.start("StartScene");
+      this.cameras.main.fadeOut(300, 0, 0, 0);
+      this.cameras.main.once("camerafadeoutcomplete", () => {
+        this.scene.start("StartScene");
+      });
+    });
+
+    // Animazione entrata container
+    container.setAlpha(0);
+    this.tweens.add({
+      targets: container,
+      alpha: 1,
+      duration: 400,
     });
   }
 }

@@ -51,9 +51,8 @@ export class LevelManager {
   }
 
   /**
-   * Mostra "LEVEL X!" al centro dello schermo con animazione premium:
-   * - Scale in con bounce
-   * - Glow tramite stroke
+   * Mostra "LEVEL X!" al centro dello schermo con animazione solida:
+   * - Fade in veloce
    * - Fade out verso l'alto
    */
   private showLevelUpVisual(): void {
@@ -61,42 +60,34 @@ export class LevelManager {
     const centerY = GAME.HEIGHT / 2;
     const r = (v: number) => Math.round(v * GAME.SCALE);
 
-    // Testo principale
+    // Testo principale con stile solido
     const lvlText = this.scene.add
       .text(centerX, centerY, `LEVEL ${this._level}!`, {
         fontFamily: "ChillPixels",
         fontSize: `${r(42)}px`,
         color: "#ffd700",
-        fontStyle: "bold",
-        stroke: "#b8860b",
-        strokeThickness: r(5),
-        shadow: {
-          offsetX: 0,
-          offsetY: 0,
-          color: "#ffd700",
-          blur: r(20),
-          fill: true,
-        },
+        stroke: "#000000",
+        strokeThickness: r(4),
       })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(25)
-      .setScale(0);
+      .setAlpha(0);
 
-    // Animazione: scala in con bounce → pausa → fade out verso l'alto
+    // Animazione: fade in veloce → pausa → fade out verso l'alto
     this.scene.tweens.add({
       targets: lvlText,
-      scale: 1,
-      duration: 400,
-      ease: "Back.easeOut",
+      alpha: 1,
+      duration: 200,
+      ease: "Cubic.easeOut",
       onComplete: () => {
         this.scene.tweens.add({
           targets: lvlText,
-          y: centerY - r(80),
+          y: centerY - r(60),
           alpha: 0,
           duration: 1000,
-          delay: 600,
-          ease: "Cubic.easeIn",
+          delay: 500,
+          ease: "Cubic.easeOut",
           onComplete: () => lvlText.destroy(),
         });
       },

@@ -19,6 +19,7 @@ export class PartyManager {
 
   private _partyLevel: number = 0;
   private _isWasted: boolean = false;
+  private _drinkCount: number = 0;
 
   constructor(scene: Phaser.Scene, cameraManager: CameraManager) {
     this.scene = scene;
@@ -29,6 +30,7 @@ export class PartyManager {
   public collectDrink(): void {
     if (this._isWasted) return;
 
+    this._drinkCount++;
     this._partyLevel += DRINK.PARTY_GAIN;
 
     if (this._partyLevel >= PARTY.MAX_LEVEL) {
@@ -57,6 +59,7 @@ export class PartyManager {
   public resetForNewLevel(): void {
     this._partyLevel = 0;
     this._isWasted = false;
+    this._drinkCount = 0;
     this.cameraManager.clearEffects();
   }
 
@@ -66,5 +69,9 @@ export class PartyManager {
 
   public get isWasted(): boolean {
     return this._isWasted;
+  }
+
+  public get drinkCount(): number {
+    return this._drinkCount;
   }
 }

@@ -43,10 +43,29 @@ const config: Phaser.Types.Core.GameConfig = {
 };
 
 /**
- * Avvio del gioco — diretto su tutti i dispositivi.
+ * Avvio del gioco — aspetta il caricamento dei font prima di inizializzare Phaser.
  *
- * Il permesso per il sensore di orientamento (iOS) viene ora gestito
- * dal menu di pausa tramite il toggle ACCELEROMETRO, eliminando
- * la necessità di un overlay di avvio separato.
+ * Il font personalizzato "ChillPixels" viene caricato dal CSS in modo asincrono.
+ * Senza aspettare il caricamento, Phaser creerebbe la StartScene con il font
+ * di fallback, causando testo mal renderizzato fino al prossimo refresh.
+ *
+ * Usiamo document.fonts.load() per forzare il caricamento immediato del font
+ * e aspettiamo che sia completamente disponibile prima di avviare Phaser.
  */
-new Phaser.Game(config);
+async function initGame() {
+  try {
+    // Forza il caricamento del font ChillPixels
+    await document.fonts.load('16px "ChillPixels"');
+    // Aspetta anche che tutti gli altri font siano pronti
+    await document.fonts.ready;
+    console.log("✓ Font ChillPixels caricato correttamente");
+  } catch (error) {
+    console.warn("⚠ Errore nel caricamento del font:", error);
+    // Avvia comunque il gioco dopo un breve delay
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  new Phaser.Game(config);
+}
+
+initGame();

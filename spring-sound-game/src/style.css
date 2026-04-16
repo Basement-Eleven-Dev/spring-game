@@ -7,9 +7,18 @@
 @font-face {
   font-family: "ChillPixels";
   src: url("/assets/fonts/ChillPixels-Mono.otf") format("opentype");
-  font-display: swap;
+  font-display: block; /* Cambiato da 'swap' a 'block' — blocca fino al caricamento */
   font-weight: normal;
   font-style: normal;
+}
+
+/* Precaricamento font invisibile — forza il browser a caricare il font immediatamente */
+body::before {
+  content: "";
+  font-family: "ChillPixels";
+  position: absolute;
+  left: -9999px;
+  visibility: hidden;
 }
 
 * {
