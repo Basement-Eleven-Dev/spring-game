@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { GAME, SCORING } from "./GameConfig";
+import { GAME } from "./GameConfig";
 
 export class StartScene extends Phaser.Scene {
   constructor() {
@@ -7,153 +7,86 @@ export class StartScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // Background menu
-    this.load.image("menuBg", "/assets/background/background menu.png");
+    // Background first_bg
+    this.load.image("firstBg", "/assets/background/first_bg.png");
 
     // Logo
     this.load.svg(
       "startLogo",
       "/assets/ui/gamestart-over-pause/logo pixel.svg",
-      { width: 120, height: 120 },
+      { width: 240, height: 240 }
     );
 
-    // Caricamento asset base per il tutorial
+    // Play icon (cerchio giallo con triangolo)
     this.load.svg("playIcon", "/assets/ui/play.svg", { width: 40, height: 40 });
-    this.load.image("drinkTex", "/assets/drinks/drink.png");
-    this.load.image("beerTex", "/assets/drinks/beer.png");
-    this.load.spritesheet(
-      "subwooferSheet",
-      "/assets/platforms/subwoofer_sheet.png",
-      { frameWidth: 200, frameHeight: 100 },
+
+    // Bottone rosso gamestart
+    this.load.svg(
+      "blockRed",
+      "/assets/ui/gamestart-over-pause/block_red.svg",
+      { width: 240, height: 75 }
     );
-    this.load.spritesheet("bouncerSheet", "/assets/players/buttafuori.png", {
-      frameWidth: 128,
-      frameHeight: 158,
-    });
   }
 
   create(): void {
     const cx = GAME.WIDTH / 2;
-    const cy = GAME.HEIGHT / 2;
     const { SCALE } = GAME;
     const r = (v: number) => Math.round(v * SCALE);
 
-    // Background menu
-    const bg = this.add.image(cx, cy, "menuBg");
+    // Background first_bg
+    // Align to bottom to show the ground/character
+    const bg = this.add.image(cx, GAME.HEIGHT, "firstBg").setOrigin(0.5, 1);
+    
+    // Scale to cover the screen
     const scaleX = GAME.WIDTH / bg.width;
     const scaleY = GAME.HEIGHT / bg.height;
     const bgScale = Math.max(scaleX, scaleY);
     bg.setScale(bgScale).setDepth(0);
 
-    // Overlay scuro per leggibilità
-    this.add
-      .rectangle(cx, cy, GAME.WIDTH, GAME.HEIGHT, 0x000000, 0.4)
-      .setDepth(1);
-
     // --- CONTENITORE PRINCIPALE ---
     const container = this.add.container(0, 0).setDepth(2);
 
-    // Logo con cerchio bianco
-    const logoCircle = this.add
-      .circle(cx, r(80), r(75), 0xffffff)
-      .setStrokeStyle(r(3), 0x000000);
-    container.add(logoCircle);
-
+    // Logo
+    const logoY = GAME.HEIGHT * 0.40;
     const logo = this.add
-      .image(cx, r(80), "startLogo")
-      .setDisplaySize(r(120), r(120));
+      .image(cx, logoY, "startLogo")
+      .setDisplaySize(r(260), r(260));
     container.add(logo);
 
-    // Sottotitolo
-    const subtitle = this.add
-      .text(cx, r(160), "Sopravvivi fino alle 02:00", {
-        fontFamily: "ChillPixels",
-        fontSize: `${r(18)}px`,
-        color: "#ffdd88",
-        stroke: "#000000",
-        strokeThickness: r(3),
-      })
-      .setOrigin(0.5);
-    container.add(subtitle);
-
-    // --- PANNELLO REGOLE ---
-    const rulesY = r(230);
-    const rulesPanel = this.add
-      .rectangle(cx, rulesY + r(140), r(320), r(280), 0x000000, 0.7)
-      .setStrokeStyle(r(3), 0xff44aa, 0.8);
-    container.add(rulesPanel);
-
-    // Titolo regole
-    const rulesTitle = this.add
-      .text(cx, rulesY, "COME GIOCARE", {
-        fontFamily: "ChillPixels",
-        fontSize: `${r(22)}px`,
-        color: "#ffdd00",
-        stroke: "#000000",
-        strokeThickness: r(4),
-      })
-      .setOrigin(0.5);
-    container.add(rulesTitle);
-
-    // Regole con icone
-    const rules = [
-      { icon: "🎮", text: "Tocca i lati per muoverti", y: rulesY + r(40) },
-      {
-        icon: "🍺",
-        text: `Bevi drink: +${SCORING.DRINK_STATIC} pt`,
-        y: rulesY + r(80),
-      },
-      {
-        icon: "🔊",
-        text: "Usa i Subwoofer per mega-salti",
-        y: rulesY + r(120),
-      },
-      {
-        icon: "🚨",
-        text: `Schiaccia Bouncer: +${SCORING.BOUNCER_STOMP} pt`,
-        y: rulesY + r(160),
-      },
-      {
-        icon: "🌙",
-        text: `Arriva alle 02:00: +${SCORING.SURVIVAL_BONUS} pt!`,
-        y: rulesY + r(200),
-      },
-    ];
-
-    rules.forEach((rule) => {
-      const ruleText = this.add
-        .text(cx, rule.y, `${rule.icon} ${rule.text}`, {
-          fontFamily: "ChillPixels",
-          fontSize: `${r(15)}px`,
-          color: "#ffffff",
-          align: "center",
-        })
-        .setOrigin(0.5);
-      container.add(ruleText);
-    });
-
     // --- PULSANTE GIOCA ---
-    const btnY = GAME.HEIGHT - r(120);
+    const btnY = logoY + r(160);
+    const playBtnContainer = this.add.container(cx, btnY);
 
-    const playBtn = this.add
-      .rectangle(cx, btnY, r(220), r(70), 0xff44aa, 1)
-      .setStrokeStyle(r(4), 0xffffff)
-      .setInteractive({ useHandCursor: true });
-    container.add(playBtn);
+    const playBtnBg = this.add
+      .image(0, 0, "blockRed")
+      .setDisplaySize(r(240), r(75));
+    playBtnContainer.add(playBtnBg);
+
+    const playIcon = this.add
+      .image(-r(70), 0, "playIcon")
+      .setDisplaySize(r(35), r(35));
+    playBtnContainer.add(playIcon);
 
     const playText = this.add
-      .text(cx, btnY, "▶ GIOCA", {
+      .text(r(15), 0, "GIOCA", {
         fontFamily: "ChillPixels",
-        fontSize: `${r(32)}px`,
+        fontSize: `${r(28)}px`,
         color: "#ffffff",
         fontStyle: "bold",
       })
       .setOrigin(0.5);
-    container.add(playText);
+    playBtnContainer.add(playText);
+
+    const playBtnHit = this.add
+      .rectangle(0, 0, r(240), r(75), 0x000000, 0)
+      .setInteractive({ useHandCursor: true });
+    playBtnContainer.add(playBtnHit);
+    
+    container.add(playBtnContainer);
 
     // Animazione pulsante
     this.tweens.add({
-      targets: playBtn,
+      targets: playBtnContainer,
       scaleX: 1.05,
       scaleY: 1.05,
       duration: 800,
@@ -163,22 +96,20 @@ export class StartScene extends Phaser.Scene {
     });
 
     // Interazioni pulsante
-    playBtn.on("pointerover", () => {
-      playBtn.setFillStyle(0xff66cc);
-      playText.setScale(1.1);
+    playBtnHit.on("pointerover", () => {
+      playBtnBg.setTint(0xffcccc);
     });
 
-    playBtn.on("pointerout", () => {
-      playBtn.setFillStyle(0xff44aa);
-      playText.setScale(1);
+    playBtnHit.on("pointerout", () => {
+      playBtnBg.clearTint();
     });
 
-    playBtn.on("pointerdown", () => {
+    playBtnHit.on("pointerdown", () => {
       this.cameras.main.fadeOut(300, 0, 0, 0);
     });
 
     this.cameras.main.once("camerafadeoutcomplete", () => {
-      this.scene.start("GameScene");
+      this.scene.start("TutorialScene");
     });
 
     // Animazione entrata
