@@ -13,6 +13,7 @@ import {
 import { Platform } from "../Platform";
 import { Drink } from "../Drink";
 import { Bouncer } from "../Bouncer";
+import { Card } from "../Card";
 
 /**
  * SpawnManager
@@ -34,6 +35,7 @@ export class SpawnManager {
   public drinks!: Phaser.Physics.Arcade.Group;
   public muds!: Phaser.Physics.Arcade.Group;
   public bouncers!: Phaser.Physics.Arcade.Group;
+  public cards!: Phaser.Physics.Arcade.Group;
 
   // --- Tracking per lo spawning ---
   private _highestPlatformY: number = 0;
@@ -43,6 +45,7 @@ export class SpawnManager {
   private lastBouncerSpawnY: number = -Infinity;
   /** Y dell'ultimo subwoofer spawnato — per evitare clustering */
   private lastSubwooferSpawnY: number = -Infinity;
+  private lastCardSpawnY: number = INITIAL.PLAYER_START_Y;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -78,6 +81,12 @@ export class SpawnManager {
       classType: Bouncer,
       allowGravity: false,
       immovable: true,
+    });
+
+    // Gruppo cards
+    this.cards = this.scene.physics.add.group({
+      classType: Card,
+      runChildUpdate: true,
     });
   }
 
@@ -136,6 +145,7 @@ export class SpawnManager {
     this._highestPlatformY = currentY;
     this.lastPlatformX = GAME.WIDTH / 2;
     this.lastDrinkSpawnY = INITIAL.PLAYER_START_Y;
+    this.lastCardSpawnY = INITIAL.PLAYER_START_Y;
   }
 
   /**
@@ -526,6 +536,16 @@ export class SpawnManager {
     if (drink) drink.initDrink("falling", "drinkTexture");
   }
 
+  public spawnFallingCard(camScrollY: number): void {
+    const randomX = Phaser.Math.Between(this.r(20), GAME.WIDTH - this.r(20));
+    const card = this.cards.get(
+      randomX,
+      camScrollY - this.r(20),
+      "cardFallingTexture",
+    ) as Card;
+    if (card) card.initCard("cardFallingTexture");
+  }
+
   /**
    * Genera il DJ Stage (piattaforma checkpoint) e nuove piattaforme sopra di esso.
    * Chiamato quando l'evento 'wasted-ready' viene emesso da PartyManager.
@@ -600,6 +620,7 @@ export class SpawnManager {
     clearGroup(this.drinks);
     clearGroup(this.muds);
     clearGroup(this.bouncers);
+    clearGroup(this.cards);
   }
 
   /**
@@ -641,6 +662,7 @@ export class SpawnManager {
     cleanupGroup(this.drinks);
     cleanupGroup(this.muds);
     cleanupGroup(this.bouncers);
+    cleanupGroup(this.cards);
   }
 
   /**
@@ -676,6 +698,18 @@ export class SpawnManager {
     if (highestYReached < this.lastDrinkSpawnY - interval) {
       this.spawnFallingDrink(camScrollY);
       this.lastDrinkSpawnY = highestYReached;
+    }
+
+    // Spawn delle card nei primi 12 livelli: uno circa ogni livello / livello e mezzo
+    // Facciamo un intervallo di spawn molto alto per averne ~5 nei 12 livelli
+    // Il livello è lungo circa GAME.HEIGHT * qualcosa. 
+    // Mettiamo un intervallo ampio, es r(2000) o simile
+    if (level <= 12) {
+      const cardInterval = this.r(1500 + Math.random() * 500); 
+      if (highestYReached < this.lastCardSpawnY - cardInterval) {
+         this.spawnFallingCard(camScrollY);
+         this.lastCardSpawnY = highestYReached;
+      }
     }
   }
 

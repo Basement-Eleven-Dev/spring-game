@@ -391,6 +391,14 @@ export const DRINK = {
   PARTY_GAIN: 10,
 } as const;
 
+// --- Card (Achievements) ---
+export const CARD = {
+  WIDTH: r(25),
+  HEIGHT: r(25),
+  FALLING_SPEED: r(85),
+  MAX_CARDS: 5,
+} as const;
+
 // --- Bouncer (buttafuori) ---
 export const BOUNCER = {
   /**

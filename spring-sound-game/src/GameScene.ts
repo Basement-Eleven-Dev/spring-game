@@ -221,6 +221,11 @@ export class GameScene extends Phaser.Scene {
       "/assets/ui/gamestart-over-pause/music off.svg",
       { width: 40, height: 40 },
     );
+    this.load.svg(
+      "cardFallingTexture",
+      "/assets/ui/gamestart-over-pause/card icon.svg",
+      { width: 50, height: 50 },
+    );
 
     // --- Background Music ---
     this.load.audio("backgroundMusic", "/assets/music/smb.mp3");
@@ -539,6 +544,24 @@ export class GameScene extends Phaser.Scene {
       },
     );
 
+    // --- Overlap Giocatore ↔ Card (achievement) ---
+    this.physics.add.overlap(
+      this.player,
+      this.spawnManager.cards,
+      (_playerObj, cardObj) => {
+        const card = cardObj as import("./Card").Card;
+        // Salva in localStorage per persistenza globale
+        let savedCards = parseInt(localStorage.getItem('cardsCollected') || '0', 10);
+        if (savedCards < 5) {
+          savedCards++;
+          localStorage.setItem('cardsCollected', savedCards.toString());
+        }
+        
+        this.showFloatingScore(card.x, card.y, "+1 CARD", "#408cf4");
+        card.destroy();
+      },
+    );
+
     // --- Overlap Giocatore ↔ Bouncer (presa + lancio pinball) ---
     // Flusso in 3 fasi:
     // 1. PRESA — il player viene bloccato nella mano del bouncer
@@ -681,6 +704,7 @@ export class GameScene extends Phaser.Scene {
         clockMinutes: this.clockMinutes,
         level: this.levelManager.level,
         drinkCount: this.partyManager.drinkCount,
+        cardsCollected: parseInt(localStorage.getItem('cardsCollected') || '0', 10),
         isTimeout: true,
       });
       return;
@@ -754,6 +778,7 @@ export class GameScene extends Phaser.Scene {
         clockMinutes: this.clockMinutes,
         level: this.levelManager.level,
         drinkCount: this.partyManager.drinkCount,
+        cardsCollected: parseInt(localStorage.getItem('cardsCollected') || '0', 10),
         isTimeout: false,
       });
     }
@@ -769,10 +794,11 @@ export class GameScene extends Phaser.Scene {
   private showFloatingScore(
     x: number,
     y: number,
-    points: number,
+    points: number | string,
     color: string,
   ): void {
-    const scoreText = this.add.text(x, y, `+${points}`, {
+    const textToShow = typeof points === "number" ? `+${points}` : points;
+    const scoreText = this.add.text(x, y, textToShow, {
       fontFamily: "ChillPixels",
       fontSize: `${Math.round(14 * GAME.SCALE)}px`,
       color: color,

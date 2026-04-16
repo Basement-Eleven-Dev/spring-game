@@ -158,9 +158,10 @@ export class GameOverScene extends Phaser.Scene {
     clockMinutes: number;
     level: number;
     drinkCount: number;
+    cardsCollected: number;
     isTimeout: boolean;
   }) {
-    const { score, clockMinutes, level, drinkCount, isTimeout } = data;
+    const { score, clockMinutes, level, drinkCount, cardsCollected = 0, isTimeout } = data;
     const cx = GAME.WIDTH / 2;
     const cy = GAME.HEIGHT / 2;
     const S = GAME.SCALE;
@@ -338,7 +339,7 @@ export class GameOverScene extends Phaser.Scene {
     );
     page0.add(
       this.add
-        .text(-iconSpacing, iconY + r(28), `${level}/5`, {
+        .text(-iconSpacing, iconY + r(28), `${cardsCollected}/5`, {
           fontFamily: "ChillPixels",
           fontSize: `${r(14)}px`,
           color: "#000000",
@@ -397,16 +398,27 @@ export class GameOverScene extends Phaser.Scene {
         .setOrigin(0.5),
     );
 
-    page1.add(
-      this.add
-        .text(0, resultsY - r(20), "Coming Soon...", {
-          fontFamily: "ChillPixels",
-          fontSize: `${r(14)}px`,
-          color: "#000000",
-          align: "center",
-        })
-        .setOrigin(0.5),
-    );
+    const slotsY = resultsY + r(10);
+    const spacing = r(45);
+    const startX = -spacing * 2;
+
+    for (let i = 0; i < 5; i++) {
+      const slotX = startX + i * spacing;
+      
+      // Draw square slot
+      page1.add(
+        this.add.rectangle(slotX, slotsY, r(35), r(35), 0x000000, 0)
+          .setStrokeStyle(r(2), 0x000000)
+      );
+
+      // If collected, show card
+      if (i < cardsCollected) {
+        page1.add(
+          this.add.image(slotX, slotsY, "gameOverCardIcon")
+            .setDisplaySize(r(25), r(25))
+        );
+      }
+    }
 
     this.partitaView.add(page1);
     this.pages.push(page1);
