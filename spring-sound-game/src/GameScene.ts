@@ -158,6 +158,16 @@ export class GameScene extends Phaser.Scene {
       },
     );
 
+    // --- Stage: spritesheet 3 frame (palco festival animato) ---
+    this.load.spritesheet(
+      "stageSheet",
+      "/assets/platforms/stage sheet.png",
+      {
+        frameWidth: PLATFORM.STAGE_FRAME_WIDTH,
+        frameHeight: PLATFORM.STAGE_FRAME_HEIGHT,
+      },
+    );
+
     // --- Pause Menu Assets ---
     this.load.svg(
       "pauseLogo",
@@ -381,6 +391,19 @@ export class GameScene extends Phaser.Scene {
           end: 3,
         }),
         frameRate: PLATFORM.SUBWOOFER_ANIM_FPS,
+        repeat: -1, // loop infinito
+      });
+    }
+
+    // --- Stage (palco festival) ---
+    if (!this.anims.exists("stageLoop")) {
+      this.anims.create({
+        key: "stageLoop",
+        frames: this.anims.generateFrameNumbers("stageSheet", {
+          start: 0,
+          end: 2,
+        }),
+        frameRate: PLATFORM.STAGE_ANIM_FPS,
         repeat: -1, // loop infinito
       });
     }

@@ -53,15 +53,8 @@ export class SpawnManager {
   /** Shorthand per scalare valori di riferimento */
   private r: (v: number) => number;
 
-  /** Crea i gruppi fisici e le texture procedurali (DJ stage) */
+  /** Crea i gruppi fisici */
   private createGroups(): void {
-    // Texture procedurale per il DJ Stage (rettangolo magenta)
-    const djGfx = this.scene.add.graphics();
-    djGfx.fillStyle(0xff00ff, 1);
-    djGfx.fillRect(0, 0, GAME.WIDTH, this.r(20));
-    djGfx.generateTexture("djStageTexture", GAME.WIDTH, this.r(20));
-    djGfx.destroy();
-
     // Gruppo piattaforme — usa Platform come classType, con update automatico
     this.platforms = this.scene.physics.add.group({
       classType: Platform,
@@ -93,18 +86,31 @@ export class SpawnManager {
    * Chiamato una volta sola in GameScene.create().
    */
   public spawnInitialPlatforms(level: number): void {
-    // Piattaforma base larga quanto lo schermo (usa la prima variante standard)
-    const baseTexture = PLATFORM_STANDARD_TEXTURES[0];
+    // --- Stage base: spinto molto in basso e traslato a sinistra per correggere la PNG ritagliata male ---
+    const stageY = GAME.HEIGHT - PLATFORM.STAGE_HEIGHT / 2 + this.r(35);
+    const stageX = GAME.WIDTH / 2 - this.r(10);
+
     const basePlatform = this.platforms.get(
-      GAME.WIDTH / 2,
-      INITIAL.BASE_PLATFORM_Y,
-      baseTexture,
+      stageX,
+      stageY,
+      "stageSheet",
     ) as Platform;
     basePlatform.isBasePlatform = true;
-    basePlatform.initPlatform("standard", baseTexture, level);
-    basePlatform.setDisplaySize(PLATFORM.BASE_WIDTH, PLATFORM.BASE_HEIGHT);
+    basePlatform.initPlatform("standard", "stageSheet", level);
+    basePlatform.setDisplaySize(PLATFORM.STAGE_WIDTH, PLATFORM.STAGE_HEIGHT);
+    basePlatform.play("stageLoop");
     if (basePlatform.body) {
-      basePlatform.body.setSize(basePlatform.width, basePlatform.height);
+      // Dinamico: ricaviamo il top reale dello sprite e calcoliamo l'offset verso il pavimento di gioco
+      const topSpriteY = stageY - PLATFORM.STAGE_HEIGHT / 2;
+      const floorWorldY = INITIAL.BASE_PLATFORM_Y; // dove deve atterrare il personaggio
+      const dyWorld = floorWorldY - topSpriteY; // Calcolo esatto a prescindere dal visual shift!
+      
+      const sourceScale = PLATFORM.STAGE_FRAME_HEIGHT / PLATFORM.STAGE_HEIGHT;
+      const offsetY = Math.round(dyWorld * sourceScale);
+      const hitH = Math.round(PLATFORM.STAGE_HITBOX_HEIGHT * sourceScale);
+
+      basePlatform.body.setSize(basePlatform.width, hitH);
+      basePlatform.body.setOffset(0, offsetY);
     }
 
     // Spacing variabile per livello (come in spawnPlatform)
@@ -120,7 +126,7 @@ export class SpawnManager {
       spacingMax = PLATFORM.SPACING_MAX;
     }
 
-    // Genera le piattaforme verso l'alto
+    // Le piattaforme partono dalla superficie dello stage
     let currentY = INITIAL.BASE_PLATFORM_Y;
     for (let i = 1; i <= PLATFORM.INITIAL_COUNT; i++) {
       currentY -= Phaser.Math.Between(spacingMin, spacingMax);
@@ -529,19 +535,35 @@ export class SpawnManager {
     // Pulisci tutte le entità sopra il DJ Stage
     this.clearAbove(nextY + this.r(50));
 
-    // Crea il palco DJ
+    // Crea il palco DJ (stage animato)
+    // Usa lo stesso rapporto visivo/fisico calcolato alla base di gioco
+    // Distanza fissa dal centro visivo al pavimento logico: STAGE_HEIGHT / 2 - r(70)
+    const floorWorldY = nextY - this.r(10);
+    const djStageY = floorWorldY - (PLATFORM.STAGE_HEIGHT / 2 - this.r(70));
+    const stageX = GAME.WIDTH / 2 - this.r(35);
+
     const djStage = this.platforms.get(
-      GAME.WIDTH / 2,
-      nextY,
-      "djStageTexture",
+      stageX,
+      djStageY,
+      "stageSheet",
     ) as Platform;
-    djStage.initPlatform("standard", "djStageTexture", level);
-    djStage.setDisplaySize(GAME.WIDTH, this.r(20));
+    djStage.initPlatform("standard", "stageSheet", level);
+    djStage.setDisplaySize(PLATFORM.STAGE_WIDTH, PLATFORM.STAGE_HEIGHT);
+    djStage.play("stageLoop");
     djStage.isBasePlatform = true;
     djStage.isDJStage = true;
 
     if (djStage.body) {
-      djStage.body.setSize(djStage.width, djStage.height);
+      // Calcolo offset dinamico esattamente in linea col posizionamento asimmetrico
+      const topSpriteY = djStageY - PLATFORM.STAGE_HEIGHT / 2;
+      const dyWorld = floorWorldY - topSpriteY;
+      
+      const sourceScale = PLATFORM.STAGE_FRAME_HEIGHT / PLATFORM.STAGE_HEIGHT;
+      const offsetY = Math.round(dyWorld * sourceScale);
+      const hitH = Math.round(PLATFORM.STAGE_HITBOX_HEIGHT * sourceScale);
+
+      djStage.body.setSize(djStage.width, hitH);
+      djStage.body.setOffset(0, offsetY);
 
       // FIX BUG #2: il DJ Stage ha collisione da TUTTE le direzioni.
       // Senza questo, il giocatore lo attraversa dal basso e salta il livello.
@@ -552,7 +574,7 @@ export class SpawnManager {
       djStage.body.checkCollision.right = true;
     }
 
-    // Genera nuove piattaforme sopra il DJ Stage
+    // Genera nuove piattaforme sopra il DJ Stage (dalla sua superficie)
     this._highestPlatformY = nextY;
     for (let i = 0; i < LEVEL.DJ_STAGE_PLATFORMS; i++) {
       this._highestPlatformY -= Phaser.Math.Between(
@@ -591,7 +613,8 @@ export class SpawnManager {
     const children = [...this.platforms.getChildren()];
     children.forEach((child) => {
       const platform = child as Platform;
-      if (platform.y > camScrollY + camHeight) {
+      // Attendi che il bordo superiore della piattaforma esca dallo schermo prima di distruggerla
+      if (platform.y - platform.displayHeight / 2 > camScrollY + camHeight) {
         if (platform.isBasePlatform) {
           platform.destroy();
           return;

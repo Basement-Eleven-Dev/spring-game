@@ -344,10 +344,21 @@ export const PLATFORM = {
   SUBWOOFER_FRAME_WIDTH: 200,
   SUBWOOFER_FRAME_HEIGHT: 100,
 
+  /** Spritesheet stage: 3 frame orizzontali, 256×184 per frame (sheet 768×184) */
+  STAGE_FRAME_WIDTH: 256,
+  STAGE_FRAME_HEIGHT: 184,
+
   /** Frame rate dell'animazione subwoofer (loop) */
   SUBWOOFER_ANIM_FPS: 8,
+  /** Frame rate dell'animazione stage (loop veloce) */
+  STAGE_ANIM_FPS: 10,
   /** Durata dell'animazione di rottura della piattaforma fragile (ms) */
   FRAGILE_BREAK_DURATION_MS: 300,
+
+  /** Dimensioni di visualizzazione dello stage nel mondo di gioco (maggiorate del 25% per nascondere i grossi bordi trasparenti nell'immagine) */
+  STAGE_WIDTH: Math.round(GAME_WIDTH * 1.25),
+  STAGE_HEIGHT: Math.round((GAME_WIDTH * 1.25) * (184 / 256)),
+  STAGE_HITBOX_HEIGHT: r(20),
 } as const;
 
 // --- Fango (rallenta il salto) ---
