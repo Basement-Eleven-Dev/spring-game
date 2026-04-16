@@ -373,8 +373,8 @@ export const DRINK = {
   SPAWN_PROB_ON_PLATFORM: 0.12,
   /** Distanza tra drink cadenti per livello (gestita in SpawnManager) */
   SPAWN_INTERVAL: r(300),
-  /** I drink cadenti iniziano dal livello 2 */
-  FALLING_MIN_LEVEL: 2,
+  /** I drink cadenti iniziano dal livello 1 */
+  FALLING_MIN_LEVEL: 1,
   FALLING_SPEED: r(110),
   /** Party gain per drink: 10 drink per raggiungere il wasted */
   PARTY_GAIN: 10,
@@ -479,6 +479,14 @@ export const PARTY = {
   MULTIPLIER_YELLOW: 1.5,
   MULTIPLIER_ORANGE: 2.5,
   MULTIPLIER_WASTED: 4,
+} as const;
+
+// --- Sistema di Punteggio ---
+export const SCORING = {
+  DRINK_STATIC: 150,
+  DRINK_FALLING: 350,
+  BOUNCER_STOMP: 600,
+  SURVIVAL_BONUS: 15000,
 } as const;
 
 // --- Progressione livelli ---

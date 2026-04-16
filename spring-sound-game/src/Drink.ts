@@ -19,6 +19,10 @@ export class Drink extends Phaser.Physics.Arcade.Sprite {
   /** Offset Y rispetto alla piattaforma */
   private offsetY: number = 0;
 
+  public get isFalling(): boolean {
+    return this.attachedPlatform === undefined;
+  }
+
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string) {
     super(scene, x, y, texture);
     scene.add.existing(this);

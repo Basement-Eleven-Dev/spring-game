@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { PARTY } from "../GameConfig";
+import { PARTY, SCORING } from "../GameConfig";
 
 /**
  * ScoreManager
@@ -68,6 +68,17 @@ export class ScoreManager {
   /** Aggiungi punti bonus diretti (es. dal DJ Stage / level up) */
   public addBonus(points: number): void {
     this._score += points;
+  }
+
+  /** Aggiunge i punti in base al tipo di drink (statico o cadente) */
+  public addDrinkBonus(isFalling: boolean): void {
+    const points = isFalling ? SCORING.DRINK_FALLING : SCORING.DRINK_STATIC;
+    this.addBonus(points);
+  }
+
+  /** Aggiunge il mega bonus in caso di completamento partita (12h superate) */
+  public addSurvivalBonus(): void {
+    this.addBonus(SCORING.SURVIVAL_BONUS);
   }
 
   public get highestYReached(): number {

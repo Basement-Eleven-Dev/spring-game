@@ -758,25 +758,25 @@ Gestisce il menu di pausa con overlay e opzioni di gioco:
 
 Il gioco introduce gradualmente meccaniche e ostacoli per una curva di apprendimento bilanciata:
 
-### **Livello 1: Fondamenta**
+### **Livello 1: Fondamenta Dinamiche**
 
-_"Impara a saltare e raccogliere drink"_
+_"Impara a saltare, occhio a dove metti i piedi e ai drink in arrivo"_
 
-- **Piattaforme**: Solo wide standard (erba/ubriaco) - 100%
-- **Spacing**: Generoso (70-130px invece di 55-115px)
-- **Drink**: Abbondanti su piattaforme (20%) - NO drink cadenti
+- **Piattaforme**: 80% Erba, 15% Ubriaco, 5% Moving (Lente)
+- **Spacing**: Generoso (70-130px)
+- **Drink**: 20% su piattaforme + **drink al volo (cadenti)** (rari)
 - **Gravità**: Base (750)
-- **Obiettivo**: Timing del salto, raccolta drink, party level
+- **Obiettivo**: Adattamento al movimento e ai riflessi sui drink
 
 ### **Livello 2: Varietà**
 
-_"Piattaforme diverse e primi drink dall'alto"_
+_"Inizia il caos moderato"_
 
 - **Piattaforme**: Wide 60%, Compact 30%, Moving 10%
 - **Spacing**: Intermedio (65-125px)
-- **Drink**: 18% su piattaforme + **drink cadenti** (ogni 350px)
+- **Drink**: 18% su piattaforme + **drink cadenti** (più frequenti)
 - **Gravità**: +15%
-- **Obiettivo**: Adattamento a piattaforme mobili e più piccole
+- **Obiettivo**: Timing sui salti verticali stretti e raccolta drink
 
 ### **Livello 3: Subwoofer + Fango**
 
@@ -791,14 +791,14 @@ _"Il trampolino ti aiuta, il fango rallenta"_
 
 ### **Livello 4: Fragili + Bouncer**
 
-_"Piattaforme che si rompono e primi buttafuori"_
+_"Piattaforme che si rompono e i Buttafuori"_
 
 - **Piattaforme**: Wide 40%, Compact 20%, Moving 15%, Subwoofer 10%, **Fragile 15%**
-- **Drink**: 12% piattaforme, cadenti ogni 280px
+- **Drink**: 12% piattaforme, cadenti
 - **Fango**: ~10% (più frequente)
-- **Bouncer**: Primi nemici! 5% (rarissimi all'inizio)
+- **Bouncer**: Nemici sui bordi! 5% (rarissimi all'inizio)
 - **Gravità**: +35%
-- **Obiettivo**: Precisione nel salto, evitare bouncer o schiacciarli
+- **Obiettivo**: Precisione nel salto, eludere i bouncer o schiacciarli col salto Super-Mario
 
 ### **Livello 5: Intensificazione**
 
@@ -831,12 +831,17 @@ _"Densità crescente fino al limite"_
 - **Fragile**: Cresce fino a 25% max
 - **Gravità**: Continua a salire logaritmicamente
 
-**Note tecniche**:
+**Note tecniche (Anti-Frustrazione):**
 
-- Gli spacing tornano normali dal livello 3 (55-115px)
-- I drink cadenti hanno intervalli decrescenti per aumentare il ritmo
-- La probabilità dei drink su piattaforme decresce per bilanciare i cadenti
-- Max 1 bouncer attivo a schermo, con distanza minima tra spawn consecutivi
+- **Spaziature sicure**: Controllo sullo spawn che impedisce combo letali invisibili (es. 2 Subwoofer accavallati o un Bouncer subito sopra un Subwoofer).
+- **Flusso pinball**: I Bouncer scagliano sempre il giocatore diagonalmente verso *l'alto* anziché nel vuoto causato dai drop off limitando loop mortali.
+
+### **Nuovo Sistema di Punteggio Ibrido (Trick-oriented)**
+Oltre allo scaling progressivo per la salita verticale (diviso da moltiplicatori "wasted"), i punti esplodono catturando boost specifici:
+- **+150pt**: Raccolta drink fermo
+- **+350pt**: Riflesso su drink in caduta al volo
+- **+600pt**: "Stomp" stile Super-Mario sulla testa del Buttafuori
+- **+15.000pt [Survival Bonus]**: Sopravvivi al Game-Over timeout senza morire nel pozzo fino alle 04:00 (fine orologio narrativo).
 
 ### `SpawnManager` — Spawning/Riciclo/Pulizia
 

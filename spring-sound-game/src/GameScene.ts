@@ -8,8 +8,10 @@ import {
   LEVEL,
   PLATFORM,
   PLAYER,
+  PARTY,
   TIME,
   SETTINGS,
+  SCORING,
 } from "./GameConfig";
 import { Player } from "./Player";
 import { Platform } from "./Platform";
@@ -432,7 +434,9 @@ export class GameScene extends Phaser.Scene {
       this.player,
       this.spawnManager.drinks,
       (_playerObj, drinkObj) => {
-        (drinkObj as Phaser.Physics.Arcade.Sprite).destroy();
+        const drink = drinkObj as import('./Drink').Drink;
+        this.scoreManager.addDrinkBonus(drink.isFalling);
+        drink.destroy();
         this.partyManager.collectDrink();
       },
     );
@@ -479,7 +483,7 @@ export class GameScene extends Phaser.Scene {
           });
 
           // Punteggio o effetto bonus opzionale
-          this.scoreManager.addBonus(300);
+          this.scoreManager.addBonus(SCORING.BOUNCER_STOMP);
 
           return; // Interrompe il flusso normale del lancio
         }
@@ -516,18 +520,10 @@ export class GameScene extends Phaser.Scene {
           if (p.body) {
             p.body.allowGravity = true;
 
-            // Direzione Y: se il giocatore è nella parte bassa dello schermo, lancialo verso l'alto.
-            // Altrimenti, lancialo verso il basso. (Evita loop infiniti ed aiuta la visibilità)
-            const screenY = p.y - this.cameraManager.scrollY;
-            const isLowerHalf = screenY > this.cameraManager.height / 2;
-
+            // Direzione Y: scagliamo sempre il giocatore in alto come in un VERO pinball.
             p.setVelocityX(lateralDir * BOUNCER.PINBALL_LAUNCH_X);
-            // Forza verso l'alto (per salvarlo) leggermente maggiorata per contrastare la gravità
-            p.setVelocityY(
-              isLowerHalf
-                ? -BOUNCER.KNOCKBACK_FORCE * 1.8
-                : BOUNCER.KNOCKBACK_FORCE,
-            );
+            // Forza verso l'alto (così da dare suspance al giocatore invece che una condanna)
+            p.setVelocityY(-BOUNCER.KNOCKBACK_FORCE);
 
             // Attiva la fase pinball: rimbalzi + rotazione per PINBALL_DURATION_MS
             p.startPinball(BOUNCER.PINBALL_DURATION_MS);
@@ -569,6 +565,7 @@ export class GameScene extends Phaser.Scene {
 
     // Timeout alle 04:00: fine gioco con punteggio
     if (this.clockMinutes >= TIME.DURATION_MINUTES) {
+      this.scoreManager.addSurvivalBonus();
       this.scene.start("GameOverScene", {
         score: this.scoreManager.score,
         clockMinutes: this.clockMinutes,

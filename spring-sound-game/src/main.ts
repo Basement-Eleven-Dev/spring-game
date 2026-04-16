@@ -1,6 +1,7 @@
 import * as Phaser from "phaser";
 import { GameScene } from "./GameScene";
 import { GameOverScene } from "./GameOverScene";
+import { StartScene } from "./StartScene";
 import { GAME, PHYSICS } from "./GameConfig";
 import "./style.css";
 
@@ -20,7 +21,7 @@ const config: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [GameScene, GameOverScene],
+  scene: [StartScene, GameScene, GameOverScene],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,

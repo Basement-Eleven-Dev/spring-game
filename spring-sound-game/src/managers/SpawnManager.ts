@@ -41,6 +41,8 @@ export class SpawnManager {
   private lastDrinkSpawnY: number = INITIAL.PLAYER_START_Y;
   /** Y dell'ultimo bouncer spawnato — per garantire distanza minima */
   private lastBouncerSpawnY: number = -Infinity;
+  /** Y dell'ultimo subwoofer spawnato — per evitare clustering */
+  private lastSubwooferSpawnY: number = -Infinity;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -167,14 +169,23 @@ export class SpawnManager {
     let cat: "wide" | "compact";
 
     if (level === 1) {
-      // LIVELLO 1: Solo wide standard
-      texture = Phaser.Utils.Array.GetRandom([
-        "platformErbaTexture",
-        "platformUbriacoTexture",
-      ]);
-      plat.initPlatform("standard", texture, level);
-      cat = "wide";
-      platWidth = PLATFORM.WIDE_WIDTH;
+      // LIVELLO 1: 80% erba, 15% ubriaco, 5% moving (erba)
+      if (rand < 0.8) {
+        texture = "platformErbaTexture";
+        plat.initPlatform("standard", texture, level);
+        cat = "wide";
+        platWidth = PLATFORM.WIDE_WIDTH;
+      } else if (rand < 0.95) {
+        texture = "platformUbriacoTexture";
+        plat.initPlatform("standard", texture, level);
+        cat = "wide";
+        platWidth = PLATFORM.WIDE_WIDTH;
+      } else {
+        texture = "platformErbaTexture";
+        plat.initPlatform("moving", texture, level);
+        cat = "wide";
+        platWidth = PLATFORM.WIDE_WIDTH;
+      }
       canHaveBouncer = false;
     } else if (level === 2) {
       // LIVELLO 2: 60% wide, 30% compact, 10% moving (wide)
@@ -234,10 +245,20 @@ export class SpawnManager {
           cat === "compact" ? PLATFORM.COMPACT_WIDTH : PLATFORM.WIDE_WIDTH;
         canHaveBouncer = false;
       } else {
-        plat.initPlatform("subwoofer", "subwooferSheet", level);
-        platWidth = PLATFORM.SUBWOOFER_WIDTH;
-        cat = "compact";
-        canHaveBouncer = false;
+        // Evita configurazioni impossibili di subwoofer raggruppati
+        if (Math.abs(y - this.lastSubwooferSpawnY) > this.r(300)) {
+          plat.initPlatform("subwoofer", "subwooferSheet", level);
+          platWidth = PLATFORM.SUBWOOFER_WIDTH;
+          cat = "compact";
+          canHaveBouncer = false;
+          this.lastSubwooferSpawnY = y;
+        } else {
+          texture = "platformErbaTexture";
+          plat.initPlatform("standard", texture, level);
+          platWidth = PLATFORM.WIDE_WIDTH;
+          cat = "wide";
+          canHaveBouncer = false;
+        }
       }
     } else if (level === 4) {
       // LIVELLO 4: 40% wide, 20% compact, 15% moving, 10% subwoofer, 15% fragile
@@ -267,10 +288,20 @@ export class SpawnManager {
           cat === "compact" ? PLATFORM.COMPACT_WIDTH : PLATFORM.WIDE_WIDTH;
         canHaveBouncer = false;
       } else if (rand < 0.85) {
-        plat.initPlatform("subwoofer", "subwooferSheet", level);
-        platWidth = PLATFORM.SUBWOOFER_WIDTH;
-        cat = "compact";
-        canHaveBouncer = false;
+        // Evita configurazioni impossibili di subwoofer raggruppati
+        if (Math.abs(y - this.lastSubwooferSpawnY) > this.r(300)) {
+          plat.initPlatform("subwoofer", "subwooferSheet", level);
+          platWidth = PLATFORM.SUBWOOFER_WIDTH;
+          cat = "compact";
+          canHaveBouncer = false;
+          this.lastSubwooferSpawnY = y;
+        } else {
+          texture = "platformErbaTexture";
+          plat.initPlatform("standard", texture, level);
+          platWidth = PLATFORM.WIDE_WIDTH;
+          cat = "wide";
+          canHaveBouncer = true;
+        }
       } else {
         plat.initPlatform("fragile", "fragileSheet", level);
         platWidth = PLATFORM.COMPACT_WIDTH;
@@ -305,10 +336,19 @@ export class SpawnManager {
           cat === "compact" ? PLATFORM.COMPACT_WIDTH : PLATFORM.WIDE_WIDTH;
         canHaveBouncer = false;
       } else if (rand < 0.82) {
-        plat.initPlatform("subwoofer", "subwooferSheet", level);
-        platWidth = PLATFORM.SUBWOOFER_WIDTH;
-        cat = "compact";
-        canHaveBouncer = false;
+        if (Math.abs(y - this.lastSubwooferSpawnY) > this.r(300)) {
+          plat.initPlatform("subwoofer", "subwooferSheet", level);
+          platWidth = PLATFORM.SUBWOOFER_WIDTH;
+          cat = "compact";
+          canHaveBouncer = false;
+          this.lastSubwooferSpawnY = y;
+        } else {
+          texture = "platformErbaTexture";
+          plat.initPlatform("standard", texture, level);
+          platWidth = PLATFORM.WIDE_WIDTH;
+          cat = "wide";
+          canHaveBouncer = true;
+        }
       } else {
         plat.initPlatform("fragile", "fragileSheet", level);
         platWidth = PLATFORM.COMPACT_WIDTH;
@@ -343,10 +383,19 @@ export class SpawnManager {
           cat === "compact" ? PLATFORM.COMPACT_WIDTH : PLATFORM.WIDE_WIDTH;
         canHaveBouncer = false;
       } else if (rand < 0.8) {
-        plat.initPlatform("subwoofer", "subwooferSheet", level);
-        platWidth = PLATFORM.SUBWOOFER_WIDTH;
-        cat = "compact";
-        canHaveBouncer = false;
+        if (Math.abs(y - this.lastSubwooferSpawnY) > this.r(300)) {
+          plat.initPlatform("subwoofer", "subwooferSheet", level);
+          platWidth = PLATFORM.SUBWOOFER_WIDTH;
+          cat = "compact";
+          canHaveBouncer = false;
+          this.lastSubwooferSpawnY = y;
+        } else {
+          texture = "platformErbaTexture";
+          plat.initPlatform("standard", texture, level);
+          platWidth = PLATFORM.WIDE_WIDTH;
+          cat = "wide";
+          canHaveBouncer = true;
+        }
       } else {
         plat.initPlatform("fragile", "fragileSheet", level);
         platWidth = PLATFORM.COMPACT_WIDTH;
@@ -401,6 +450,7 @@ export class SpawnManager {
       level >= BOUNCER.MIN_LEVEL &&
       activeBouncerCount < 1 &&
       Math.abs(y - this.lastBouncerSpawnY) >= BOUNCER.MIN_SPAWN_SPACING &&
+      Math.abs(y - this.lastSubwooferSpawnY) > this.r(150) && // Evita bouncer immediatamente sopra subwoofer
       Math.random() <
         Math.min(
           BOUNCER.BASE_PROB +
@@ -579,11 +629,13 @@ export class SpawnManager {
     level: number,
     camScrollY: number,
   ): void {
-    // Drink cadenti: solo dal livello 2, con intervallo variabile
+    // Drink cadenti: dal livello 1, con intervallo variabile
     if (level < DRINK.FALLING_MIN_LEVEL) return;
 
     let interval: number;
-    if (level === 2) {
+    if (level === 1) {
+      interval = this.r(400); // Raro nel livello 1
+    } else if (level === 2) {
       interval = this.r(350);
     } else if (level === 3) {
       interval = this.r(300);

@@ -234,5 +234,36 @@ export class GameOverScene extends Phaser.Scene {
       ease: "Sine.easeInOut",
       delay: 1500,
     });
+
+    // --- Pulsante "TORNA AL MENU" ---
+    const menuBtnText = this.add
+      .text(cx, cy + r(200), "TORNA AL MENU", {
+        fontFamily: "ChillPixels",
+        fontSize: `${r(14)}px`,
+        color: "#aaaaff",
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5)
+      .setAlpha(0)
+      .setInteractive({ useHandCursor: true });
+
+    this.tweens.add({
+      targets: menuBtnText,
+      alpha: 1,
+      duration: 500,
+      delay: 1400,
+    });
+
+    menuBtnText.on("pointerover", () => {
+      menuBtnText.setColor("#ffffff");
+      menuBtnText.setScale(1.1);
+    });
+    menuBtnText.on("pointerout", () => {
+      menuBtnText.setColor("#aaaaff");
+      menuBtnText.setScale(1);
+    });
+    menuBtnText.on("pointerdown", () => {
+      this.scene.start("StartScene");
+    });
   }
 }
