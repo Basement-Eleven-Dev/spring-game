@@ -301,6 +301,75 @@ this.scene.add.text(x, y, "14:00", {
 });
 ```
 
+### Pattern Layout Schermate Menu
+
+Le schermate **Start**, **Pause** e **Game Over** seguono un **layout verticale ottimizzato** per massimizzare lo spazio disponibile su mobile:
+
+```
+┌─────────────────────────┐
+│         LOGO            │  ← -240 (cerchio beige + logo)
+│                         │
+│      BOTTONE #1         │  ← -140 (es: PLAY / RIPRENDI)
+│                         │
+│      BOTTONE #2         │  ← -80  (es: ISTRUZIONI / NUOVA PARTITA)
+│                         │
+│  ┌──────────────────┐   │
+│  │  LABEL SEZIONE   │   │  ← -30  (testo descrittivo, colore #F8F0CD)
+│  │  --------------- │   │
+│  │  BLOCCO BLU #3   │   │  ← +15  (es: COMANDI / STATISTICHE)
+│  └──────────────────┘   │
+│                         │
+│      ICONA BOTTOM       │  ← +90  (es: audio toggle / decorazione)
+│                         │
+└─────────────────────────┘
+```
+
+**Coordinate Y scalate** (via `r()`, valori di riferimento a 350px):
+
+| Elemento       | Y    | Note                                     |
+| -------------- | ---- | ---------------------------------------- |
+| Logo + cerchio | -240 | Cerchio beige (#F8F0CD) + logo 70×70     |
+| Bottone 1      | -140 | Blocco rosso/verde (es: PLAY/RIPRENDI)   |
+| Bottone 2      | -80  | Blocco bianco (60px di gap da bottone 1) |
+| Label sezione  | -30  | Testo beige (#F8F0CD), font ChillPixels  |
+| Blocco sezione | +15  | Blocco blu/altro contenuto (45px di gap) |
+| Icona/toggle   | +90  | Audio, decorazione, o altro elemento     |
+
+**Colori UI standard**:
+
+- **Beige** (#F8F0CD): testi descrittivi, cerchio logo, elementi decorativi
+- **Rosso** (pauseBlockRed): bottoni azione primaria (PLAY, RIPRENDI)
+- **Bianco** (pauseBlockWhite): bottoni azione secondaria (NUOVA PARTITA)
+- **Blu** (pauseBlockBlue): blocchi informativi/toggle (COMANDI)
+
+**Come adattare per Start/GameOver**:
+
+1. Mantenere il **logo centrato a -240** per consistenza visiva
+2. **Bottoni principali a -140 e -80**: gap 60px scalato garantisce leggibilità su mobile
+3. **Sezione informativa a -30/+15**: label + blocco con gap 45px
+4. Usare `r()` per scalare tutte le coordinate in base alla risoluzione device
+
+**Esempio per StartScene**:
+
+```typescript
+// Logo identico a PauseMenu
+const logo = this.add
+  .image(0, r(-240), "startLogo")
+  .setDisplaySize(r(70), r(70));
+
+// Bottone PLAY (rosso)
+const playBtn = createButton(0, r(-140), "PLAY", "pauseBlockRed");
+
+// Bottone ISTRUZIONI (bianco)
+const tutorialBtn = createButton(0, r(-80), "ISTRUZIONI", "pauseBlockWhite");
+
+// Sezione controlli (se mobile)
+const commandsLabel = this.add.text(0, r(-30), "COMANDI", {
+  color: "#F8F0CD",
+  fontSize: `${r(14)}px`,
+});
+```
+
 ---
 
 ## 🌅 Background Scrollabile + Ciclo Giorno/Notte
@@ -834,10 +903,12 @@ _"Densità crescente fino al limite"_
 **Note tecniche (Anti-Frustrazione):**
 
 - **Spaziature sicure**: Controllo sullo spawn che impedisce combo letali invisibili (es. 2 Subwoofer accavallati o un Bouncer subito sopra un Subwoofer).
-- **Flusso pinball**: I Bouncer scagliano sempre il giocatore diagonalmente verso *l'alto* anziché nel vuoto causato dai drop off limitando loop mortali.
+- **Flusso pinball**: I Bouncer scagliano sempre il giocatore diagonalmente verso _l'alto_ anziché nel vuoto causato dai drop off limitando loop mortali.
 
 ### **Nuovo Sistema di Punteggio Ibrido (Trick-oriented)**
+
 Oltre allo scaling progressivo per la salita verticale (diviso da moltiplicatori "wasted"), i punti esplodono catturando boost specifici:
+
 - **+150pt**: Raccolta drink fermo
 - **+350pt**: Riflesso su drink in caduta al volo
 - **+600pt**: "Stomp" stile Super-Mario sulla testa del Buttafuori

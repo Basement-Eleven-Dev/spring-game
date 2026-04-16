@@ -91,7 +91,7 @@ export class PauseMenuManager {
     // --- Bottone RIPRENDI ---
     const resumeBtn = this.createButtonWithBlock(
       0,
-      r(-150),
+      r(-140),
       "RIPRENDI",
       "pauseBlockRed",
       "pausePlayIcon",
@@ -102,7 +102,7 @@ export class PauseMenuManager {
     // --- Bottone NUOVA PARTITA ---
     const restartBtn = this.createButtonWithBlock(
       0,
-      r(-70),
+      r(-80),
       "NUOVA PARTITA",
       "pauseBlockWhite",
       null,
@@ -114,10 +114,10 @@ export class PauseMenuManager {
     if (this.isMobile) {
       // Testo "COMANDI" sopra il blocco
       const commandsLabel = this.scene.add
-        .text(0, r(-15), "COMANDI", {
+        .text(0, r(-30), "COMANDI", {
           fontFamily: "ChillPixels",
           fontSize: `${r(14)}px`,
-          color: "#ffffff",
+          color: "#F8F0CD",
           fontStyle: "bold",
         })
         .setOrigin(0.5);

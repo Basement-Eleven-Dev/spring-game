@@ -55,6 +55,9 @@ export class GameScene extends Phaser.Scene {
   private uiManager!: UIManager;
   private pauseMenuManager!: PauseMenuManager;
 
+  // --- Audio ---
+  private backgroundMusic?: Phaser.Sound.BaseSound;
+
   // --- Stato pausa ---
   private isPaused: boolean = false;
 
@@ -208,6 +211,9 @@ export class GameScene extends Phaser.Scene {
       "/assets/ui/gamestart-over-pause/music off.svg",
       { width: 40, height: 40 },
     );
+
+    // --- Background Music ---
+    this.load.audio("backgroundMusic", "/assets/music/willyMix.mp3");
   }
 
   /**
@@ -282,6 +288,15 @@ export class GameScene extends Phaser.Scene {
         this.levelManager.level,
       );
     });
+
+    // --- Background Music ---
+    this.backgroundMusic = this.sound.add("backgroundMusic", {
+      loop: true,
+      volume: 0.5,
+    });
+    if (SETTINGS.audioEnabled) {
+      this.backgroundMusic.play();
+    }
   }
 
   /**
@@ -631,6 +646,12 @@ export class GameScene extends Phaser.Scene {
     // Timeout alle 04:00: fine gioco con punteggio
     if (this.clockMinutes >= TIME.DURATION_MINUTES) {
       this.scoreManager.addSurvivalBonus();
+
+      // Ferma la musica
+      if (this.backgroundMusic) {
+        this.backgroundMusic.stop();
+      }
+
       this.scene.start("GameOverScene", {
         score: this.scoreManager.score,
         clockMinutes: this.clockMinutes,
@@ -699,6 +720,11 @@ export class GameScene extends Phaser.Scene {
       this.player.y >
       this.cameraManager.scrollY + this.cameraManager.height
     ) {
+      // Ferma la musica
+      if (this.backgroundMusic) {
+        this.backgroundMusic.stop();
+      }
+
       this.scene.start("GameOverScene", {
         score: this.scoreManager.score,
         clockMinutes: this.clockMinutes,
@@ -758,6 +784,11 @@ export class GameScene extends Phaser.Scene {
       this.anims.pauseAll();
       this.tweens.pauseAll();
 
+      // Pausa la musica (solo se l'audio è abilitato)
+      if (this.backgroundMusic && SETTINGS.audioEnabled) {
+        this.backgroundMusic.pause();
+      }
+
       // Mostra il menu di pausa
       this.pauseMenuManager.show();
     } else {
@@ -776,6 +807,11 @@ export class GameScene extends Phaser.Scene {
     this.anims.resumeAll();
     this.tweens.resumeAll();
 
+    // Riprendi la musica (solo se l'audio è abilitato)
+    if (this.backgroundMusic && SETTINGS.audioEnabled) {
+      this.backgroundMusic.resume();
+    }
+
     // Nascondi il menu di pausa
     this.pauseMenuManager.hide();
   }
@@ -791,6 +827,11 @@ export class GameScene extends Phaser.Scene {
 
     // Nascondi il menu
     this.pauseMenuManager.hide();
+
+    // Ferma la musica prima di riavviare (verrà ricreata nel create())
+    if (this.backgroundMusic) {
+      this.backgroundMusic.stop();
+    }
 
     // Riavvia la scena
     this.scene.restart();
@@ -810,5 +851,16 @@ export class GameScene extends Phaser.Scene {
   private toggleAudio(): void {
     SETTINGS.audioEnabled = !SETTINGS.audioEnabled;
     this.pauseMenuManager.updateAudioState(SETTINGS.audioEnabled);
+
+    // Gestisci la musica di sottofondo
+    if (this.backgroundMusic) {
+      if (SETTINGS.audioEnabled) {
+        if (!this.backgroundMusic.isPlaying) {
+          this.backgroundMusic.play();
+        }
+      } else {
+        this.backgroundMusic.pause();
+      }
+    }
   }
 }
