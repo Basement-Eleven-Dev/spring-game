@@ -51,15 +51,8 @@ export class SpawnManager {
   /** Shorthand per scalare valori di riferimento */
   private r: (v: number) => number;
 
-  /** Crea i gruppi fisici e le texture procedurali (fango, DJ stage) */
+  /** Crea i gruppi fisici e le texture procedurali (DJ stage) */
   private createGroups(): void {
-    // Texture procedurale per il fango (rettangolo marrone)
-    const mudGfx = this.scene.add.graphics();
-    mudGfx.fillStyle(0x654321, 1);
-    mudGfx.fillRect(0, 0, MUD.WIDTH, MUD.HEIGHT);
-    mudGfx.generateTexture("mudTexture", MUD.WIDTH, MUD.HEIGHT);
-    mudGfx.destroy();
-
     // Texture procedurale per il DJ Stage (rettangolo magenta)
     const djGfx = this.scene.add.graphics();
     djGfx.fillStyle(0xff00ff, 1);
@@ -195,14 +188,46 @@ export class SpawnManager {
         cat === "compact" ? PLATFORM.COMPACT_WIDTH : PLATFORM.WIDE_WIDTH;
       canHaveBouncer = true;
 
-      // Fango sulle piattaforme standard (dal livello 3)
+      // Fango sulle piattaforme standard wide (erba e ubriaco) dal livello 3
       if (
+        cat === "wide" &&
         level >= MUD.MIN_LEVEL &&
         Math.random() <
           Math.min(MUD.BASE_PROB + level * MUD.PROB_PER_LEVEL, MUD.MAX_PROB)
       ) {
-        const offset = Math.random() < 0.5 ? -MUD.OFFSET : MUD.OFFSET;
-        this.muds.get(randomX + offset, y - this.r(7), "mudTexture");
+        // Posizionamento specifico per texture:
+        // - platformErbaTexture: leggermente randomizzato per varietà
+        // - platformUbriacoTexture: metà destra per non coprire il personaggio a sinistra
+        let offsetX = 0;
+        if (texture === "platformUbriacoTexture") {
+          offsetX = MUD.UBRIACO_OFFSET_X;
+        } else if (texture === "platformErbaTexture") {
+          offsetX = Phaser.Math.Between(
+            -MUD.ERBA_RANDOMIZE,
+            MUD.ERBA_RANDOMIZE,
+          );
+        }
+
+        const mud = this.muds.get(
+          randomX + offsetX,
+          y - this.r(7),
+          "fangoTexture",
+        ) as Phaser.Physics.Arcade.Sprite;
+
+        if (mud) {
+          // Imposta la larghezza al valore configurato (metà piattaforma wide)
+          mud.setDisplaySize(MUD.WIDTH, 0);
+          // Auto-calcola l'altezza preservando l'aspect ratio del sprite
+          const aspectRatio = mud.height / mud.width;
+          mud.setDisplaySize(MUD.WIDTH, MUD.WIDTH * aspectRatio);
+          // Aggiorna il body per matchare le dimensioni visive
+          if (mud.body) {
+            (mud.body as Phaser.Physics.Arcade.Body).setSize(
+              mud.displayWidth,
+              mud.displayHeight,
+            );
+          }
+        }
       }
     }
 

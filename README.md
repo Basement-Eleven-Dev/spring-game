@@ -57,18 +57,18 @@ Incorporiamo il `devicePixelRatio` direttamente in `GAME_WIDTH`/`GAME_HEIGHT` in
 ```typescript
 const DPR = window.devicePixelRatio || 1;
 const CSS_WIDTH = Math.min(window.innerWidth, 800); // Cap a 800 CSS px
-const GAME_WIDTH = Math.round(CSS_WIDTH * DPR);     // Risoluzione fisica
-const S = GAME_WIDTH / REFERENCE_WIDTH;              // Fattore di scala (include DPR)
-const r = (v: number) => Math.round(v * S);          // Helper di scaling
+const GAME_WIDTH = Math.round(CSS_WIDTH * DPR); // Risoluzione fisica
+const S = GAME_WIDTH / REFERENCE_WIDTH; // Fattore di scala (include DPR)
+const r = (v: number) => Math.round(v * S); // Helper di scaling
 ```
 
 Il canvas opera a **risoluzione fisica nativa**. `Scale.FIT` riduce il CSS display alla dimensione viewport, dove 1 CSS pixel = DPR pixel fisici → mapping **1:1** con il buffer.
 
-| Dispositivo | CSS | DPR | Buffer Canvas | Fisici | Rapporto |
-|---|---|---|---|---|---|
-| iPhone 11 Pro | 375×670 | 3 | **1125×2010** | 1125×2010 | **1:1** ✅ |
-| Desktop | 800×1200 | 1 | **800×1200** | 800×1200 | **1:1** ✅ |
-| Retina Mac | 800×1200 | 2 | **1600×2400** | 1600×2400 | **1:1** ✅ |
+| Dispositivo   | CSS      | DPR | Buffer Canvas | Fisici    | Rapporto   |
+| ------------- | -------- | --- | ------------- | --------- | ---------- |
+| iPhone 11 Pro | 375×670  | 3   | **1125×2010** | 1125×2010 | **1:1** ✅ |
+| Desktop       | 800×1200 | 1   | **800×1200**  | 800×1200  | **1:1** ✅ |
+| Retina Mac    | 800×1200 | 2   | **1600×2400** | 1600×2400 | **1:1** ✅ |
 
 ### Dettagli Tecnici
 
@@ -87,11 +87,11 @@ PLAYER.SIZE: r(40)  → 91 px in un canvas 800px → 11.4% dello schermo
 
 **2. PNG con Rapporti Ottimizzati**
 
-| Asset                         | Sorgente | Display iPhone (r×) | Rapporto |
-| ----------------------------- | -------- | ------------------- | -------- |
-| drink/beer                    | 512×512  | ~97×97              | 5.3:1    |
-| piattaforme                   | 800×400  | ~289×109            | 2.8:1    |
-| player spritesheet            | 256×256  | ~129×129            | 2.0:1    |
+| Asset              | Sorgente | Display iPhone (r×) | Rapporto |
+| ------------------ | -------- | ------------------- | -------- |
+| drink/beer         | 512×512  | ~97×97              | 5.3:1    |
+| piattaforme        | 800×400  | ~289×109            | 2.8:1    |
+| player spritesheet | 256×256  | ~129×129            | 2.0:1    |
 
 **3. Mipmapping + RoundPixels** (`main.ts`)
 
@@ -147,9 +147,9 @@ public/assets/
 ├── fonts/
 │   └── ChillPixels-Mono.otf  ← Font personalizzato per UI
 ├── ui/
-│   ├── day.svg               ← Icona orario 16:00-19:00
+│   ├── day.svg               ← Icona orario 14:00-19:00
 │   ├── sunset.svg            ← Icona orario 19:00-23:00
-│   ├── night.svg             ← Icona orario 23:00-04:00
+│   ├── night.svg             ← Icona orario 23:00-02:00
 │   ├── points_bar.svg        ← Barra punteggio
 │   ├── play.svg              ← Bottone play
 │   ├── pause.svg             ← Bottone pausa
@@ -171,7 +171,8 @@ public/assets/
     ├── platform_cassa.png            ← Variante cassa (800×400)
     ├── platform_cassa_erba.png       ← Variante cassa+erba (800×400)
     ├── platform_cassa_rotta_sheet.png ← Fragile spritesheet (400×100, 2 frame)
-    └── subwoofer_sheet.png           ← Subwoofer spritesheet (800×100, 4 frame)
+    ├── subwoofer_sheet.png           ← Subwoofer spritesheet (800×100, 4 frame)
+    └── fango.png                     ← Pozza di fango (sprite PNG, copre metà piattaforma wide)
 ```
 
 ### Diagramma delle dipendenze
@@ -206,9 +207,9 @@ Il gioco utilizza un **sistema UI completamente basato su SVG** per garantire ma
 
 ```
 public/assets/ui/
-├── day.svg           ← Icona orario 16:00-19:00
+├── day.svg           ← Icona orario 14:00-19:00
 ├── sunset.svg        ← Icona orario 19:00-23:00
-├── night.svg         ← Icona orario 23:00-04:00
+├── night.svg         ← Icona orario 23:00-02:00
 ├── points_bar.svg    ← Sfondo barra punteggio
 ├── play.svg          ← Bottone play/pausa
 ├── pause.svg         ← Bottone pausa
@@ -293,7 +294,7 @@ public/assets/fonts/ChillPixels-Mono.otf
 **Uso nei text di Phaser**:
 
 ```typescript
-this.scene.add.text(x, y, "16:00", {
+this.scene.add.text(x, y, "14:00", {
   fontFamily: "ChillPixels",
   fontSize: `${r(13)}px`,
   color: "#000000",
@@ -327,12 +328,12 @@ Formula: `cos(θ) + sin(θ) × (H/W) ≈ 1.25` per rotazione max di 0.15 rad. Il
 
 Invece di caricare set separati di immagini (sunset_1/2/3, night_1/2/3), il sistema usa `setTint()` di Phaser per colorare progressivamente i background:
 
-| Fase | Orario Narrativo | Min | Tint | Effetto |
-|---|---|---|---|---|
-| Giorno | 16:00→19:00 | 0-180 | `0xFFFFFF` | Colori originali |
-| Giorno→Tramonto | 19:00→21:00 | 180-300 | `0xFFFFFF`→`0xDD3300` | Graduale arancione rossastro |
-| Tramonto→Notte | 21:00→23:00 | 300-420 | `0xDD3300`→`0x1A1A4E` | Arancione→blu scuro |
-| Notte piena | 23:00+ | 420+ | `0x1A1A4E` | Blu scuro fisso |
+| Fase            | Orario Narrativo | Min     | Tint                  | Effetto                      |
+| --------------- | ---------------- | ------- | --------------------- | ---------------------------- |
+| Giorno          | 14:00→19:00      | 0-300   | `0xFFFFFF`            | Colori originali             |
+| Giorno→Tramonto | 19:00→21:00      | 300-420 | `0xFFFFFF`→`0xDD3300` | Graduale arancione rossastro |
+| Tramonto→Notte  | 21:00→23:00      | 420-540 | `0xDD3300`→`0x1A1A4E` | Arancione→blu scuro          |
+| Notte piena     | 23:00+           | 540+    | `0x1A1A4E`            | Blu scuro fisso              |
 
 **Interpolazione colore**: i canali R, G, B vengono interpolati linearmente in `lerpColor()`. La transizione è continua (ogni frame) e non a scatto.
 
@@ -389,7 +390,8 @@ Se in futuro si sospetta un problema di risoluzione, aggiungere temporaneamente 
 const c = this.game.canvas;
 const dbg = document.createElement("pre");
 dbg.textContent = `Buffer: ${c.width}×${c.height}\nCSS: ${c.style.width}×${c.style.height}\nDPR: ${window.devicePixelRatio}`;
-dbg.style.cssText = "position:fixed;top:8px;left:8px;z-index:99999;background:rgba(0,0,0,.85);color:#0f0;font:12px monospace;padding:8px;border-radius:6px;pointer-events:none";
+dbg.style.cssText =
+  "position:fixed;top:8px;left:8px;z-index:99999;background:rgba(0,0,0,.85);color:#0f0;font:12px monospace;padding:8px;border-radius:6px;pointer-events:none";
 document.body.appendChild(dbg);
 setTimeout(() => dbg.remove(), 8000);
 ```
@@ -504,7 +506,7 @@ Questo file centralizza:
 - `GAME` — dimensioni canvas dinamiche + `SCALE` factor
 - `INITIAL` — posizioni iniziali (base platform, player start) scalate
 - `PHYSICS` — gravità base (`r(750)`) e scaling logaritmico per livello
-- `TIME` — orologio narrativo: `START_MINUTES` (960 = 16:00), `DURATION_MINUTES` (720), `NIGHT_TRIGGER_MINUTES` (300 = 21:00)
+- `TIME` — orologio narrativo: `START_MINUTES` (840 = 14:00), `DURATION_MINUTES` (720), `NIGHT_TRIGGER_MINUTES` (420 = 21:00)
 - `SKY` — colori di sfondo giorno (`0x138EFD`) e notte (`0x0a0a2e`)
 - `minutesToClockString()` — helper esportato: converte minuti trascorsi in stringa "HH:MM"
 - `CAMERA` — lerp scrolling, ghosting offset (`r(14)`), parametri oscillazione
@@ -512,7 +514,7 @@ Questo file centralizza:
 - `PLATFORM` — dimensioni per categoria (wide `r(90)×r(34)`, compact `r(70)×r(32)`, subwoofer `r(60)×r(32)`), spacing, probabilità di spawn, frame dimensions per spritesheet
 - `PLATFORM_TEXTURE_CATEGORY` — mappa texture → categoria dimensionale
 - `PLATFORM_STANDARD_TEXTURES` — lista texture per varianti standard/mobili
-- `MUD` — dimensioni (`r(40)×r(10)`), probabilità, offset (`r(20)`)
+- `MUD` — larghezza (`r(45)`, metà piattaforma wide), probabilità, offset specifici per texture (ubriaco: destra, erba: randomizzato)
 - `DRINK` — dimensioni (`r(30)×r(30)`), intervallo spawn (`r(300)`), velocità caduta (`r(110)`), guadagno party
 - `BOUNCER` — dimensioni (`r(42)×r(54)`), forze (`r(300)`, `r(650)`), durata pinball, perturbazione Y (`r(120)`)
 - `PARTY` — dimensioni barra (`r(140)×r(14)`), soglie colore, moltiplicatori punteggio
@@ -541,7 +543,7 @@ Orchestratore che:
 
 ### `GameOverScene.ts` — Schermata Game Over
 
-- Sfondo scuro con particelle animate e titolo animato "GAME OVER" (o "04:00" se timeout)
+- Sfondo scuro con particelle animate e titolo animato "GAME OVER" (o "02:00" se timeout)
 - Statistiche: orario finale, punteggio (pts), livello raggiunto — layout centrato con animazioni sfalsate
 - Pulsante "RIPROVA" con effetto hover + pulsing
 - Click/Tap → riavvia `GameScene`
@@ -565,12 +567,12 @@ Orchestratore che:
 
 ### `Platform.ts` — Piattaforme
 
-| Tipo        | Asset                                             | Dimensione gioco           | Comportamento                                              |
-| ----------- | ------------------------------------------------- | -------------------------- | ---------------------------------------------------------- |
-| `standard`  | 4 varianti PNG (erba, ubriaco, cassa, cassa_erba) | wide 90×34 / compact 70×32 | Ferma. Può avere fango sopra (dal livello 3)               |
-| `moving`    | stesse 4 varianti                                 | wide 90×34 / compact 70×32 | Si muove orizzontalmente, rimbalza ai bordi                |
-| `fragile`   | `platform_cassa_rotta_sheet.png` (2 frame)        | compact 70×32              | Animazione di rottura al contatto, poi distruzione         |
-| `subwoofer` | `subwoofer_sheet.png` (4 frame)                   | 60×32                      | Loop animazione "cassa che pompa", salto potenziato (×1.7) |
+| Tipo        | Asset                                             | Dimensione gioco           | Comportamento                                                                     |
+| ----------- | ------------------------------------------------- | -------------------------- | --------------------------------------------------------------------------------- |
+| `standard`  | 4 varianti PNG (erba, ubriaco, cassa, cassa_erba) | wide 90×34 / compact 70×32 | Ferma. Le varianti wide (erba, ubriaco) possono avere fango sopra (dal livello 3) |
+| `moving`    | stesse 4 varianti                                 | wide 90×34 / compact 70×32 | Si muove orizzontalmente, rimbalza ai bordi                                       |
+| `fragile`   | `platform_cassa_rotta_sheet.png` (2 frame)        | compact 70×32              | Animazione di rottura al contatto, poi distruzione                                |
+| `subwoofer` | `subwoofer_sheet.png` (4 frame)                   | 60×32                      | Loop animazione "cassa che pompa", salto potenziato (×1.7)                        |
 
 ### `Bouncer.ts` — Buttafuori
 
@@ -644,7 +646,7 @@ Gestisce tutta l'interfaccia utente con elementi SVG scalabili:
 **Top Bar** (3 elementi):
 
 - **Time Icon** (sx): day/sunset/night.svg + testo orario HH:MM
-  - Switch automatici: `day` (0-180min) → `sunset` (180-420min) → `night` (420+min)
+  - Switch automatici: `day` (0-300min) → `sunset` (300-540min) → `night` (540+min)
   - Transizione fade da 600ms tra le fasi
 - **Points Bar** (centro): points_bar.svg + punteggio numerico
   - Effetto scale su bonus points

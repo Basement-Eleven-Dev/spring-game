@@ -142,18 +142,18 @@ export class BackgroundManager {
    * 0x1a1a4e = blu scuro (notte profonda)
    *
    * La transizione è lineare e continua, non a scatto:
-   * - 0-180 min (16:00→19:00): giorno pieno, nessun tint
-   * - 180-420 min (19:00→23:00): transizione giorno→tramonto→notte
-   * - 420+ min (23:00+): notte piena
+   * - 0-300 min (14:00→19:00): giorno pieno, nessun tint
+   * - 300-540 min (19:00→23:00): transizione giorno→tramonto→notte
+   * - 540+ min (23:00+): notte piena
    *
    * La transizione tramonto→notte usa due fasi:
-   * 1. 180-300 min: giorno → tramonto (arancione intenso)
-   * 2. 300-420 min: tramonto → notte (blu scuro)
+   * 1. 300-420 min: giorno → tramonto (arancione intenso)
+   * 2. 420-540 min: tramonto → notte (blu scuro)
    */
   private updateDayNightTint(clockMinutes: number): void {
     // ⚠️ DEBUG: impostare a true per comprimere la transizione in ~2 min
     // Dopo il test, rimettere a false per i tempi normali della giornata.
-    const DEBUG_FAST = true;
+    const DEBUG_FAST = false;
 
     // Colori di riferimento per ogni fase
     const DAY_TINT = 0xffffff; // Nessun filtro (colore originale)
@@ -161,11 +161,11 @@ export class BackgroundManager {
     const NIGHT_TINT = 0x1a1a4e; // Blu scuro profondo
 
     // Soglie temporali (minuti trascorsi dall'inizio)
-    // Normali: 180 (19:00), 300 (21:00), 420 (23:00)
+    // Normali: 300 (19:00), 420 (21:00), 540 (23:00)
     // Debug: 20s, 60s, 120s — transizione completa in ~2 min
-    const SUNSET_START = DEBUG_FAST ? 15 : 180;
-    const SUNSET_PEAK = DEBUG_FAST ? 30 : 300;
-    const NIGHT_FULL = DEBUG_FAST ? 45 : 420;
+    const SUNSET_START = DEBUG_FAST ? 15 : 300;
+    const SUNSET_PEAK = DEBUG_FAST ? 30 : 420;
+    const NIGHT_FULL = DEBUG_FAST ? 45 : 540;
 
     let tint: number;
 

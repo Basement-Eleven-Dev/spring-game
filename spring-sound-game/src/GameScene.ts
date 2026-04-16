@@ -57,7 +57,7 @@ export class GameScene extends Phaser.Scene {
   private isPaused: boolean = false;
 
   // --- Orologio narrativo ---
-  /** Minuti narrativi trascorsi dall'inizio (1 secondo reale = 1 minuto narrativo). */
+  /** Minuti narrativi trascorsi dall'inizio (1 secondo reale = 2.5 minuti narrativi). */
   private clockMinutes: number = 0;
   /**
    * Flag: il tempo ha superato le 21:00 ma il background notte
@@ -130,6 +130,9 @@ export class GameScene extends Phaser.Scene {
       "/assets/platforms/platform_cassa_erba.png",
     );
 
+    // --- Fango: sprite PNG ---
+    this.load.image("fangoTexture", "/assets/platforms/fango.png");
+
     // --- Piattaforma fragile: spritesheet 2 frame (intera → rotta) ---
     this.load.spritesheet(
       "fragileSheet",
@@ -156,7 +159,6 @@ export class GameScene extends Phaser.Scene {
    * Crea manager, piattaforme, giocatore e registra i collider.
    */
   create(): void {
-
     // --- Pulizia di eventuali listener da run precedenti ---
     this.events.off("wasted-ready");
 
@@ -354,13 +356,41 @@ export class GameScene extends Phaser.Scene {
         // --- Piattaforme normali: il salto si attiva solo atterrando dall'alto ---
         if (p.body && p.body.touching.down && plat.body.touching.up) {
           // Determina il tipo di salto
-          const isTouchingMud = this.physics.overlap(p, this.spawnManager.muds);
+          // Controllo sovrapposizione con fango: verifica se il player sta atterrando
+          // su una pozza di fango che si trova sulla stessa piattaforma
+          let isTouchingMud = false;
+          this.spawnManager.muds.getChildren().forEach((mudObj) => {
+            const mud = mudObj as Phaser.Physics.Arcade.Sprite;
+            if (!mud.active) return;
+
+            // Bounds del player e del fango
+            const playerLeft = p.x - p.displayWidth / 2;
+            const playerRight = p.x + p.displayWidth / 2;
+            const mudLeft = mud.x - mud.displayWidth / 2;
+            const mudRight = mud.x + mud.displayWidth / 2;
+
+            // Verifica che il fango sia sulla stessa piattaforma:
+            // la Y del fango deve essere vicina alla Y della piattaforma
+            const mudY = mud.y;
+            const platformY = plat.y;
+            const verticalDistance = Math.abs(mudY - platformY);
+
+            // Overlap check: c'è sovrapposizione se i bounds si intersecano
+            const horizontalOverlap =
+              playerRight > mudLeft && playerLeft < mudRight;
+            const onSamePlatform =
+              verticalDistance < Math.round(20 * GAME.SCALE);
+
+            if (horizontalOverlap && onSamePlatform) {
+              isTouchingMud = true;
+            }
+          });
 
           if (plat.platformType === "subwoofer") {
             // Trampolino: salto potenziato x1.6
             p.jump(JUMP_MULTIPLIERS.SUBWOOFER, this.levelManager.level);
           } else if (isTouchingMud) {
-            // Fango: salto indebolito x0.8
+            // Fango: salto indebolito x0.75
             p.jump(JUMP_MULTIPLIERS.MUD, this.levelManager.level);
           } else {
             // Salto normale
@@ -528,9 +558,9 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // --- Orologio narrativo: 1 millisecondo reale = 1/1000 minuto narrativo ---
-    // => 1 secondo reale = 1 minuto narrativo
-    this.clockMinutes += delta / 1000;
+    // --- Orologio narrativo: 1 millisecondo reale = 2.5/1000 minuti narrativi ---
+    // => 1 secondo reale = 2.5 minuti narrativi
+    this.clockMinutes += delta / 400;
 
     // Sblocca il cambio notte quando il tempo supera le 21:00
     if (!this.nightPending && this.clockMinutes >= TIME.NIGHT_TRIGGER_MINUTES) {

@@ -30,8 +30,7 @@ const REFERENCE_WIDTH = 350;
  * Device Pixel Ratio: quanti pixel fisici per pixel CSS.
  * iPhone: 3, Android: 2-3, Desktop: 1 (retina Mac: 2).
  */
-const DPR =
-  typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+const DPR = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
 
 /**
  * Larghezza CSS del viewport, cappata a 800 CSS px per evitare
@@ -93,25 +92,25 @@ export const INITIAL = {
   PLAYER_START_Y: GAME_HEIGHT - r(100),
 };
 
-// --- Orologio narrativo (16:00 → 04:00) ---
+// --- Orologio narrativo (14:00 → 02:00) ---
 
 /**
  * Parametri dell'orologio narrativo.
  * Il tempo scorre in modo indipendente dal gameplay:
- * 1 secondo reale = 1 minuto narrativo.
- * La serata dura 720 minuti (12 ore) → 720 secondi reali (~12 min).
+ * 1 secondo reale = 2.5 minuti narrativi.
+ * La serata dura 720 minuti (12 ore) → 288 secondi reali (~4.8 min).
  */
 export const TIME = {
-  /** Ora di inizio in minuti dalla mezzanotte: 16:00 = 16×60 */
-  START_MINUTES: 960,
-  /** Durata totale della serata in minuti: 16:00 → 04:00 = 12 ore = 720 min */
+  /** Ora di inizio in minuti dalla mezzanotte: 14:00 = 14×60 */
+  START_MINUTES: 840,
+  /** Durata totale della serata in minuti: 14:00 → 02:00 = 12 ore = 720 min */
   DURATION_MINUTES: 720,
   /**
    * Soglia per il cambio di background notte (minuti trascorsi dall'inizio).
-   * 21:00 = 5 ore dopo le 16:00 = 300 min.
+   * 21:00 = 7 ore dopo le 14:00 = 420 min.
    * Lo switch effettivo avviene al successivo level up dopo questa soglia.
    */
-  NIGHT_TRIGGER_MINUTES: 300,
+  NIGHT_TRIGGER_MINUTES: 420,
 } as const;
 
 /** Colori di sfondo: giorno (azzurro) e notte (blu scuro). */
@@ -125,10 +124,10 @@ export const SKY = {
  * Gli SVG day/sunset/night cambiano in base ai minuti trascorsi.
  */
 export const UI = {
-  /** Soglia per passare da day a sunset: 19:00 = 3 ore dopo le 16:00 = 180 min */
-  SUNSET_START_MINUTES: 180,
-  /** Soglia per passare da sunset a night: 23:00 = 7 ore dopo le 16:00 = 420 min */
-  NIGHT_START_MINUTES: 420,
+  /** Soglia per passare da day a sunset: 19:00 = 5 ore dopo le 14:00 = 300 min */
+  SUNSET_START_MINUTES: 300,
+  /** Soglia per passare da sunset a night: 23:00 = 9 ore dopo le 14:00 = 540 min */
+  NIGHT_START_MINUTES: 540,
   /** Dimensioni base degli elementi UI (scalati con GAME.SCALE) */
   TIME_ICON_WIDTH: 80,
   TIME_ICON_HEIGHT: 50,
@@ -344,14 +343,17 @@ export const PLATFORM = {
 
 // --- Fango (rallenta il salto) ---
 export const MUD = {
-  WIDTH: r(40),
-  HEIGHT: r(10),
+  /** Larghezza del fango: metà della piattaforma wide */
+  WIDTH: r(45),
   BASE_PROB: 0.15,
   PROB_PER_LEVEL: 0.04,
   MAX_PROB: 0.4,
   /** Il fango appare solo dal livello 3 */
-  MIN_LEVEL: 3,
-  OFFSET: r(20),
+  MIN_LEVEL: 1,
+  /** Offset X per posizionare il fango sulla metà destra della piattaforma ubriaco */
+  UBRIACO_OFFSET_X: r(22.5),
+  /** Randomizzazione del posizionamento sulla piattaforma erba (±5px) per varietà visiva */
+  ERBA_RANDOMIZE: r(5),
 } as const;
 
 // --- Drink ---
