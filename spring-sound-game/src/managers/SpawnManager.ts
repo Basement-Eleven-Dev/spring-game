@@ -144,6 +144,7 @@ export class SpawnManager {
    */
   public spawnPlatform(y: number, level: number): void {
     // Spacing variabile per livello
+    
     let spacingMin: number, spacingMax: number;
     if (level === 1) {
       spacingMin = PLATFORM.SPACING_MIN_LVL1;
