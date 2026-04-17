@@ -241,11 +241,7 @@ export class GameScene extends Phaser.Scene {
       "/assets/ui/gamestart-over-pause/music off.svg",
       { width: 40, height: 40 },
     );
-    this.load.svg(
-      "cardFallingTexture",
-      "/assets/ui/gamestart-over-pause/card icon.svg",
-      { width: 50, height: 50 },
-    );
+    this.load.image("cardFallingTexture", "/assets/djSprite/DJCARD.png");
 
     // --- Background Music ---
     this.load.audio("backgroundMusic", "/assets/music/willyMix.mp3");
@@ -262,6 +258,9 @@ export class GameScene extends Phaser.Scene {
     // --- Reset orologio e flag notte ---
     this.clockMinutes = 0;
     this.nightPending = false;
+
+    // --- Reset contatore card: ogni run riparte da 0 ---
+    localStorage.setItem("cardsCollected", "0");
 
     // --- Animazioni spritesheet ---
     this.createAnimations();

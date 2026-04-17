@@ -433,8 +433,8 @@ export const DRINK = {
 
 // --- Card (Achievements) ---
 export const CARD = {
-  WIDTH: r(25),
-  HEIGHT: r(25),
+  WIDTH: r(22),
+  HEIGHT: r(32),
   FALLING_SPEED: r(85),
   MAX_CARDS: 5,
 } as const;
