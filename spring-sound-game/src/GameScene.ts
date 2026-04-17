@@ -316,6 +316,10 @@ export class GameScene extends Phaser.Scene {
     // --- Riconfigura le camere per includere il menu di pausa ---
     this.uiManager.reconfigureCameras();
 
+    // --- Finalizza setup camera: bgCam ignora tutto tranne depth -10,
+    //     mainCam ignora depth -10 (background ora su bgCam) ---
+    this.cameraManager.finalizeCameraSetup();
+
     // --- Evento: il DJ Stage deve apparire (emesso da PartyManager dopo il wasted delay) ---
     this.events.on("wasted-ready", () => {
       this.spawnManager.spawnDJStage(

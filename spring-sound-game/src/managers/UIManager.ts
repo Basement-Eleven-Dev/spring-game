@@ -215,27 +215,30 @@ export class UIManager {
 
   /**
    * Configura l'esclusività delle camere:
-   * - Camera principale: renderizza tutto depth < 100
-   *   (checkpoint depth -15/-13/-11 è nascosto dietro il background depth -10, non visibile)
-   * - Camera UI: renderizza SOLO UI (depth >= 100)
-   * - Camera checkpoint: renderizza SOLO depth -15 a -11 (senza rotazione)
+   * - bgCam (index 0):          SOLO depth -10 (background) — configurato da CameraManager
+   * - checkpointCam (index 1):  SOLO depth -15/-13/-11 — configurato da CameraManager
+   * - mainCam (index 2):        depth 0-99 + ignora bg (-10), checkpoint (-15/-11) e UI (>=100)
+   * - uiCam (last):             SOLO depth >= 100
    */
   private configureUICameraExclusivity(): void {
     const allObjects = this.scene.children.list;
 
-    const uiObjects = allObjects.filter(
-      (obj: any) => obj.depth !== undefined && obj.depth >= 100,
+    // mainCam ignora: UI (>=100), background (-10), checkpoint (-15 a -11)
+    const mainIgnore = allObjects.filter(
+      (obj: any) =>
+        obj.depth !== undefined &&
+        (obj.depth >= 100 ||
+          obj.depth === -10 ||
+          (obj.depth >= -15 && obj.depth <= -11)),
     );
+    if (mainIgnore.length > 0) {
+      this.scene.cameras.main.ignore(mainIgnore);
+    }
+
+    // uiCam ignora tutto tranne UI (depth < 100)
     const worldObjects = allObjects.filter(
       (obj: any) => obj.depth !== undefined && obj.depth < 100,
     );
-
-    // Camera principale: ignora solo UI
-    if (uiObjects.length > 0) {
-      this.scene.cameras.main.ignore(uiObjects);
-    }
-
-    // Camera UI: ignora tutto il mondo (depth < 100, inclusi checkpoint e background)
     if (worldObjects.length > 0) {
       this.uiCamera.ignore(worldObjects);
     }

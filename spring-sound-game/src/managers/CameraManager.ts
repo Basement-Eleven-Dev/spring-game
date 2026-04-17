@@ -41,6 +41,14 @@ export class CameraManager {
   private checkpointCam: Phaser.Cameras.Scene2D.Camera | null = null;
 
   /**
+   * Camera dedicata per il background scrollabile (depth -10).
+   * Renderizza SOLO i tile del background, senza rotazione.
+   * Sta all'indice 0 dell'array camere: viene disegnata per prima (dietro tutto).
+   * checkpointCamera (index 1) e mainCamera (index 2) vengono sopra di essa.
+   */
+  private bgCam!: Phaser.Cameras.Scene2D.Camera;
+
+  /**
    * Valore corrente dell'alpha della ghost camera, interpolato ogni frame.
    * Non viene mai impostato di scatto: lerp verso il target oscillante garantisce
    * sia l'ingresso graduale (comparsa morbida) che l'uscita graduale (scomparsa).
@@ -51,11 +59,23 @@ export class CameraManager {
     this.scene = scene;
     this.camera = scene.cameras.main;
 
-    // Sfondo: trasparente per lasciare vedere il background scrollabile (depth -10)
+    // Main camera: trasparente, non renderizza nulla come sfondo
     scene.cameras.main.setBackgroundColor("rgba(0,0,0,0)");
 
-    // NON creiamo più skyBg rectangle - usiamo direttamente il background della camera
-    // che è più efficiente e non ruota mai
+    // bgCam: renderizza SOLO i tile di background (depth -10), senza rotazione.
+    // Deve stare all'indice 0 dell'array camere (prima di tutto).
+    // BackgroundManager.create() è già stato chiamato prima del costruttore:
+    // i bg sprites esistono già e sono gli UNICI oggetti nella scena.
+    this.bgCam = scene.cameras.add(0, 0, GAME.WIDTH, GAME.HEIGHT);
+    this.bgCam.setBackgroundColor("rgba(0,0,0,0)");
+
+    // Sposta bgCam all'indice 0 (davanti a tutti nel draw order = disegnata per prima)
+    const cams = scene.cameras.cameras;
+    const bgIdx = cams.indexOf(this.bgCam);
+    if (bgIdx > 0) {
+      cams.splice(bgIdx, 1);
+      cams.unshift(this.bgCam);
+    }
   }
 
   /**
@@ -73,9 +93,20 @@ export class CameraManager {
       );
     }
 
-    // Sincronizza la checkpoint camera con la main camera (solo scroll, no rotazione)
+    // Sincronizza bgCam e checkpointCam con la main camera (solo scroll, no rotazione)
+    this.bgCam.scrollY = this.camera.scrollY;
     if (this.checkpointCam) {
       this.checkpointCam.scrollY = this.camera.scrollY;
+    }
+
+    // Mantieni bgCam sincronizzata con gli oggetti creati dinamicamente.
+    // bgCam deve ignorare TUTTO tranne depth -10 (background).
+    // camera.ignore() usa bitmask: chiamarlo più volte sullo stesso oggetto è sicuro.
+    for (const obj of this.scene.children.list) {
+      const go = obj as any;
+      if (go.depth !== undefined && go.depth !== -10) {
+        this.bgCam.ignore(obj as Phaser.GameObjects.GameObject);
+      }
     }
 
     this.updateDrunkEffects(partyLevel, isWasted);
@@ -187,8 +218,8 @@ export class CameraManager {
 
   /**
    * Crea la ghost camera con la corretta ignore list.
-   * Ignora UI (depth >= 100) e checkpoint (depth -15 a -11) per non raddoppiarli.
-   * Renderizza SOLO il mondo di gioco normale (depth >= -10 e < 100).
+   * Ignora UI (depth >= 100), checkpoint (depth -15 a -11) e background (depth -10).
+   * Renderizza SOLO il mondo di gioco normale (depth 0-99).
    */
   private createGhostCamera(): void {
     this.ghostCam = this.scene.cameras.add(0, 0, GAME.WIDTH, GAME.HEIGHT);
@@ -198,16 +229,60 @@ export class CameraManager {
     const ignoreObjects = allObjects.filter(
       (obj: any) =>
         obj.depth !== undefined &&
-        (obj.depth >= 100 || (obj.depth >= -15 && obj.depth <= -11)),
+        (obj.depth >= 100 ||
+          obj.depth === -10 ||
+          (obj.depth >= -15 && obj.depth <= -11)),
     );
     if (ignoreObjects.length > 0) {
       this.ghostCam.ignore(ignoreObjects);
+    }
+
+    // La ghost camera deve stare TRA checkpointCam/bgCam e mainCam:
+    // ordine: [bgCam(0), checkpointCam(1?), ghostCam, mainCam, uiCam]
+    // ghostCam viene disegnata prima di mainCam: gli oggetti main la coprono,
+    // creando il fantasma semitrasparente dietro gli oggetti reali.
+    const cams = this.scene.cameras.cameras;
+    const ghostIdx = cams.indexOf(this.ghostCam);
+    const mainIdx = cams.indexOf(this.camera);
+    if (ghostIdx !== -1 && mainIdx !== -1 && ghostIdx !== mainIdx - 1) {
+      cams.splice(ghostIdx, 1);
+      // mainIdx potrebbe essere cambiato dopo lo splice se ghostIdx < mainIdx
+      const newMainIdx = cams.indexOf(this.camera);
+      cams.splice(newMainIdx, 0, this.ghostCam);
+    }
+  }
+
+  /**
+   * Configura bgCam e mainCam dopo che TUTTI gli oggetti iniziali sono stati creati.
+   * Da chiamare da GameScene dopo finalizeSetup e reconfigureCameras.
+   *
+   * bgCam deve renderizzare SOLO depth -10 (background):
+   * ignora tutti gli oggetti non-background creati finora.
+   * mainCam deve ignorare depth -10 (background, ora su bgCam).
+   */
+  public finalizeCameraSetup(): void {
+    const allObjects = this.scene.children.list;
+
+    // bgCam ignora tutto tranne depth -10 (background)
+    const nonBgObjects = allObjects.filter(
+      (obj: any) => obj.depth !== undefined && obj.depth !== -10,
+    );
+    if (nonBgObjects.length > 0) {
+      this.bgCam.ignore(nonBgObjects);
+    }
+
+    // mainCam ignora depth -10 (background, gestito da bgCam)
+    const bgObjects = allObjects.filter(
+      (obj: any) => obj.depth !== undefined && obj.depth === -10,
+    );
+    if (bgObjects.length > 0) {
+      this.camera.ignore(bgObjects);
     }
   }
 
   /**
    * Crea la camera dedicata per il checkpoint (lazy creation).
-   * Chiamata da SpawnManager quando viene creato il DJ Stage.
+   * Chiamata da GameScene quando viene creato il DJ Stage.
    */
   public ensureCheckpointCamera(): void {
     if (!this.checkpointCam) {
@@ -220,15 +295,25 @@ export class CameraManager {
       this.checkpointCam.setBackgroundColor("rgba(0,0,0,0)");
       this.checkpointCam.scrollY = this.camera.scrollY;
 
-      // Configura per renderizzare SOLO gli elementi del checkpoint (depth -15 a -11)
-      const allObjects = this.scene.children.list;
       // Ignora tutto TRANNE gli elementi checkpoint (depth -15 a -11)
+      const allObjects = this.scene.children.list;
       const ignoreObjects = allObjects.filter(
         (obj: any) =>
           obj.depth !== undefined && (obj.depth < -15 || obj.depth > -11),
       );
       if (ignoreObjects.length > 0) {
         this.checkpointCam.ignore(ignoreObjects);
+      }
+
+      // Inserisci checkpointCam all'indice 1 (subito dopo bgCam all'indice 0,
+      // prima di mainCam). Ordine finale: [bgCam, checkpointCam, mainCam, ..., uiCam]
+      const cams = this.scene.cameras.cameras;
+      const bgIdx = cams.indexOf(this.bgCam);
+      const cpIdx = cams.indexOf(this.checkpointCam);
+      const insertAt = bgIdx + 1;
+      if (cpIdx !== insertAt) {
+        cams.splice(cpIdx, 1);
+        cams.splice(insertAt, 0, this.checkpointCam);
       }
     }
 
