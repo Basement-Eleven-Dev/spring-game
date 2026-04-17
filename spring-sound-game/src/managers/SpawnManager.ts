@@ -157,7 +157,7 @@ export class SpawnManager {
     let currentY = INITIAL.BASE_PLATFORM_Y;
     for (let i = 1; i <= PLATFORM.INITIAL_COUNT; i++) {
       currentY -= Phaser.Math.Between(spacingMin, spacingMax);
-      this.spawnPlatform(currentY, level);
+      this.spawnPlatform(currentY, level, i === 1);
     }
 
     this._highestPlatformY = currentY;
@@ -171,14 +171,22 @@ export class SpawnManager {
    * Genera una piattaforma alla coordinata Y specificata.
    * Il mix di piattaforme è definito PER LIVELLO per progressione didattica.
    */
-  public spawnPlatform(y: number, level: number): void {
-    // Posizione X raggiungibile dalla piattaforma precedente
-    const minX = Math.max(this.r(40), this.lastPlatformX - PLATFORM.REACH_X);
-    const maxX = Math.min(
-      GAME.WIDTH - this.r(40),
-      this.lastPlatformX + PLATFORM.REACH_X,
-    );
-    const randomX = Phaser.Math.Between(minX, maxX);
+  public spawnPlatform(y: number, level: number, forceRight: boolean = false): void {
+    let randomX: number;
+    if (forceRight) {
+      // Forza lo spawn all'estrema destra dello schermo (sul bordo)
+      const minX = GAME.WIDTH - this.r(75);
+      const maxX = GAME.WIDTH - this.r(45);
+      randomX = Phaser.Math.Between(minX, maxX);
+    } else {
+      // Posizione X raggiungibile dalla piattaforma precedente
+      const minX = Math.max(this.r(40), this.lastPlatformX - PLATFORM.REACH_X);
+      const maxX = Math.min(
+        GAME.WIDTH - this.r(40),
+        this.lastPlatformX + PLATFORM.REACH_X,
+      );
+      randomX = Phaser.Math.Between(minX, maxX);
+    }
     this.lastPlatformX = randomX;
 
     const plat = this.platforms.get(randomX, y) as Platform;
@@ -623,7 +631,7 @@ export class SpawnManager {
         LEVEL.DJ_STAGE_SPACING_MIN,
         LEVEL.DJ_STAGE_SPACING_MAX,
       );
-      this.spawnPlatform(this._highestPlatformY, level);
+      this.spawnPlatform(this._highestPlatformY, level, i === 0);
     }
   }
 
