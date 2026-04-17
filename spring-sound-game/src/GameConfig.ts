@@ -398,7 +398,7 @@ export const PLATFORM = {
    * per spingerlo verso il basso e incastrarlo nell'erba.
    * Valori negativi (es. r(-20)) lo spingono più in alto.
    */
-  CHECKPOINT_STAGE_OFFSET_Y: r(5),
+  CHECKPOINT_STAGE_OFFSET_Y: r(0),
 } as const;
 
 // --- Fango (rallenta il salto) ---

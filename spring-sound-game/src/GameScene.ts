@@ -8,7 +8,6 @@ import {
   LEVEL,
   PLATFORM,
   PLAYER,
-  PARTY,
   TIME,
   SETTINGS,
   SCORING,
@@ -180,8 +179,14 @@ export class GameScene extends Phaser.Scene {
         frameHeight: 184,
       },
     );
-    this.load.image("checkpointGrass", "/assets/platforms/stage/checkpoint erba.png");
-    this.load.image("checkpointBanner", "/assets/platforms/stage/convivo target.png");
+    this.load.image(
+      "checkpointGrass",
+      "/assets/platforms/stage/checkpoint erba.png",
+    );
+    this.load.image(
+      "checkpointBanner",
+      "/assets/platforms/stage/convivo target.png",
+    );
 
     // --- Pause Menu Assets ---
     this.load.svg(
@@ -317,6 +322,12 @@ export class GameScene extends Phaser.Scene {
         this.cameraManager.scrollY,
         this.levelManager.level,
       );
+      // Attiva la camera dedicata per il checkpoint (no rotazione)
+      this.cameraManager.ensureCheckpointCamera();
+      // IMPORTANTE: la UI camera deve restare sopra la checkpoint camera
+      this.uiManager.bringUIToFront();
+      // Riconfigura tutte le camere per far ignorare il checkpoint alla main camera
+      this.uiManager.reconfigureCameras();
     });
 
     // --- Background Music ---
@@ -454,10 +465,12 @@ export class GameScene extends Phaser.Scene {
         (playerObj, platformObj) => {
           const p = playerObj as Player;
           const plat = platformObj as Phaser.Physics.Arcade.Image;
-          if (p.body && p.body.touching.down && plat.body.touching.up) {
-            p.jump(JUMP_MULTIPLIERS.NORMAL, this.levelManager.level);
+          if (plat.body) {
+            if (p.body && p.body.touching.down && plat.body.touching.up) {
+              p.jump(JUMP_MULTIPLIERS.NORMAL, this.levelManager.level);
+            }
           }
-        }
+        },
       );
     }
 
@@ -488,6 +501,12 @@ export class GameScene extends Phaser.Scene {
           this.levelManager.levelUp();
           this.scoreManager.addBonus(this.levelManager.getLevelUpBonus());
           this.partyManager.resetForNewLevel();
+          // La checkpoint camera viene rimossa solo quando gli oggetti
+          // escono dallo schermo, così restano visibili durante la salita
+          this.spawnManager.setOnCheckpointDestroyed(() => {
+            this.cameraManager.removeCheckpointCamera();
+          });
+          this.uiManager.reconfigureCameras();
 
           // Il background giorno/tramonto/notte è ora gestito automaticamente
           // da BackgroundManager.update() tramite tint progressivo basato su clockMinutes.

@@ -91,6 +91,20 @@ export class UIManager {
   }
 
   /**
+   * Sposta la UI camera in cima allo stack di rendering di Phaser.
+   * Da chiamare ogni volta che viene creata una nuova camera (checkpoint, ghost)
+   * per garantire che la UI sia sempre renderizzata sopra tutto il resto.
+   */
+  public bringUIToFront(): void {
+    const cams = this.scene.cameras.cameras;
+    const idx = cams.indexOf(this.uiCamera);
+    if (idx !== -1 && idx !== cams.length - 1) {
+      cams.splice(idx, 1);
+      cams.push(this.uiCamera);
+    }
+  }
+
+  /**
    * Calcola le posizioni degli elementi allineati perfettamente.
    * Layout: [timeIcon] --- [pointsBar] --- [controlButton]
    *
@@ -201,17 +215,14 @@ export class UIManager {
 
   /**
    * Configura l'esclusività delle camere:
-   * - Camera principale: ignora SOLO gli elementi UI (depth >= 100)
-   * - Camera UI: ignora SOLO il mondo di gioco (depth 0-99) e il background (depth < 0)
-   *
-   * Lo sfondo è gestito dal backgroundColor delle camere, non come oggetto.
-   * Main camera ha backgroundColor colorato, UI camera ha backgroundColor trasparente.
+   * - Camera principale: renderizza tutto depth < 100
+   *   (checkpoint depth -15/-13/-11 è nascosto dietro il background depth -10, non visibile)
+   * - Camera UI: renderizza SOLO UI (depth >= 100)
+   * - Camera checkpoint: renderizza SOLO depth -15 a -11 (senza rotazione)
    */
   private configureUICameraExclusivity(): void {
     const allObjects = this.scene.children.list;
 
-    // Filtra per depth: UI (>= 100) vs mondo di gioco (< 100)
-    // Questo cattura automaticamente TUTTI gli elementi UI, incluso il menu di pausa (depth 200-201)
     const uiObjects = allObjects.filter(
       (obj: any) => obj.depth !== undefined && obj.depth >= 100,
     );
@@ -219,14 +230,12 @@ export class UIManager {
       (obj: any) => obj.depth !== undefined && obj.depth < 100,
     );
 
-    // Camera principale: ignora TUTTI gli elementi UI (depth >= 100)
-    // Il mondo (depth 0-99) e il background (depth < 0) vengono renderizzati con rotazione/blur
+    // Camera principale: ignora solo UI
     if (uiObjects.length > 0) {
       this.scene.cameras.main.ignore(uiObjects);
     }
 
-    // Camera UI: ignora SOLO gli oggetti del mondo di gioco (depth < 100)
-    // Gli elementi UI (depth >= 100) vengono renderizzati senza effetti
+    // Camera UI: ignora tutto il mondo (depth < 100, inclusi checkpoint e background)
     if (worldObjects.length > 0) {
       this.uiCamera.ignore(worldObjects);
     }

@@ -50,6 +50,20 @@ export class SpawnManager {
   private lastCardSpawnY: number = INITIAL.PLAYER_START_Y;
   private cardsSpawnedThisRun: number = 0;
 
+  // --- Elementi del checkpoint corrente (per cleanup) ---
+  private checkpointGrass: Platform | null = null;
+  private checkpointStage: Phaser.GameObjects.Sprite | null = null;
+  private checkpointBanner: Platform | null = null;
+  /** Callback invocata quando il checkpoint viene fisicamente distrutto (fuori schermo) */
+  private onCheckpointDestroyed?: () => void;
+
+  /**
+   * Registra una callback da invocare quando il checkpoint esce dallo schermo e viene distrutto.
+   */
+  public setOnCheckpointDestroyed(cb: () => void): void {
+    this.onCheckpointDestroyed = cb;
+  }
+
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     this.r = (v: number) => Math.round(v * GAME.SCALE);
@@ -591,9 +605,9 @@ export class SpawnManager {
       PLATFORM.CHECKPOINT_GRASS_WIDTH,
       PLATFORM.CHECKPOINT_GRASS_HEIGHT,
     );
-    djStageGrass.isBasePlatform = true;
+    djStageGrass.isBasePlatform = false; // NON distruggere quando esce dallo schermo
     djStageGrass.isDJStage = false; // NON triggera il livello, è solo un pavimento
-    djStageGrass.setDepth(10); // Livello base
+    djStageGrass.setDepth(-15); // Depth negativo: dietro al background ma senza rotazione
 
     if (djStageGrass.body) {
       djStageGrass.body.reset(grassX, grassY);
@@ -616,6 +630,9 @@ export class SpawnManager {
       djStageGrass.setVisible(true);
     }
 
+    // Tieni traccia dell'erba per la pulizia
+    this.checkpointGrass = djStageGrass;
+
     // --- DJ Stage Background (animato, Dietro lo Striscione) ---
     const stageBgY =
       grassY -
@@ -631,8 +648,11 @@ export class SpawnManager {
       PLATFORM.STAGE_BG_HEIGHT,
     );
     stageBackground.play("checkpointStageLoop");
-    stageBackground.setDepth(12); // Sopra l'erba, ma DIETRO lo striscione
+    stageBackground.setDepth(-13); // Depth negativo: dietro al background ma senza rotazione
     stageBackground.setScrollFactor(1);
+
+    // Tieni traccia dello stage per la pulizia
+    this.checkpointStage = stageBackground;
 
     // --- Striscione TRIGGER (Avanti a tutto, isDJStage = true) ---
     const bannerWidth = GAME.WIDTH * 0.95;
@@ -649,9 +669,9 @@ export class SpawnManager {
     ) as Platform;
     banner.initPlatform("standard", "checkpointBanner", level);
     banner.setDisplaySize(bannerWidth, bannerHeight);
-    banner.isBasePlatform = true;
+    banner.isBasePlatform = false; // NON distruggere quando esce dallo schermo
     banner.isDJStage = true; // IL BANNER E' IL TRIGGER DEL LIVELLO!
-    banner.setDepth(15); // AVANTI ALLO STAGE!
+    banner.setDepth(-11); // Depth negativo: dietro al background ma senza rotazione, avanti allo stage
     banner.setScrollFactor(1);
 
     if (banner.body) {
@@ -670,6 +690,9 @@ export class SpawnManager {
       banner.setActive(true);
       banner.setVisible(true);
     }
+
+    // Tieni traccia del banner per la pulizia
+    this.checkpointBanner = banner;
 
     // Genera nuove piattaforme sopra il DJ Stage (dalla sua superficie)
     this._highestPlatformY = nextY;
@@ -739,6 +762,34 @@ export class SpawnManager {
     cleanupGroup(this.muds);
     cleanupGroup(this.bouncers);
     cleanupGroup(this.cards);
+
+    // Pulisci il checkpoint se è uscito molto sotto lo schermo (buffer ampio)
+    if (
+      this.checkpointBanner &&
+      this.checkpointBanner.y > camScrollY + camHeight + this.r(400)
+    ) {
+      this.destroyCheckpoint(this.onCheckpointDestroyed);
+      this.onCheckpointDestroyed = undefined;
+    }
+  }
+
+  /**
+   * Distrugge tutti gli elementi del checkpoint corrente.
+   */
+  private destroyCheckpoint(onDestroyed?: () => void): void {
+    if (this.checkpointGrass) {
+      this.checkpointGrass.destroy();
+      this.checkpointGrass = null;
+    }
+    if (this.checkpointStage) {
+      this.checkpointStage.destroy();
+      this.checkpointStage = null;
+    }
+    if (this.checkpointBanner) {
+      this.checkpointBanner.destroy();
+      this.checkpointBanner = null;
+    }
+    onDestroyed?.();
   }
 
   /**

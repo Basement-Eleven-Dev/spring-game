@@ -33,6 +33,14 @@ export class CameraManager {
   private ghostCam: Phaser.Cameras.Scene2D.Camera | null = null;
 
   /**
+   * Camera dedicata per il DJ Stage checkpoint.
+   * Scrolla insieme alla main camera ma NON subisce effetti di rotazione/ubriachezza.
+   * Renderizza solo gli elementi del checkpoint (depth 110-115).
+   * Viene creata lazy quando viene spawnato il checkpoint.
+   */
+  private checkpointCam: Phaser.Cameras.Scene2D.Camera | null = null;
+
+  /**
    * Valore corrente dell'alpha della ghost camera, interpolato ogni frame.
    * Non viene mai impostato di scatto: lerp verso il target oscillante garantisce
    * sia l'ingresso graduale (comparsa morbida) che l'uscita graduale (scomparsa).
@@ -63,6 +71,11 @@ export class CameraManager {
         targetY,
         CAMERA.LERP,
       );
+    }
+
+    // Sincronizza la checkpoint camera con la main camera (solo scroll, no rotazione)
+    if (this.checkpointCam) {
+      this.checkpointCam.scrollY = this.camera.scrollY;
     }
 
     this.updateDrunkEffects(partyLevel, isWasted);
@@ -148,38 +161,99 @@ export class CameraManager {
     );
 
     if (this.ghostCurrentAlpha > 0.005) {
-      // Crea la camera la prima volta che l'alpha supera la soglia
+      // Crea/ricrea la camera ogni volta per garantire che ignori tutti gli oggetti corretti
+      // (incluso il checkpoint se è stato spawnato)
       if (!this.ghostCam) {
-        this.ghostCam = this.scene.cameras.add(0, 0, GAME.WIDTH, GAME.HEIGHT);
-
-        // Background TRASPARENTE: la ghost camera renderizza solo il mondo di gioco
-        // con alpha oscillante, creando l'effetto di sdoppiatura/ghosting.
-        // Lo sfondo rimane fisso sulla main camera.
-        this.ghostCam.setBackgroundColor("rgba(0,0,0,0)");
-
-        // Configura la ghost camera per ignorare solo la UI (depth >= 100)
-        // Il mondo di gioco (depth 0-99) e il background (depth < 0) vengono renderizzati ghostati
-        const allObjects = this.scene.children.list;
-        const ignoreObjects = allObjects.filter(
-          (obj: any) => obj.depth !== undefined && obj.depth >= 100,
-        );
-        if (ignoreObjects.length > 0) {
-          this.ghostCam.ignore(ignoreObjects);
-        }
+        this.createGhostCamera();
       }
-      this.ghostCam.setAlpha(this.ghostCurrentAlpha);
-      this.ghostCam.scrollX = this.camera.scrollX + CAMERA.DRUNK_GHOST_OFFSET;
-      this.ghostCam.scrollY = this.camera.scrollY;
-      // Stessa rotazione della principale: il ghost barcolla insieme alla scena
-      this.ghostCam.setRotation(
-        Math.sin(this.scene.time.now / CAMERA.DRUNK_ROTATION_SPEED) *
-          this.rotationAmplitude,
-      );
+
+      if (this.ghostCam) {
+        this.ghostCam.setAlpha(this.ghostCurrentAlpha);
+        this.ghostCam.scrollX = this.camera.scrollX + CAMERA.DRUNK_GHOST_OFFSET;
+        this.ghostCam.scrollY = this.camera.scrollY;
+        // Stessa rotazione della principale: il ghost barcolla insieme alla scena
+        this.ghostCam.setRotation(
+          Math.sin(this.scene.time.now / CAMERA.DRUNK_ROTATION_SPEED) *
+            this.rotationAmplitude,
+        );
+      }
     } else if (this.ghostCam) {
       // Alpha scesa sotto la soglia: rimuove la camera e azzera lo stato
       this.scene.cameras.remove(this.ghostCam);
       this.ghostCam = null;
       this.ghostCurrentAlpha = 0;
+    }
+  }
+
+  /**
+   * Crea la ghost camera con la corretta ignore list.
+   * Ignora UI (depth >= 100) e checkpoint (depth -15 a -11) per non raddoppiarli.
+   * Renderizza SOLO il mondo di gioco normale (depth >= -10 e < 100).
+   */
+  private createGhostCamera(): void {
+    this.ghostCam = this.scene.cameras.add(0, 0, GAME.WIDTH, GAME.HEIGHT);
+    this.ghostCam.setBackgroundColor("rgba(0,0,0,0)");
+
+    const allObjects = this.scene.children.list;
+    const ignoreObjects = allObjects.filter(
+      (obj: any) =>
+        obj.depth !== undefined &&
+        (obj.depth >= 100 || (obj.depth >= -15 && obj.depth <= -11)),
+    );
+    if (ignoreObjects.length > 0) {
+      this.ghostCam.ignore(ignoreObjects);
+    }
+  }
+
+  /**
+   * Crea la camera dedicata per il checkpoint (lazy creation).
+   * Chiamata da SpawnManager quando viene creato il DJ Stage.
+   */
+  public ensureCheckpointCamera(): void {
+    if (!this.checkpointCam) {
+      this.checkpointCam = this.scene.cameras.add(
+        0,
+        0,
+        GAME.WIDTH,
+        GAME.HEIGHT,
+      );
+      this.checkpointCam.setBackgroundColor("rgba(0,0,0,0)");
+      this.checkpointCam.scrollY = this.camera.scrollY;
+
+      // Configura per renderizzare SOLO gli elementi del checkpoint (depth -15 a -11)
+      const allObjects = this.scene.children.list;
+      // Ignora tutto TRANNE gli elementi checkpoint (depth -15 a -11)
+      const ignoreObjects = allObjects.filter(
+        (obj: any) =>
+          obj.depth !== undefined && (obj.depth < -15 || obj.depth > -11),
+      );
+      if (ignoreObjects.length > 0) {
+        this.checkpointCam.ignore(ignoreObjects);
+      }
+    }
+
+    // Se la ghost camera esiste, ricreala per includere il checkpoint nella ignore list
+    if (this.ghostCam) {
+      this.scene.cameras.remove(this.ghostCam);
+      this.ghostCam = null;
+      this.createGhostCamera();
+    }
+  }
+
+  /**
+   * Rimuove la checkpoint camera (quando il checkpoint viene distrutto/resettato).
+   */
+  public removeCheckpointCamera(): void {
+    if (this.checkpointCam) {
+      this.scene.cameras.remove(this.checkpointCam);
+      this.checkpointCam = null;
+    }
+
+    // Ricrea la ghost camera (se esiste) per rimuovere il checkpoint dalla ignore list
+    if (this.ghostCam) {
+      this.scene.cameras.remove(this.ghostCam);
+      this.ghostCam = null;
+      this.createGhostCamera();
     }
   }
 
