@@ -127,7 +127,10 @@ export class SpawnManager {
     const body = basePlatform.body as Phaser.Physics.Arcade.StaticBody;
 
     // Aggiungo un offset per far in modo che la linea di collisione sia in basso sull'erba e non sul tetto dello stage
-    body.setSize(PLATFORM.GRASS_WIDTH, PLATFORM.GRASS_HEIGHT - PLATFORM.GRASS_COLLISION_OFFSET_Y);
+    body.setSize(
+      PLATFORM.GRASS_WIDTH,
+      PLATFORM.GRASS_HEIGHT - PLATFORM.GRASS_COLLISION_OFFSET_Y,
+    );
     body.setOffset(0, PLATFORM.GRASS_COLLISION_OFFSET_Y);
 
     body.enable = true;
@@ -171,7 +174,11 @@ export class SpawnManager {
    * Genera una piattaforma alla coordinata Y specificata.
    * Il mix di piattaforme è definito PER LIVELLO per progressione didattica.
    */
-  public spawnPlatform(y: number, level: number, forceRight: boolean = false): void {
+  public spawnPlatform(
+    y: number,
+    level: number,
+    forceRight: boolean = false,
+  ): void {
     let randomX: number;
     if (forceRight) {
       // Forza lo spawn all'estrema destra dello schermo (sul bordo)
@@ -573,55 +580,95 @@ export class SpawnManager {
     const grassY = nextY - this.r(10);
     const grassX = GAME.WIDTH / 2;
 
-    // --- DJ Stage Background (animato, dietro, senza fisica) ---
-    const stageBgY = grassY + PLATFORM.STAGE_BG_OFFSET_Y;
+    // --- Erba (piattaforma fisica del DJ Stage, solo pavimento) ---
+    const djStageGrass = this.platforms.get(
+      grassX,
+      grassY,
+      "checkpointGrass",
+    ) as Platform;
+    djStageGrass.initPlatform("standard", "checkpointGrass", level);
+    djStageGrass.setDisplaySize(
+      PLATFORM.CHECKPOINT_GRASS_WIDTH,
+      PLATFORM.CHECKPOINT_GRASS_HEIGHT,
+    );
+    djStageGrass.isBasePlatform = true;
+    djStageGrass.isDJStage = false; // NON triggera il livello, è solo un pavimento
+    djStageGrass.setDepth(10); // Livello base
+
+    if (djStageGrass.body) {
+      djStageGrass.body.reset(grassX, grassY);
+      djStageGrass.body.setSize(
+        PLATFORM.CHECKPOINT_GRASS_WIDTH,
+        PLATFORM.CHECKPOINT_GRASS_HEIGHT -
+          PLATFORM.CHECKPOINT_GRASS_COLLISION_OFFSET_Y,
+      );
+      djStageGrass.body.setOffset(
+        0,
+        PLATFORM.CHECKPOINT_GRASS_COLLISION_OFFSET_Y,
+      );
+      djStageGrass.body.allowGravity = false;
+      djStageGrass.body.immovable = true;
+      djStageGrass.body.checkCollision.up = true;
+      djStageGrass.body.checkCollision.down = false;
+      djStageGrass.body.checkCollision.left = false;
+      djStageGrass.body.checkCollision.right = false;
+      djStageGrass.setActive(true);
+      djStageGrass.setVisible(true);
+    }
+
+    // --- DJ Stage Background (animato, Dietro lo Striscione) ---
+    const stageBgY =
+      grassY -
+      PLATFORM.CHECKPOINT_GRASS_HEIGHT / 2 -
+      PLATFORM.CHECKPOINT_STAGE_OFFSET_Y;
     const stageBackground = this.scene.add.sprite(
       grassX,
       stageBgY,
-      "stageSheet",
+      "checkpointStageSheet",
     );
     stageBackground.setDisplaySize(
       PLATFORM.STAGE_BG_WIDTH,
       PLATFORM.STAGE_BG_HEIGHT,
     );
-    stageBackground.play("stageLoop");
-    stageBackground.setDepth(0); // Dietro alle piattaforme (depth = 1)
-    stageBackground.setScrollFactor(1); // Segue la camera
+    stageBackground.play("checkpointStageLoop");
+    stageBackground.setDepth(12); // Sopra l'erba, ma DIETRO lo striscione
+    stageBackground.setScrollFactor(1);
 
-    // --- Erba (piattaforma fisica del DJ Stage) ---
-    const djStage = this.platforms.get(
+    // --- Striscione TRIGGER (Avanti a tutto, isDJStage = true) ---
+    const bannerWidth = GAME.WIDTH * 0.95;
+    const bannerHeight = bannerWidth * (37 / 1024);
+    // Posizionato rispetto alla cima dello stage
+    const bannerY =
+      stageBgY -
+      PLATFORM.STAGE_BG_HEIGHT / 2 +
+      PLATFORM.CHECKPOINT_BANNER_OFFSET_Y;
+    const banner = this.platforms.get(
       grassX,
-      grassY,
-      "stageGrass",
+      bannerY,
+      "checkpointBanner",
     ) as Platform;
-    djStage.initPlatform("standard", "stageGrass", level);
-    // Imposta dimensioni DOPO initPlatform (che non le sovrascrive per stageGrass)
-    djStage.setDisplaySize(PLATFORM.GRASS_WIDTH, PLATFORM.GRASS_HEIGHT);
-    djStage.isBasePlatform = true;
-    djStage.isDJStage = true;
+    banner.initPlatform("standard", "checkpointBanner", level);
+    banner.setDisplaySize(bannerWidth, bannerHeight);
+    banner.isBasePlatform = true;
+    banner.isDJStage = true; // IL BANNER E' IL TRIGGER DEL LIVELLO!
+    banner.setDepth(15); // AVANTI ALLO STAGE!
+    banner.setScrollFactor(1);
 
-    // Configura body DOPO setDisplaySize per avere le dimensioni corrette
-    if (djStage.body) {
-      // Reset completo del body per evitare stati vecchi dal pooling
-      djStage.body.reset(grassX, grassY);
-
-      // Hitbox usa l'offset per matchare solo l'erba
-      djStage.body.setSize(PLATFORM.GRASS_WIDTH, PLATFORM.GRASS_HEIGHT - PLATFORM.GRASS_COLLISION_OFFSET_Y);
-      djStage.body.setOffset(0, PLATFORM.GRASS_COLLISION_OFFSET_Y);
-
-      // Fisica base necessaria (già configurata in initPlatform ma forziamo per sicurezza)
-      djStage.body.allowGravity = false;
-      djStage.body.immovable = true;
-
-      // FIX BUG #2: il DJ Stage ha collisione da TUTTE le direzioni.
-      // Senza questo, il giocatore lo attraversa dal basso e salta il livello.
-      // Dopo il level-up, la collisione viene resettata a "solo dall'alto"
-      // in GameScene.setupColliders() per permettere il salto successivo.
-      djStage.body.checkCollision.down = true;
-      djStage.body.checkCollision.left = true;
-      djStage.body.checkCollision.right = true;
-      djStage.setActive(true);
-      djStage.setVisible(true);
+    if (banner.body) {
+      banner.body.reset(grassX, bannerY);
+      // Hitbox abbondante per evitare salti a vuoto a velocità estreme (tunneling)
+      // La sua hitbox funge da soffitto invalicabile finché non triggera il livello
+      banner.body.setSize(bannerWidth, 150);
+      banner.body.setOffset(0, 0);
+      banner.body.allowGravity = false;
+      banner.body.immovable = true;
+      // Affinchè triggeri dal basso (quando il player ci salta contro)
+      banner.body.checkCollision.down = true;
+      banner.body.checkCollision.left = true;
+      banner.body.checkCollision.right = true;
+      banner.body.checkCollision.up = false;
+      banner.setActive(true);
+      banner.setVisible(true);
     }
 
     // Genera nuove piattaforme sopra il DJ Stage (dalla sua superficie)

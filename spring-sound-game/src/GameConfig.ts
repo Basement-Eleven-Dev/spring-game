@@ -89,7 +89,8 @@ export const GAME = {
  */
 export const INITIAL = {
   // Posizioniamo la BASE_PLATFORM_Y in base all'offset del prato calpestabile
-  BASE_PLATFORM_Y: GAME_HEIGHT - Math.round(GAME_WIDTH / 1.778) + r(20) + r(120), // r(120) è il GRASS_COLLISION_OFFSET_Y di default, che andremo a definire dopo
+  BASE_PLATFORM_Y:
+    GAME_HEIGHT - Math.round(GAME_WIDTH / 1.778) + r(20) + r(120), // r(120) è il GRASS_COLLISION_OFFSET_Y di default, che andremo a definire dopo
   // Il player parte poco sopra la linea del prato
   PLAYER_START_Y: GAME_HEIGHT - Math.round(GAME_WIDTH / 1.778) - r(60) + r(120),
 };
@@ -270,7 +271,8 @@ export const PLATFORM_TEXTURE_CATEGORY: Record<string, PlatformSizeCategory> = {
   platformUbriacoTexture: "wide",
   platformCassaTexture: "compact",
   platformCassaErbaTexture: "compact",
-  stageGrass: "wide", // Erba dello stage (configurazione custom)
+  stageGrass: "wide", // Erba dello stage iniziale
+  checkpointGrass: "wide", // Erba del checkpoint (DJ Stage)
 };
 
 /**
@@ -363,6 +365,10 @@ export const PLATFORM = {
   GRASS_HEIGHT: Math.round(GAME_WIDTH / 1.778),
   GRASS_HITBOX_HEIGHT: Math.round(GAME_WIDTH / 1.778), // Usa tutta l'altezza dell'erba
 
+  /** Dimensioni erba checkpoint (immagine 2376×1152, ratio ~2.06) */
+  CHECKPOINT_GRASS_WIDTH: GAME_WIDTH,
+  CHECKPOINT_GRASS_HEIGHT: Math.round(GAME_WIDTH / 2.0625),
+
   /** Dimensioni stage background animato (più piccolo dell'erba, dietro) */
   STAGE_BG_WIDTH: Math.round(GAME_WIDTH * 0.85),
   STAGE_BG_HEIGHT: Math.round(GAME_WIDTH * 0.85 * (184 / 256)),
@@ -375,6 +381,24 @@ export const PLATFORM = {
    * alza questo valore (es. a r(80) o r(100)) finché i piedi non toccano l'erba.
    */
   GRASS_COLLISION_OFFSET_Y: r(160),
+
+  /** Offset analogo al precedente, ma specifico per la schermata di stacco/checkpoint. */
+  CHECKPOINT_GRASS_COLLISION_OFFSET_Y: r(160),
+
+  /**
+   * Offset verticale dello striscione (banner) rispetto alla cima dello stage.
+   * Se lo striscione ti sembra troppo in alto nel cielo, AUMENTA questo valore (es. r(40) o r(80)).
+   * Se invece è troppo basso e copre lo stage, DIMINUISCILO.
+   */
+  CHECKPOINT_BANNER_OFFSET_Y: r(200),
+
+  /**
+   * Offset verticale dello stage rispetto all'erba di fine livello.
+   * Se lo stage sembra troppo 'sospeso' e lontano dall'erba, AUMENTA questo valore (es. r(10) o r(30))
+   * per spingerlo verso il basso e incastrarlo nell'erba.
+   * Valori negativi (es. r(-20)) lo spingono più in alto.
+   */
+  CHECKPOINT_STAGE_OFFSET_Y: r(5),
 } as const;
 
 // --- Fango (rallenta il salto) ---

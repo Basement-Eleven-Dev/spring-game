@@ -171,6 +171,18 @@ export class GameScene extends Phaser.Scene {
     // --- Erba: piattaforma fisica dello stage ---
     this.load.image("stageGrass", "/assets/platforms/stage/erba.png");
 
+    // --- Asset specifici per il checkopint (fine livello) ---
+    this.load.spritesheet(
+      "checkpointStageSheet",
+      "/assets/platforms/stage/stage checkpoint.png",
+      {
+        frameWidth: 256,
+        frameHeight: 184,
+      },
+    );
+    this.load.image("checkpointGrass", "/assets/platforms/stage/checkpoint erba.png");
+    this.load.image("checkpointBanner", "/assets/platforms/stage/convivo target.png");
+
     // --- Pause Menu Assets ---
     this.load.svg(
       "pauseLogo",
@@ -402,7 +414,7 @@ export class GameScene extends Phaser.Scene {
       });
     }
 
-    // --- Stage (palco festival) ---
+    // --- Stage (palco festival principale) ---
     if (!this.anims.exists("stageLoop")) {
       this.anims.create({
         key: "stageLoop",
@@ -412,6 +424,19 @@ export class GameScene extends Phaser.Scene {
         }),
         frameRate: PLATFORM.STAGE_ANIM_FPS,
         repeat: -1, // loop infinito
+      });
+    }
+
+    // --- Checkpoint Stage (animazione stacco livello) ---
+    if (!this.anims.exists("checkpointStageLoop")) {
+      this.anims.create({
+        key: "checkpointStageLoop",
+        frames: this.anims.generateFrameNumbers("checkpointStageSheet", {
+          start: 0,
+          end: 1, // Lo spritesheet è 512x184 con 2 frame da 256
+        }),
+        frameRate: PLATFORM.STAGE_ANIM_FPS,
+        repeat: -1,
       });
     }
   }
