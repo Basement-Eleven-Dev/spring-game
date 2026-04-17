@@ -47,8 +47,8 @@ export class SpawnManager {
   private lastBouncerSpawnY: number = -Infinity;
   /** Y dell'ultimo subwoofer spawnato — per evitare clustering */
   private lastSubwooferSpawnY: number = -Infinity;
-  private lastCardSpawnY: number = INITIAL.PLAYER_START_Y;
-  private cardsSpawnedThisRun: number = 0;
+  /** Flag: una card è già stata spawnata nel livello corrente */
+  private cardSpawnedThisLevel: boolean = false;
 
   // --- Elementi del checkpoint corrente (per cleanup) ---
   private checkpointGrass: Platform | null = null;
@@ -180,8 +180,7 @@ export class SpawnManager {
     this._highestPlatformY = currentY;
     this.lastPlatformX = GAME.WIDTH / 2;
     this.lastDrinkSpawnY = INITIAL.PLAYER_START_Y;
-    this.lastCardSpawnY = INITIAL.PLAYER_START_Y;
-    this.cardsSpawnedThisRun = 0;
+    this.cardSpawnedThisLevel = false;
   }
 
   /**
@@ -826,17 +825,38 @@ export class SpawnManager {
       this.spawnFallingDrink(camScrollY);
       this.lastDrinkSpawnY = highestYReached;
     }
+  }
 
-    // Spawn delle card nei primi 12 livelli: limitate a un massimo di 5 per run.
-    // Usiamo un intervallo molto più grande (es. ~3000/4000) così da distribuirle sui livelli.
-    if (level <= 12 && this.cardsSpawnedThisRun < 5) {
-      const cardInterval = this.r(3500 + Math.random() * 1500);
-      if (highestYReached < this.lastCardSpawnY - cardInterval) {
-        this.spawnFallingCard(camScrollY);
-        this.lastCardSpawnY = highestYReached;
-        this.cardsSpawnedThisRun++;
-      }
-    }
+  /**
+   * Resetta il flag card-per-livello. Chiamare ad ogni level-up.
+   */
+  public resetCardForNewLevel(): void {
+    this.cardSpawnedThisLevel = false;
+  }
+
+  /**
+   * Tenta di spawnare una card per il livello appena iniziato.
+   * Condizioni:
+   * - Non è già stata spawnata una card in questo livello
+   * - Il giocatore non ha ancora tutte e 5 le stelle (persiste in localStorage)
+   * - Probabilità casuale 70% per mantenere il fattore sorpresa
+   *
+   * @param camScrollY  posizione attuale della camera (top dello schermo)
+   */
+  public trySpawnCardForLevel(camScrollY: number): void {
+    if (this.cardSpawnedThisLevel) return;
+
+    const collected = parseInt(
+      localStorage.getItem("cardsCollected") || "0",
+      10,
+    );
+    if (collected >= 5) return;
+
+    // Chance random 70%
+    if (Math.random() > 0.7) return;
+
+    this.spawnFallingCard(camScrollY);
+    this.cardSpawnedThisLevel = true;
   }
 
   /** La Y della piattaforma più alta attualmente nel mondo */

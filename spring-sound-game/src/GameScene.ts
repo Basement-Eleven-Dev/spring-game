@@ -505,6 +505,11 @@ export class GameScene extends Phaser.Scene {
           this.levelManager.levelUp();
           this.scoreManager.addBonus(this.levelManager.getLevelUpBonus());
           this.partyManager.resetForNewLevel();
+          this.spawnManager.resetCardForNewLevel();
+          // Spawn eventuale stella DJ dopo 2s (player è già risalito nella nuova sezione)
+          this.time.delayedCall(2000, () => {
+            this.spawnManager.trySpawnCardForLevel(this.cameraManager.scrollY);
+          });
           // La checkpoint camera viene rimossa solo quando gli oggetti
           // escono dallo schermo, così restano visibili durante la salita
           this.spawnManager.setOnCheckpointDestroyed(() => {
