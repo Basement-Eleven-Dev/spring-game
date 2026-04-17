@@ -944,7 +944,11 @@ export class GameScene extends Phaser.Scene {
    * Riavvia il gioco dall'inizio.
    */
   private restartGame(): void {
-    // Riprendi la scena (necessario se era in pausa)
+    // Resetta lo stato pausa PRIMA di restart — altrimenti il nuovo create()
+    // eredita isPaused=true e update() non parte mai
+    this.isPaused = false;
+
+    // Riprendi la fisica e le animazioni
     this.physics.resume();
     this.anims.resumeAll();
     this.tweens.resumeAll();

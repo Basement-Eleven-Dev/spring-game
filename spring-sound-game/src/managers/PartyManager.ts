@@ -55,11 +55,11 @@ export class PartyManager {
 
   /**
    * Resetta il party system dopo aver completato un livello.
+   * Il contatore drink è cumulativo — non viene azzerato.
    */
   public resetForNewLevel(): void {
     this._partyLevel = 0;
     this._isWasted = false;
-    this._drinkCount = 0;
     this.cameraManager.clearEffects();
   }
 
