@@ -63,32 +63,38 @@ export class Platform extends Phaser.Physics.Arcade.Sprite {
     } else {
       // Standard e moving: dimensione basata sulla categoria della texture
       const category = PLATFORM_TEXTURE_CATEGORY[texture] ?? "wide";
-      if (category === "compact") {
-        this.setDisplaySize(PLATFORM.COMPACT_WIDTH, PLATFORM.COMPACT_HEIGHT);
-      } else {
-        this.setDisplaySize(PLATFORM.WIDE_WIDTH, PLATFORM.WIDE_HEIGHT);
+      // stageGrass viene configurato manualmente in SpawnManager
+      if (texture !== "stageGrass") {
+        if (category === "compact") {
+          this.setDisplaySize(PLATFORM.COMPACT_WIDTH, PLATFORM.COMPACT_HEIGHT);
+        } else {
+          this.setDisplaySize(PLATFORM.WIDE_WIDTH, PLATFORM.WIDE_HEIGHT);
+        }
       }
     }
 
     if (this.body) {
-      // Ridimensioniamo e spostiamo l'hitbox se la piattaforma è "wide" (erba, ubriaco)
-      // perché la loro texture originale ha uno spazio vuoto (padding) nella parte alta.
-      // Questo evita che il giocatore o i drink appaiano fluttuanti di qualche millimetro.
-      const category = PLATFORM_TEXTURE_CATEGORY[texture] ?? "wide";
-      if (category === "wide" && type !== "subwoofer" && type !== "fragile") {
-        // Abbassiamo l'hitbox proporzionalmente allo spazio vuoto in alto nella texture.
-        // La piattaforma erba ha leggermente più spazio vuoto rispetto alla piattaforma ubriaco.
-        let offsetPercent = 0.20; // Default (20%) per 'platformUbriacoTexture'
-        if (texture === "platformErbaTexture") {
-          offsetPercent = 0.28; // ~28% di spazio in alto per la piattaforma erba
+      // stageGrass ha hitbox custom configurata completamente in SpawnManager DOPO setDisplaySize
+      if (texture !== "stageGrass") {
+        // Ridimensioniamo e spostiamo l'hitbox se la piattaforma è "wide" (erba, ubriaco)
+        // perché la loro texture originale ha uno spazio vuoto (padding) nella parte alta.
+        // Questo evita che il giocatore o i drink appaiano fluttuanti di qualche millimetro.
+        const category = PLATFORM_TEXTURE_CATEGORY[texture] ?? "wide";
+        if (category === "wide" && type !== "subwoofer" && type !== "fragile") {
+          // Abbassiamo l'hitbox proporzionalmente allo spazio vuoto in alto nella texture.
+          // La piattaforma erba ha leggermente più spazio vuoto rispetto alla piattaforma ubriaco.
+          let offsetPercent = 0.2; // Default (20%) per 'platformUbriacoTexture'
+          if (texture === "platformErbaTexture") {
+            offsetPercent = 0.28; // ~28% di spazio in alto per la piattaforma erba
+          }
+
+          const offsetY = this.height * offsetPercent;
+          this.body.setSize(this.width, this.height - offsetY);
+          this.body.setOffset(0, offsetY);
+        } else {
+          this.body.setSize(this.width, this.height);
+          this.body.setOffset(0, 0);
         }
-        
-        const offsetY = this.height * offsetPercent;
-        this.body.setSize(this.width, this.height - offsetY);
-        this.body.setOffset(0, offsetY);
-      } else {
-        this.body.setSize(this.width, this.height);
-        this.body.setOffset(0, 0);
       }
 
       // Fisica: la piattaforma non cade e non si muove quando colpita

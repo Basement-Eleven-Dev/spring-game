@@ -161,12 +161,15 @@ export class GameScene extends Phaser.Scene {
     // --- Stage: spritesheet 3 frame (palco festival animato) ---
     this.load.spritesheet(
       "stageSheet",
-      "/assets/platforms/stage sheet.png",
+      "/assets/platforms/stage/stage sheet.png",
       {
         frameWidth: PLATFORM.STAGE_FRAME_WIDTH,
         frameHeight: PLATFORM.STAGE_FRAME_HEIGHT,
       },
     );
+
+    // --- Erba: piattaforma fisica dello stage ---
+    this.load.image("stageGrass", "/assets/platforms/stage/erba.png");
 
     // --- Pause Menu Assets ---
     this.load.svg(
@@ -228,10 +231,9 @@ export class GameScene extends Phaser.Scene {
     );
 
     // --- Background Music ---
-    this.load.audio("backgroundMusic", "/assets/music/smb.mp3");
+    this.load.audio("backgroundMusic", "/assets/music/willyMix.mp3");
   }
 
-  
   /**
    * Create: inizializzazione del mondo di gioco.
    * Crea manager, piattaforme, giocatore e registra i collider.
@@ -419,6 +421,21 @@ export class GameScene extends Phaser.Scene {
    * È il punto dove le meccaniche di gioco si connettono.
    */
   private setupColliders(): void {
+    // --- Collisione Giocatore ↔ Erba base (staticImage) ---
+    if (this.spawnManager._baseGrassPlatform) {
+      this.physics.add.collider(
+        this.player,
+        this.spawnManager._baseGrassPlatform,
+        (playerObj, platformObj) => {
+          const p = playerObj as Player;
+          const plat = platformObj as Phaser.Physics.Arcade.Image;
+          if (p.body && p.body.touching.down && plat.body.touching.up) {
+            p.jump(JUMP_MULTIPLIERS.NORMAL, this.levelManager.level);
+          }
+        }
+      );
+    }
+
     // --- Collisione Giocatore ↔ Piattaforme ---
     this.physics.add.collider(
       this.player,
@@ -551,12 +568,15 @@ export class GameScene extends Phaser.Scene {
       (_playerObj, cardObj) => {
         const card = cardObj as import("./Card").Card;
         // Salva in localStorage per persistenza globale
-        let savedCards = parseInt(localStorage.getItem('cardsCollected') || '0', 10);
+        let savedCards = parseInt(
+          localStorage.getItem("cardsCollected") || "0",
+          10,
+        );
         if (savedCards < 5) {
           savedCards++;
-          localStorage.setItem('cardsCollected', savedCards.toString());
+          localStorage.setItem("cardsCollected", savedCards.toString());
         }
-        
+
         this.showFloatingScore(card.x, card.y, "+1 CARD", "#408cf4");
         card.destroy();
       },
@@ -704,7 +724,10 @@ export class GameScene extends Phaser.Scene {
         clockMinutes: this.clockMinutes,
         level: this.levelManager.level,
         drinkCount: this.partyManager.drinkCount,
-        cardsCollected: parseInt(localStorage.getItem('cardsCollected') || '0', 10),
+        cardsCollected: parseInt(
+          localStorage.getItem("cardsCollected") || "0",
+          10,
+        ),
         isTimeout: true,
       });
       return;
@@ -778,7 +801,10 @@ export class GameScene extends Phaser.Scene {
         clockMinutes: this.clockMinutes,
         level: this.levelManager.level,
         drinkCount: this.partyManager.drinkCount,
-        cardsCollected: parseInt(localStorage.getItem('cardsCollected') || '0', 10),
+        cardsCollected: parseInt(
+          localStorage.getItem("cardsCollected") || "0",
+          10,
+        ),
         isTimeout: false,
       });
     }

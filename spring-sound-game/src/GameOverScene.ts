@@ -161,7 +161,14 @@ export class GameOverScene extends Phaser.Scene {
     cardsCollected: number;
     isTimeout: boolean;
   }) {
-    const { score, clockMinutes, level, drinkCount, cardsCollected = 0, isTimeout } = data;
+    const {
+      score,
+      clockMinutes,
+      level,
+      drinkCount,
+      cardsCollected = 0,
+      isTimeout,
+    } = data;
     const cx = GAME.WIDTH / 2;
     const cy = GAME.HEIGHT / 2;
     const S = GAME.SCALE;
@@ -174,7 +181,9 @@ export class GameOverScene extends Phaser.Scene {
 
     // ========== BACKGROUND ==========
     const bg = this.add.image(cx, cy, "menuBg");
-    bg.setScale(Math.max(GAME.WIDTH / bg.width, GAME.HEIGHT / bg.height)).setDepth(0);
+    bg.setScale(
+      Math.max(GAME.WIDTH / bg.width, GAME.HEIGHT / bg.height),
+    ).setDepth(0);
 
     // Overlay scuro per leggibilità
     this.add
@@ -188,14 +197,10 @@ export class GameOverScene extends Phaser.Scene {
     const logoY = r(-260);
 
     container.add(
-      this.add
-        .circle(0, logoY, r(42), 0xf8f0cd)
-        .setStrokeStyle(r(3), 0x000000),
+      this.add.circle(0, logoY, r(42), 0xf8f0cd).setStrokeStyle(r(3), 0x000000),
     );
     container.add(
-      this.add
-        .image(0, logoY, "gameOverLogo")
-        .setDisplaySize(r(65), r(65)),
+      this.add.image(0, logoY, "gameOverLogo").setDisplaySize(r(65), r(65)),
     );
 
     // ========== TITOLO "GAME OVER" ==========
@@ -218,7 +223,7 @@ export class GameOverScene extends Phaser.Scene {
     const partitaTab = this.add.container(-r(80), tabY);
     const partitaImg = this.add
       .image(0, 0, "gameOverPartita")
-      .setDisplaySize(r(100), r(60));
+      .setDisplaySize(r(90), r(50));
     const partitaLabel = this.add
       .text(0, r(12), "PARTITA", {
         fontFamily: "ChillPixels",
@@ -241,7 +246,7 @@ export class GameOverScene extends Phaser.Scene {
     const classificaTab = this.add.container(r(25), tabY);
     const classificaImg = this.add
       .image(0, 0, "gameOverRanking")
-      .setDisplaySize(r(105), r(60));
+      .setDisplaySize(r(90), r(50));
     const classificaLabel = this.add
       .text(0, r(12), "CLASSIFICA", {
         fontFamily: "ChillPixels",
@@ -297,9 +302,7 @@ export class GameOverScene extends Phaser.Scene {
 
     const scoreBarY = resultsY - r(60);
     page0.add(
-      this.add
-        .image(0, scoreBarY, "pointsBar")
-        .setDisplaySize(r(200), r(38)),
+      this.add.image(0, scoreBarY, "pointsBar").setDisplaySize(r(200), r(38)),
     );
     page0.add(
       this.add
@@ -404,18 +407,20 @@ export class GameOverScene extends Phaser.Scene {
 
     for (let i = 0; i < 5; i++) {
       const slotX = startX + i * spacing;
-      
+
       // Draw square slot
       page1.add(
-        this.add.rectangle(slotX, slotsY, r(35), r(35), 0x000000, 0)
-          .setStrokeStyle(r(2), 0x000000)
+        this.add
+          .rectangle(slotX, slotsY, r(35), r(35), 0x000000, 0)
+          .setStrokeStyle(r(2), 0x000000),
       );
 
       // If collected, show card
       if (i < cardsCollected) {
         page1.add(
-          this.add.image(slotX, slotsY, "gameOverCardIcon")
-            .setDisplaySize(r(25), r(25))
+          this.add
+            .image(slotX, slotsY, "gameOverCardIcon")
+            .setDisplaySize(r(25), r(25)),
         );
       }
     }
@@ -616,8 +621,7 @@ export class GameOverScene extends Phaser.Scene {
 
   /** Pagina precedente del carosello (con wrap). */
   private prevPage(): void {
-    const prev =
-      (this.currentPage - 1 + this.pages.length) % this.pages.length;
+    const prev = (this.currentPage - 1 + this.pages.length) % this.pages.length;
     this.showPage(prev);
   }
 

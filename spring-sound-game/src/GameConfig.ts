@@ -88,8 +88,10 @@ export const GAME = {
  * Posizioni iniziali calcolate in base all'altezza reale del canvas.
  */
 export const INITIAL = {
-  BASE_PLATFORM_Y: GAME_HEIGHT - r(20),
-  PLAYER_START_Y: GAME_HEIGHT - r(100),
+  // Posizioniamo la BASE_PLATFORM_Y sulla superficie dell'erba (top dell'asset stageGrass)
+  BASE_PLATFORM_Y: GAME_HEIGHT - Math.round(GAME_WIDTH / 1.778) + r(20),
+  // Posizioniamo il player sopra la base platform
+  PLAYER_START_Y: GAME_HEIGHT - Math.round(GAME_WIDTH / 1.778) - r(60),
 };
 
 // --- Orologio narrativo (14:00 → 02:00) ---
@@ -268,6 +270,7 @@ export const PLATFORM_TEXTURE_CATEGORY: Record<string, PlatformSizeCategory> = {
   platformUbriacoTexture: "wide",
   platformCassaTexture: "compact",
   platformCassaErbaTexture: "compact",
+  stageGrass: "wide", // Erba dello stage (configurazione custom)
 };
 
 /**
@@ -355,10 +358,17 @@ export const PLATFORM = {
   /** Durata dell'animazione di rottura della piattaforma fragile (ms) */
   FRAGILE_BREAK_DURATION_MS: 300,
 
-  /** Dimensioni di visualizzazione dello stage nel mondo di gioco (maggiorate del 25% per nascondere i grossi bordi trasparenti nell'immagine) */
-  STAGE_WIDTH: Math.round(GAME_WIDTH * 1.25),
-  STAGE_HEIGHT: Math.round((GAME_WIDTH * 1.25) * (184 / 256)),
-  STAGE_HITBOX_HEIGHT: r(20),
+  /** Dimensioni erba stage (immagine 2383×1340, ratio ~1.78) */
+  GRASS_WIDTH: GAME_WIDTH,
+  GRASS_HEIGHT: Math.round(GAME_WIDTH / 1.778),
+  GRASS_HITBOX_HEIGHT: Math.round(GAME_WIDTH / 1.778), // Usa tutta l'altezza dell'erba
+
+  /** Dimensioni stage background animato (più piccolo dell'erba, dietro) */
+  STAGE_BG_WIDTH: Math.round(GAME_WIDTH * 0.85),
+  STAGE_BG_HEIGHT: Math.round(GAME_WIDTH * 0.85 * (184 / 256)),
+
+  /** Offset verticale per posizionare lo stage background rispetto all'erba */
+  STAGE_BG_OFFSET_Y: r(-15),
 } as const;
 
 // --- Fango (rallenta il salto) ---
@@ -458,7 +468,7 @@ export const BOUNCER = {
    * Durata totale dello stordimento (ms) = animazione (~500ms) + pinball.
    * Durante tutto questo tempo il player non può muoversi né saltare.
    */
-  STUN_DURATION_MS: 1500,
+  STUN_DURATION_MS: 1000,
   /**
    * Fattore di conservazione della velocità ad ogni rimbalzo sul bordo.
    * 0.92 = perde solo l'8% → rimbalzi violenti e sostenuti.

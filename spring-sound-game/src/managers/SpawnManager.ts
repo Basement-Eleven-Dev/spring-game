@@ -36,6 +36,8 @@ export class SpawnManager {
   public muds!: Phaser.Physics.Arcade.Group;
   public bouncers!: Phaser.Physics.Arcade.Group;
   public cards!: Phaser.Physics.Arcade.Group;
+  /** Piattaforma erba statica del pavimento iniziale (physics.add.staticImage) */
+  public _baseGrassPlatform: Phaser.Physics.Arcade.Image | null = null;
 
   // --- Tracking per lo spawning ---
   private _highestPlatformY: number = 0;
@@ -96,32 +98,42 @@ export class SpawnManager {
    * Chiamato una volta sola in GameScene.create().
    */
   public spawnInitialPlatforms(level: number): void {
-    // --- Stage base: spinto molto in basso e traslato a sinistra per correggere la PNG ritagliata male ---
-    const stageY = GAME.HEIGHT - PLATFORM.STAGE_HEIGHT / 2 + this.r(35);
-    const stageX = GAME.WIDTH / 2 - this.r(10);
+    // --- Stage base: posizionato centralmente, più in alto ---
+    const grassY = GAME.HEIGHT - PLATFORM.GRASS_HEIGHT / 2 + this.r(20);
+    const grassX = GAME.WIDTH / 2;
 
-    const basePlatform = this.platforms.get(
-      stageX,
-      stageY,
+    // --- Stage Background (animato, dietro, senza fisica) ---
+    const stageBgY = grassY + PLATFORM.STAGE_BG_OFFSET_Y;
+    const stageBackground = this.scene.add.sprite(
+      grassX,
+      stageBgY,
       "stageSheet",
-    ) as Platform;
-    basePlatform.isBasePlatform = true;
-    basePlatform.initPlatform("standard", "stageSheet", level);
-    basePlatform.setDisplaySize(PLATFORM.STAGE_WIDTH, PLATFORM.STAGE_HEIGHT);
-    basePlatform.play("stageLoop");
-    if (basePlatform.body) {
-      // Dinamico: ricaviamo il top reale dello sprite e calcoliamo l'offset verso il pavimento di gioco
-      const topSpriteY = stageY - PLATFORM.STAGE_HEIGHT / 2;
-      const floorWorldY = INITIAL.BASE_PLATFORM_Y; // dove deve atterrare il personaggio
-      const dyWorld = floorWorldY - topSpriteY; // Calcolo esatto a prescindere dal visual shift!
-      
-      const sourceScale = PLATFORM.STAGE_FRAME_HEIGHT / PLATFORM.STAGE_HEIGHT;
-      const offsetY = Math.round(dyWorld * sourceScale);
-      const hitH = Math.round(PLATFORM.STAGE_HITBOX_HEIGHT * sourceScale);
+    );
+    stageBackground.setDisplaySize(
+      PLATFORM.STAGE_BG_WIDTH,
+      PLATFORM.STAGE_BG_HEIGHT,
+    );
+    stageBackground.play("stageLoop");
+    stageBackground.setDepth(0); // Dietro alle piattaforme (depth = 1)
 
-      basePlatform.body.setSize(basePlatform.width, hitH);
-      basePlatform.body.setOffset(0, offsetY);
-    }
+    // --- Erba (piattaforma fisica statica, sopra lo stage background) ---
+    const basePlatform = this.scene.physics.add.staticImage(
+      grassX,
+      grassY,
+      "stageGrass",
+    );
+    basePlatform.setDisplaySize(PLATFORM.GRASS_WIDTH, PLATFORM.GRASS_HEIGHT);
+    basePlatform.refreshBody(); // Aggiorna il body statico dopo setDisplaySize
+    const body = basePlatform.body as Phaser.Physics.Arcade.StaticBody;
+    body.enable = true;
+    body.checkCollision.down = false;
+    body.checkCollision.left = false;
+    body.checkCollision.right = false;
+    body.checkCollision.up = true;
+
+    // Registra il collider direttamente su questa piattaforma
+    // (il collider principale è su spawnManager.platforms, questa viene aggiunta a parte)
+    this._baseGrassPlatform = basePlatform;
 
     // Spacing variabile per livello (come in spawnPlatform)
     let spacingMin: number, spacingMax: number;
@@ -136,7 +148,7 @@ export class SpawnManager {
       spacingMax = PLATFORM.SPACING_MAX;
     }
 
-    // Le piattaforme partono dalla superficie dello stage
+    // Le piattaforme partono dalla superficie dell'erba (top dello sprite)
     let currentY = INITIAL.BASE_PLATFORM_Y;
     for (let i = 1; i <= PLATFORM.INITIAL_COUNT; i++) {
       currentY -= Phaser.Math.Between(spacingMin, spacingMax);
@@ -155,20 +167,6 @@ export class SpawnManager {
    * Il mix di piattaforme è definito PER LIVELLO per progressione didattica.
    */
   public spawnPlatform(y: number, level: number): void {
-    // Spacing variabile per livello
-    
-    let spacingMin: number, spacingMax: number;
-    if (level === 1) {
-      spacingMin = PLATFORM.SPACING_MIN_LVL1;
-      spacingMax = PLATFORM.SPACING_MAX_LVL1;
-    } else if (level === 2) {
-      spacingMin = PLATFORM.SPACING_MIN_LVL2;
-      spacingMax = PLATFORM.SPACING_MAX_LVL2;
-    } else {
-      spacingMin = PLATFORM.SPACING_MIN;
-      spacingMax = PLATFORM.SPACING_MAX;
-    }
-
     // Posizione X raggiungibile dalla piattaforma precedente
     const minX = Math.max(this.r(40), this.lastPlatformX - PLATFORM.REACH_X);
     const maxX = Math.min(
@@ -558,35 +556,49 @@ export class SpawnManager {
     // Pulisci tutte le entità sopra il DJ Stage
     this.clearAbove(nextY + this.r(50));
 
-    // Crea il palco DJ (stage animato)
-    // Usa lo stesso rapporto visivo/fisico calcolato alla base di gioco
-    // Distanza fissa dal centro visivo al pavimento logico: STAGE_HEIGHT / 2 - r(70)
-    const floorWorldY = nextY - this.r(10);
-    const djStageY = floorWorldY - (PLATFORM.STAGE_HEIGHT / 2 - this.r(70));
-    const stageX = GAME.WIDTH / 2 - this.r(35);
+    // Posizionamento DJ Stage
+    const grassY = nextY - this.r(10);
+    const grassX = GAME.WIDTH / 2;
 
-    const djStage = this.platforms.get(
-      stageX,
-      djStageY,
+    // --- DJ Stage Background (animato, dietro, senza fisica) ---
+    const stageBgY = grassY + PLATFORM.STAGE_BG_OFFSET_Y;
+    const stageBackground = this.scene.add.sprite(
+      grassX,
+      stageBgY,
       "stageSheet",
+    );
+    stageBackground.setDisplaySize(
+      PLATFORM.STAGE_BG_WIDTH,
+      PLATFORM.STAGE_BG_HEIGHT,
+    );
+    stageBackground.play("stageLoop");
+    stageBackground.setDepth(0); // Dietro alle piattaforme (depth = 1)
+    stageBackground.setScrollFactor(1); // Segue la camera
+
+    // --- Erba (piattaforma fisica del DJ Stage) ---
+    const djStage = this.platforms.get(
+      grassX,
+      grassY,
+      "stageGrass",
     ) as Platform;
-    djStage.initPlatform("standard", "stageSheet", level);
-    djStage.setDisplaySize(PLATFORM.STAGE_WIDTH, PLATFORM.STAGE_HEIGHT);
-    djStage.play("stageLoop");
+    djStage.initPlatform("standard", "stageGrass", level);
+    // Imposta dimensioni DOPO initPlatform (che non le sovrascrive per stageGrass)
+    djStage.setDisplaySize(PLATFORM.GRASS_WIDTH, PLATFORM.GRASS_HEIGHT);
     djStage.isBasePlatform = true;
     djStage.isDJStage = true;
 
+    // Configura body DOPO setDisplaySize per avere le dimensioni corrette
     if (djStage.body) {
-      // Calcolo offset dinamico esattamente in linea col posizionamento asimmetrico
-      const topSpriteY = djStageY - PLATFORM.STAGE_HEIGHT / 2;
-      const dyWorld = floorWorldY - topSpriteY;
-      
-      const sourceScale = PLATFORM.STAGE_FRAME_HEIGHT / PLATFORM.STAGE_HEIGHT;
-      const offsetY = Math.round(dyWorld * sourceScale);
-      const hitH = Math.round(PLATFORM.STAGE_HITBOX_HEIGHT * sourceScale);
+      // Reset completo del body per evitare stati vecchi dal pooling
+      djStage.body.reset(grassX, grassY);
 
-      djStage.body.setSize(djStage.width, hitH);
-      djStage.body.setOffset(0, offsetY);
+      // Hitbox usa tutta l'altezza dell'erba per massima collisione
+      djStage.body.setSize(PLATFORM.GRASS_WIDTH, PLATFORM.GRASS_HEIGHT);
+      djStage.body.setOffset(0, 0);
+
+      // Fisica base necessaria (già configurata in initPlatform ma forziamo per sicurezza)
+      djStage.body.allowGravity = false;
+      djStage.body.immovable = true;
 
       // FIX BUG #2: il DJ Stage ha collisione da TUTTE le direzioni.
       // Senza questo, il giocatore lo attraversa dal basso e salta il livello.
@@ -595,6 +607,8 @@ export class SpawnManager {
       djStage.body.checkCollision.down = true;
       djStage.body.checkCollision.left = true;
       djStage.body.checkCollision.right = true;
+      djStage.setActive(true);
+      djStage.setVisible(true);
     }
 
     // Genera nuove piattaforme sopra il DJ Stage (dalla sua superficie)
@@ -705,11 +719,11 @@ export class SpawnManager {
     // Spawn delle card nei primi 12 livelli: limitate a un massimo di 5 per run.
     // Usiamo un intervallo molto più grande (es. ~3000/4000) così da distribuirle sui livelli.
     if (level <= 12 && this.cardsSpawnedThisRun < 5) {
-      const cardInterval = this.r(3500 + Math.random() * 1500); 
+      const cardInterval = this.r(3500 + Math.random() * 1500);
       if (highestYReached < this.lastCardSpawnY - cardInterval) {
-         this.spawnFallingCard(camScrollY);
-         this.lastCardSpawnY = highestYReached;
-         this.cardsSpawnedThisRun++;
+        this.spawnFallingCard(camScrollY);
+        this.lastCardSpawnY = highestYReached;
+        this.cardsSpawnedThisRun++;
       }
     }
   }
