@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { GAME, PLAYER, BOUNCER, CAMERA, SETTINGS } from "./GameConfig";
+import { GAME, PLAYER, BOUNCER, SETTINGS } from "./GameConfig";
 
 /**
  * Player

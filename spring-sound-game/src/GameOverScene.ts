@@ -191,7 +191,7 @@ export class GameOverScene extends Phaser.Scene {
       drinkCount,
       cardsCollected = 0,
       djAssignments = [1, 2, 3, 4, 5],
-      isTimeout,
+      isTimeout: _isTimeout,
     } = data;
     const cx = GAME.WIDTH / 2;
     const cy = GAME.HEIGHT / 2;

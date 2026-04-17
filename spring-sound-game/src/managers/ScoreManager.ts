@@ -16,15 +16,12 @@ import { PARTY, SCORING } from "../GameConfig";
  * Questo manager si occupa SOLO della logica di calcolo.
  */
 export class ScoreManager {
-  private scene: Phaser.Scene;
-
   private _score: number = 0;
   /** Distanza verticale percorsa in unità (10px = 1 unità). Usata per il calcolo del punteggio. */
   private _distance: number = 0;
   private _highestYReached: number = 0;
 
-  constructor(scene: Phaser.Scene, startY: number) {
-    this.scene = scene;
+  constructor(_scene: Phaser.Scene, startY: number) {
     this._highestYReached = startY;
   }
 
@@ -41,7 +38,7 @@ export class ScoreManager {
     level: number,
     partyLevel: number,
     isWasted: boolean,
-    clockMinutes: number,
+    _clockMinutes: number,
   ): void {
     const heightGained = this._highestYReached - playerY;
 
