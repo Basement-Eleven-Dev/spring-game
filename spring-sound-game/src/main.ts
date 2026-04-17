@@ -4,6 +4,7 @@ import { GameOverScene } from "./GameOverScene";
 import { StartScene } from "./StartScene";
 import { TutorialScene } from "./TutorialScene";
 import { GAME, PHYSICS } from "./GameConfig";
+import { LeaderboardManager } from "./managers/LeaderboardManager";
 import "./style.css";
 
 /**
@@ -55,6 +56,9 @@ const config: Phaser.Types.Core.GameConfig = {
  */
 async function initGame() {
   try {
+    // Inizializza l'autenticazione Firebase in background (non blocca il font)
+    LeaderboardManager.init();
+
     // Forza il caricamento del font ChillPixels
     await document.fonts.load('16px "ChillPixels"');
     // Aspetta anche che tutti gli altri font siano pronti

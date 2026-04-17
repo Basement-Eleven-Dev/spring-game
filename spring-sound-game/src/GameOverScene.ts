@@ -1,5 +1,7 @@
 import * as Phaser from "phaser";
 import { GAME, minutesToClockString } from "./GameConfig";
+import { LeaderboardManager } from "./managers/LeaderboardManager";
+import { NicknameOverlay } from "./managers/NicknameOverlay";
 
 /**
  * Schermata di Game Over — Design Reference Faithful
@@ -18,6 +20,8 @@ export class GameOverScene extends Phaser.Scene {
   private pages: Phaser.GameObjects.Container[] = [];
   private partitaView!: Phaser.GameObjects.Container;
   private classificaView!: Phaser.GameObjects.Container;
+  private scoresContainer!: Phaser.GameObjects.Container;
+  private loadingText!: Phaser.GameObjects.Text;
 
   constructor() {
     super("GameOverScene");
@@ -467,18 +471,40 @@ export class GameOverScene extends Phaser.Scene {
         .setOrigin(0.5),
     );
 
-    this.classificaView.add(
-      this.add
-        .text(0, resultsY - r(20), "Coming Soon...", {
-          fontFamily: "ChillPixels",
-          fontSize: `${r(14)}px`,
-          color: "#000000",
-          align: "center",
-        })
-        .setOrigin(0.5),
-    );
+    this.loadingText = this.add
+      .text(0, resultsY, "Caricamento...", {
+        fontFamily: "ChillPixels",
+        fontSize: `${r(14)}px`,
+        color: "#000000",
+      })
+      .setOrigin(0.5);
+    this.classificaView.add(this.loadingText);
+
+    this.scoresContainer = this.add.container(0, resultsY - r(60));
+    this.classificaView.add(this.scoresContainer);
 
     container.add(this.classificaView);
+
+    // ========== SALVATAGGIO PUNTEGGIO + NICKNAME ==========
+    const finalScore = Math.floor(score);
+    if (finalScore > 0) {
+      const nickname = localStorage.getItem("spring_nickname");
+      if (!nickname) {
+        // Piccolo delay: lascia che la scena finisca il fade-in prima di mostrare l'overlay
+        setTimeout(async () => {
+          const chosen = await NicknameOverlay.show((nick) =>
+            LeaderboardManager.isNicknameAvailable(nick),
+          );
+          if (chosen) {
+            localStorage.setItem("spring_nickname", chosen);
+            LeaderboardManager.submitScore(chosen, finalScore, level);
+          }
+        }, 600);
+      } else {
+        // Nickname già salvato sul dispositivo — aggiorna solo se batte il record
+        LeaderboardManager.submitScore(nickname, finalScore, level);
+      }
+    }
 
     // ========== BOTTONE RITENTA (blocco blu + play icon + testo) ==========
     const retryY = r(190);
@@ -568,14 +594,58 @@ export class GameOverScene extends Phaser.Scene {
 
   /**
    * Cambia tra vista PARTITA (carosello) e vista CLASSIFICA (ranking).
+   * Quando si apre la classifica, fetcha i punteggi da Firestore.
    */
-  private switchView(view: "partita" | "classifica"): void {
+  private async switchView(view: "partita" | "classifica"): Promise<void> {
     if (view === "partita") {
       this.classificaView.setVisible(false);
       this.partitaView.setVisible(true);
     } else {
       this.partitaView.setVisible(false);
       this.classificaView.setVisible(true);
+
+      // Ripristina stato di caricamento ad ogni apertura della tab
+      this.loadingText.setText("Caricamento...").setVisible(true);
+      this.scoresContainer.removeAll(true);
+
+      try {
+        const topScores = await LeaderboardManager.getTopScores();
+
+        this.loadingText.setVisible(false);
+
+        const S = GAME.SCALE;
+        const r = (v: number) => Math.round(v * S);
+        let startY = 0;
+
+        topScores.slice(0, 5).forEach((entry, index) => {
+          const rankText = this.add
+            .text(-r(120), startY, `${index + 1}. ${entry.nickname}`, {
+              fontFamily: "ChillPixels",
+              fontSize: `${r(12)}px`,
+              color: "#000000",
+              fontStyle: "bold",
+            })
+            .setOrigin(0, 0.5);
+
+          const scoreText = this.add
+            .text(r(120), startY, this.formatScore(entry.score), {
+              fontFamily: "ChillPixels",
+              fontSize: `${r(12)}px`,
+              color: "#000000",
+            })
+            .setOrigin(1, 0.5);
+
+          this.scoresContainer.add([rankText, scoreText]);
+          startY += r(28);
+        });
+
+        if (topScores.length === 0) {
+          this.loadingText.setText("Nessun punteggio ancora!").setVisible(true);
+        }
+      } catch (e) {
+        console.error("Errore caricamento classifica:", e);
+        this.loadingText.setText("Errore connessione");
+      }
     }
   }
 

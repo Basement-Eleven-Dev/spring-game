@@ -25,6 +25,9 @@ export class PauseMenuManager {
   // Audio
   private audioIcon!: Phaser.GameObjects.Image;
 
+  // Nickname
+  private nicknameText!: Phaser.GameObjects.Text;
+
   // --- Callbacks ---
   private onResume?: () => void;
   private onRestart?: () => void;
@@ -175,6 +178,20 @@ export class PauseMenuManager {
       );
       this.audioIcon.on("pointerdown", () => this.onToggleAudio?.());
     }
+
+    // --- Nickname sotto l'icona audio ---
+    this.nicknameText = this.scene.add
+      .text(0, this.audioIcon.y + r(38), "", {
+        fontFamily: "ChillPixels",
+        fontSize: `${r(12)}px`,
+        color: "#F8F0CD",
+        fontStyle: "bold",
+        stroke: "#000000",
+        strokeThickness: r(3),
+      })
+      .setOrigin(0.5)
+      .setVisible(false);
+    this.menuContainer.add(this.nicknameText);
 
     // --- Decorazione in basso: GRASS + SPRING ---
     // Il container è centrato, quindi GAME.HEIGHT/2 è la distanza dal centro al fondo
@@ -388,7 +405,17 @@ export class PauseMenuManager {
       this.audioIcon.setTexture(
         SETTINGS.audioEnabled ? "pauseMusicOn" : "pauseMusicOff",
       );
-      this.audioIcon.setDisplaySize(this.r(50), this.r(50)); // Mantiene dimensioni corrette
+      this.audioIcon.setDisplaySize(this.r(50), this.r(50));
+    }
+
+    // Aggiorna nickname (potrebbe essere stato impostato dopo la prima apertura)
+    if (this.nicknameText) {
+      const nickname = localStorage.getItem("spring_nickname");
+      if (nickname) {
+        this.nicknameText.setText(`NICK: ${nickname}`).setVisible(true);
+      } else {
+        this.nicknameText.setVisible(false);
+      }
     }
   }
 
