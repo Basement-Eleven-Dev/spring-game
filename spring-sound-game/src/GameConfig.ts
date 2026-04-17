@@ -546,6 +546,7 @@ export const SCORING = {
   DRINK_FALLING: 350,
   BOUNCER_STOMP: 600,
   SURVIVAL_BONUS: 15000,
+  DJ_COLLECTION_BONUS: 10000,
 } as const;
 
 // --- Progressione livelli ---

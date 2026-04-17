@@ -22,6 +22,8 @@ export class GameOverScene extends Phaser.Scene {
   private classificaView!: Phaser.GameObjects.Container;
   private scoresContainer!: Phaser.GameObjects.Container;
   private loadingText!: Phaser.GameObjects.Text;
+  private partitaTab!: Phaser.GameObjects.Container;
+  private classificaTab!: Phaser.GameObjects.Container;
 
   constructor() {
     super("GameOverScene");
@@ -155,6 +157,22 @@ export class GameOverScene extends Phaser.Scene {
         height: 50,
       });
     }
+
+    // DJ achievement cards (portrait 1080×1550) + relative sagome placeholder
+    for (let i = 1; i <= 5; i++) {
+      if (!this.textures.exists(`dj${i}`)) {
+        this.load.svg(`dj${i}`, `/assets/djSprite/${i}.svg`, {
+          width: 180,
+          height: 258,
+        });
+      }
+      if (!this.textures.exists(`dj${i}ph`)) {
+        this.load.svg(`dj${i}ph`, `/assets/djSprite/${i}ph.svg`, {
+          width: 180,
+          height: 258,
+        });
+      }
+    }
   }
 
   create(data: {
@@ -163,6 +181,7 @@ export class GameOverScene extends Phaser.Scene {
     level: number;
     drinkCount: number;
     cardsCollected: number;
+    djAssignments: number[];
     isTimeout: boolean;
   }) {
     const {
@@ -171,6 +190,7 @@ export class GameOverScene extends Phaser.Scene {
       level,
       drinkCount,
       cardsCollected = 0,
+      djAssignments = [1, 2, 3, 4, 5],
       isTimeout,
     } = data;
     const cx = GAME.WIDTH / 2;
@@ -224,7 +244,8 @@ export class GameOverScene extends Phaser.Scene {
     const tabY = r(-130);
 
     // --- Tab PARTITA (composito SVG: mascot + blue block) ---
-    const partitaTab = this.add.container(-r(80), tabY);
+    this.partitaTab = this.add.container(-r(80), tabY);
+    const partitaTab = this.partitaTab;
     const partitaImg = this.add
       .image(0, 0, "gameOverPartita")
       .setDisplaySize(r(90), r(50));
@@ -247,7 +268,8 @@ export class GameOverScene extends Phaser.Scene {
     container.add(partitaTab);
 
     // --- Tab CLASSIFICA (composito SVG: star + gold block) ---
-    const classificaTab = this.add.container(r(25), tabY);
+    this.classificaTab = this.add.container(r(25), tabY);
+    const classificaTab = this.classificaTab;
     const classificaImg = this.add
       .image(0, 0, "gameOverRanking")
       .setDisplaySize(r(90), r(50));
@@ -277,6 +299,7 @@ export class GameOverScene extends Phaser.Scene {
       .setAlpha(0.8);
     settingsIcon.on("pointerover", () => settingsIcon.setAlpha(1));
     settingsIcon.on("pointerout", () => settingsIcon.setAlpha(0.8));
+    settingsIcon.on("pointerdown", () => this.openNicknameChange());
     container.add(settingsIcon);
 
     // ========== BLOCCO BLU RISULTATI (sfondo fisso) ==========
@@ -405,28 +428,58 @@ export class GameOverScene extends Phaser.Scene {
         .setOrigin(0.5),
     );
 
-    const slotsY = resultsY + r(10);
-    const spacing = r(45);
-    const startX = -spacing * 2;
+    // 5 carte DJ: 3 in fila sopra, 2 centrate sotto
+    const cardW = r(56);
+    const cardH = r(80);
+    const colSpacing = r(64);
+    const rowSpacing = r(88);
+    const topRowY = resultsY - r(35);
+    const botRowY = topRowY + rowSpacing;
 
-    for (let i = 0; i < 5; i++) {
-      const slotX = startX + i * spacing;
+    // Posizioni: top row centrata su 3, bottom row centrata su 2
+    const positions: { x: number; y: number }[] = [
+      { x: -colSpacing, y: topRowY },
+      { x: 0, y: topRowY },
+      { x: colSpacing, y: topRowY },
+      { x: -colSpacing / 2, y: botRowY },
+      { x: colSpacing / 2, y: botRowY },
+    ];
 
-      // Draw square slot
+    positions.forEach(({ x, y }, i) => {
+      const djIndex = djAssignments[i] ?? i + 1;
+      const isUnlocked = i < cardsCollected;
+      const textureKey = isUnlocked ? `dj${djIndex}` : `dj${djIndex}ph`;
+
+      const djImg = this.add
+        .image(x, y, textureKey)
+        .setDisplaySize(cardW, cardH)
+        .setInteractive({ useHandCursor: true });
+
+      // Hover: scala mantenendo le dimensioni originali (no setScale che impatta displaySize)
+      djImg.on("pointerover", () =>
+        djImg.setDisplaySize(cardW * 1.12, cardH * 1.12),
+      );
+      djImg.on("pointerout", () => djImg.setDisplaySize(cardW, cardH));
+      djImg.on("pointerdown", () => {
+        djImg.setDisplaySize(cardW, cardH);
+        this.showDjZoom(djIndex, isUnlocked);
+      });
+
+      page1.add(djImg);
+    });
+
+    // Banner se tutte e 5 sbloccate
+    if (cardsCollected >= 5) {
       page1.add(
         this.add
-          .rectangle(slotX, slotsY, r(35), r(35), 0x000000, 0)
-          .setStrokeStyle(r(2), 0x000000),
+          .text(0, resultsY + r(100), "+10.000 DJ SET COMPLETO!", {
+            fontFamily: "ChillPixels",
+            fontSize: `${r(9)}px`,
+            color: "#408CF4",
+            fontStyle: "bold",
+          })
+          .setOrigin(0.5),
       );
-
-      // If collected, show card
-      if (i < cardsCollected) {
-        page1.add(
-          this.add
-            .image(slotX, slotsY, "gameOverCardIcon")
-            .setDisplaySize(r(25), r(25)),
-        );
-      }
     }
 
     this.partitaView.add(page1);
@@ -600,9 +653,13 @@ export class GameOverScene extends Phaser.Scene {
     if (view === "partita") {
       this.classificaView.setVisible(false);
       this.partitaView.setVisible(true);
+      this.partitaTab.setAlpha(1);
+      this.classificaTab.setAlpha(0.5);
     } else {
       this.partitaView.setVisible(false);
       this.classificaView.setVisible(true);
+      this.classificaTab.setAlpha(1);
+      this.partitaTab.setAlpha(0.5);
 
       // Ripristina stato di caricamento ad ogni apertura della tab
       this.loadingText.setText("Caricamento...").setVisible(true);
@@ -715,5 +772,79 @@ export class GameOverScene extends Phaser.Scene {
     if (clockMinutes < 300) return "gameOverDayIcon";
     if (clockMinutes < 540) return "gameOverSunsetIcon";
     return "gameOverNightIcon";
+  }
+
+  /**
+   * Mostra un overlay di zoom per la carta DJ.
+   * Tap/click ovunque per chiuderlo.
+   */
+  private showDjZoom(djIndex: number, isUnlocked: boolean): void {
+    const r = (v: number) => Math.round(v * GAME.SCALE);
+    const cx = GAME.WIDTH / 2;
+    const cy = GAME.HEIGHT / 2;
+    const textureKey = isUnlocked ? `dj${djIndex}` : `dj${djIndex}ph`;
+
+    // Overlay scuro
+    const dimmer = this.add
+      .rectangle(cx, cy, GAME.WIDTH, GAME.HEIGHT, 0x000000, 0.78)
+      .setDepth(50)
+      .setScrollFactor(0)
+      .setInteractive();
+
+    // Immagine grande centrata
+    const zoomImg = this.add
+      .image(cx, cy, textureKey)
+      .setDisplaySize(r(160), r(230))
+      .setDepth(51)
+      .setScrollFactor(0)
+      .setAlpha(0);
+
+    const hint = this.add
+      .text(cx, cy + r(125), "tap per chiudere", {
+        fontFamily: "ChillPixels",
+        fontSize: `${r(8)}px`,
+        color: "#aaaaaa",
+      })
+      .setOrigin(0.5)
+      .setDepth(51)
+      .setScrollFactor(0)
+      .setAlpha(0);
+
+    const all = [zoomImg, hint];
+
+    this.tweens.add({
+      targets: all,
+      alpha: 1,
+      duration: 180,
+    });
+
+    const close = () => {
+      this.tweens.add({
+        targets: [dimmer, ...all],
+        alpha: 0,
+        duration: 150,
+        onComplete: () => {
+          dimmer.destroy();
+          all.forEach((o) => o.destroy());
+        },
+      });
+    };
+
+    dimmer.on("pointerdown", close);
+  }
+
+  /**
+   * Apre il modale di cambio nickname.
+   * Se l'utente ne sceglie uno nuovo, aggiorna localStorage.
+   * Il vecchio nick rimane su Firestore (il record storico non viene toccato).
+   */
+  private openNicknameChange(): void {
+    NicknameOverlay.show((nick) =>
+      LeaderboardManager.isNicknameAvailable(nick),
+    ).then((chosen) => {
+      if (chosen) {
+        localStorage.setItem("spring_nickname", chosen);
+      }
+    });
   }
 }

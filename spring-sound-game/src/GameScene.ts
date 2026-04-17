@@ -259,8 +259,10 @@ export class GameScene extends Phaser.Scene {
     this.clockMinutes = 0;
     this.nightPending = false;
 
-    // --- Reset contatore card: ogni run riparte da 0 ---
+    // --- Reset contatore card e assegnazione DJ casuale per questa run ---
     localStorage.setItem("cardsCollected", "0");
+    const djOrder = Phaser.Utils.Array.Shuffle([1, 2, 3, 4, 5]);
+    localStorage.setItem("spring_dj_assignments", djOrder.join(","));
 
     // --- Animazioni spritesheet ---
     this.createAnimations();
@@ -771,15 +773,24 @@ export class GameScene extends Phaser.Scene {
         this.backgroundMusic.stop();
       }
 
+      const _collectedTimeout = parseInt(
+        localStorage.getItem("cardsCollected") || "0",
+        10,
+      );
+      const _djAssignmentsTimeout = (
+        localStorage.getItem("spring_dj_assignments") || "1,2,3,4,5"
+      )
+        .split(",")
+        .map(Number);
       this.scene.start("GameOverScene", {
-        score: this.scoreManager.score,
+        score:
+          this.scoreManager.score +
+          (_collectedTimeout >= 5 ? SCORING.DJ_COLLECTION_BONUS : 0),
         clockMinutes: this.clockMinutes,
         level: this.levelManager.level,
         drinkCount: this.partyManager.drinkCount,
-        cardsCollected: parseInt(
-          localStorage.getItem("cardsCollected") || "0",
-          10,
-        ),
+        cardsCollected: _collectedTimeout,
+        djAssignments: _djAssignmentsTimeout,
         isTimeout: true,
       });
       return;
@@ -848,15 +859,24 @@ export class GameScene extends Phaser.Scene {
         this.backgroundMusic.stop();
       }
 
+      const _collectedFall = parseInt(
+        localStorage.getItem("cardsCollected") || "0",
+        10,
+      );
+      const _djAssignmentsFall = (
+        localStorage.getItem("spring_dj_assignments") || "1,2,3,4,5"
+      )
+        .split(",")
+        .map(Number);
       this.scene.start("GameOverScene", {
-        score: this.scoreManager.score,
+        score:
+          this.scoreManager.score +
+          (_collectedFall >= 5 ? SCORING.DJ_COLLECTION_BONUS : 0),
         clockMinutes: this.clockMinutes,
         level: this.levelManager.level,
         drinkCount: this.partyManager.drinkCount,
-        cardsCollected: parseInt(
-          localStorage.getItem("cardsCollected") || "0",
-          10,
-        ),
+        cardsCollected: _collectedFall,
+        djAssignments: _djAssignmentsFall,
         isTimeout: false,
       });
     }
