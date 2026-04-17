@@ -125,6 +125,11 @@ export class SpawnManager {
     basePlatform.setDisplaySize(PLATFORM.GRASS_WIDTH, PLATFORM.GRASS_HEIGHT);
     basePlatform.refreshBody(); // Aggiorna il body statico dopo setDisplaySize
     const body = basePlatform.body as Phaser.Physics.Arcade.StaticBody;
+
+    // Aggiungo un offset per far in modo che la linea di collisione sia in basso sull'erba e non sul tetto dello stage
+    body.setSize(PLATFORM.GRASS_WIDTH, PLATFORM.GRASS_HEIGHT - PLATFORM.GRASS_COLLISION_OFFSET_Y);
+    body.setOffset(0, PLATFORM.GRASS_COLLISION_OFFSET_Y);
+
     body.enable = true;
     body.checkCollision.down = false;
     body.checkCollision.left = false;
@@ -592,9 +597,9 @@ export class SpawnManager {
       // Reset completo del body per evitare stati vecchi dal pooling
       djStage.body.reset(grassX, grassY);
 
-      // Hitbox usa tutta l'altezza dell'erba per massima collisione
-      djStage.body.setSize(PLATFORM.GRASS_WIDTH, PLATFORM.GRASS_HEIGHT);
-      djStage.body.setOffset(0, 0);
+      // Hitbox usa l'offset per matchare solo l'erba
+      djStage.body.setSize(PLATFORM.GRASS_WIDTH, PLATFORM.GRASS_HEIGHT - PLATFORM.GRASS_COLLISION_OFFSET_Y);
+      djStage.body.setOffset(0, PLATFORM.GRASS_COLLISION_OFFSET_Y);
 
       // Fisica base necessaria (già configurata in initPlatform ma forziamo per sicurezza)
       djStage.body.allowGravity = false;

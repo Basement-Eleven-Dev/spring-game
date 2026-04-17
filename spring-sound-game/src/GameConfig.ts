@@ -88,10 +88,10 @@ export const GAME = {
  * Posizioni iniziali calcolate in base all'altezza reale del canvas.
  */
 export const INITIAL = {
-  // Posizioniamo la BASE_PLATFORM_Y sulla superficie dell'erba (top dell'asset stageGrass)
-  BASE_PLATFORM_Y: GAME_HEIGHT - Math.round(GAME_WIDTH / 1.778) + r(20),
-  // Posizioniamo il player sopra la base platform
-  PLAYER_START_Y: GAME_HEIGHT - Math.round(GAME_WIDTH / 1.778) - r(60),
+  // Posizioniamo la BASE_PLATFORM_Y in base all'offset del prato calpestabile
+  BASE_PLATFORM_Y: GAME_HEIGHT - Math.round(GAME_WIDTH / 1.778) + r(20) + r(120), // r(120) è il GRASS_COLLISION_OFFSET_Y di default, che andremo a definire dopo
+  // Il player parte poco sopra la linea del prato
+  PLAYER_START_Y: GAME_HEIGHT - Math.round(GAME_WIDTH / 1.778) - r(60) + r(120),
 };
 
 // --- Orologio narrativo (14:00 → 02:00) ---
@@ -369,6 +369,12 @@ export const PLATFORM = {
 
   /** Offset verticale per posizionare lo stage background rispetto all'erba */
   STAGE_BG_OFFSET_Y: r(-15),
+
+  /** Offset dal top dell'immagine dell'erba/stage fino a dove si trova effettivamente il prato calpestabile.
+   * Se il giocatore atterra 'visivamente' sul tetto dello stage e non sull'erba,
+   * alza questo valore (es. a r(80) o r(100)) finché i piedi non toccano l'erba.
+   */
+  GRASS_COLLISION_OFFSET_Y: r(160),
 } as const;
 
 // --- Fango (rallenta il salto) ---
