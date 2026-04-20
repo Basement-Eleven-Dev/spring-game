@@ -464,12 +464,12 @@ export class UIManager {
 
     // Controlli pause/play
     scene.load.svg("pauseIcon", "/assets/ui/pause.svg", {
-      width: r(UI.CONTROL_BUTTON_SIZE),
-      height: r(UI.CONTROL_BUTTON_SIZE),
+      width: 400,
+      height: 400,
     });
     scene.load.svg("playIcon", "/assets/ui/play.svg", {
-      width: r(UI.CONTROL_BUTTON_SIZE),
-      height: r(UI.CONTROL_BUTTON_SIZE),
+      width: 400,
+      height: 400,
     });
 
     // Party bar (5 stati: empty, green, yellow, orange, red)

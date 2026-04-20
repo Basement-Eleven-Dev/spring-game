@@ -29,8 +29,8 @@ export class TutorialScene extends Phaser.Scene {
 
   preload(): void {
     this.load.image("firstBg", "/assets/background/first_bg.png");
-    
-    this.load.svg("startLogo", "/assets/ui/gamestart-over-pause/logo pixel.svg", { width: 120, height: 120 });
+
+    this.load.svg("startLogo", "/assets/ui/gamestart-over-pause/logo pixel.svg", { width: 1200, height: 1200 });
     this.load.svg("whiteMegaBlock", "/assets/ui/carousel-tutorial/white_mega_block.svg", { width: 300, height: 380 });
     this.load.svg("tutLeft", "/assets/ui/gamestart-over-pause/left.svg", { width: 40, height: 40 });
     this.load.svg("tutRight", "/assets/ui/gamestart-over-pause/right.svg", { width: 40, height: 40 });
@@ -66,7 +66,7 @@ export class TutorialScene extends Phaser.Scene {
     // Blocco Card (Ridimensionato per starci in desktop/mobile comodamente)
     const cardY = logoY + r(250);
     const mBlockW = r(280);
-    const mBlockH = r(340);
+    const mBlockH = r(360);
     const cardBlock = this.add.image(cx, cardY, "whiteMegaBlock").setDisplaySize(mBlockW, mBlockH);
     container.add(cardBlock);
 
@@ -74,11 +74,11 @@ export class TutorialScene extends Phaser.Scene {
     this.cardTitleText = this.add.text(cx, cardY - r(120), "", {
       fontFamily: "ChillPixels", fontSize: `${r(16)}px`, color: "#000000", align: "center", fontStyle: "bold"
     }).setOrigin(0.5);
-    
+
     // Immagine centrale della card
     this.cardImage = this.add.image(cx, cardY + r(10), `tutorial_1`);
     // Scale reduced slightly more
-    this.cardImage.setScale(SCALE * 0.32); 
+    this.cardImage.setScale(SCALE * 0.32);
 
     // Testo Footer interno alla card (Basso prima delle frecce)
     this.cardFooterText = this.add.text(cx, cardY + r(100), "", {
@@ -90,15 +90,15 @@ export class TutorialScene extends Phaser.Scene {
     this.populateCardData();
 
     // Arrows (Nel footer in fondo al blocco bianco)
-    const footerY = cardY + r(140); 
+    const footerY = cardY + r(140);
     const arrowOffsetX = r(110);
-    
+
     const leftArrow = this.add.image(cx - arrowOffsetX, footerY, "tutLeft").setDisplaySize(r(18), r(24)).setInteractive({ useHandCursor: true });
     leftArrow.on("pointerdown", () => this.prevCard());
-    
+
     const rightArrow = this.add.image(cx + arrowOffsetX, footerY, "tutRight").setDisplaySize(r(18), r(24)).setInteractive({ useHandCursor: true });
     rightArrow.on("pointerdown", () => this.nextCard());
-    
+
     const avantiText = this.add.text(cx + arrowOffsetX - r(45), footerY, "AVANTI", {
       fontFamily: "ChillPixels", fontSize: `${r(14)}px`, color: "#000000", fontStyle: "bold"
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });

@@ -14,11 +14,11 @@ export class StartScene extends Phaser.Scene {
     this.load.svg(
       "startLogo",
       "/assets/ui/gamestart-over-pause/logo pixel.svg",
-      { width: 240, height: 240 },
+      { width: 800, height: 800 },
     );
 
     // Play icon (cerchio giallo con triangolo)
-    this.load.svg("playIcon", "/assets/ui/play.svg", { width: 40, height: 40 });
+    this.load.svg("playIcon", "/assets/ui/play.svg", { width: 400, height: 400 });
 
     // Bottone rosso gamestart
     this.load.svg("blockRed", "/assets/ui/gamestart-over-pause/block_red.svg", {
@@ -62,12 +62,12 @@ export class StartScene extends Phaser.Scene {
     playBtnContainer.add(playBtnBg);
 
     const playIcon = this.add
-      .image(-r(70), 0, "playIcon")
+      .image(-r(70), -r(3), "playIcon")
       .setDisplaySize(r(35), r(35));
     playBtnContainer.add(playIcon);
 
     const playText = this.add
-      .text(r(15), 0, "GIOCA", {
+      .text(r(15), -r(3), "GIOCA", {
         fontFamily: "ChillPixels",
         fontSize: `${r(28)}px`,
         color: "#ffffff",

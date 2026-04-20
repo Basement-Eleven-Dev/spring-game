@@ -40,7 +40,7 @@ export class GameOverScene extends Phaser.Scene {
       this.load.svg(
         "gameOverLogo",
         "/assets/ui/gamestart-over-pause/logo pixel.svg",
-        { width: 110, height: 110 },
+        { width: 1100, height: 1100 },
       );
     }
 

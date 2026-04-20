@@ -193,13 +193,13 @@ export class GameScene extends Phaser.Scene {
       "pauseLogo",
       "/assets/ui/gamestart-over-pause/logo pixel.svg",
       {
-        width: 80,
-        height: 80,
+        width: 800,
+        height: 800,
       },
     );
     this.load.svg("pausePlayIcon", "/assets/ui/play.svg", {
-      width: 24,
-      height: 24,
+      width: 400,
+      height: 400,
     });
     this.load.svg(
       "pauseBlockRed",
@@ -234,12 +234,12 @@ export class GameScene extends Phaser.Scene {
     this.load.svg(
       "pauseMusicOn",
       "/assets/ui/gamestart-over-pause/music on.svg",
-      { width: 40, height: 40 },
+      { width: 400, height: 400 },
     );
     this.load.svg(
       "pauseMusicOff",
       "/assets/ui/gamestart-over-pause/music off.svg",
-      { width: 40, height: 40 },
+      { width: 400, height: 400 },
     );
     this.load.image("cardFallingTexture", "/assets/djSprite/DJCARD.png");
 
@@ -588,10 +588,10 @@ export class GameScene extends Phaser.Scene {
             // Genera una nuova piattaforma in alto per mantenere la densità
             this.spawnManager.spawnPlatform(
               this.spawnManager.highestPlatformY -
-                Phaser.Math.Between(
-                  Math.round(50 * GAME.SCALE),
-                  Math.round(130 * GAME.SCALE),
-                ),
+              Phaser.Math.Between(
+                Math.round(50 * GAME.SCALE),
+                Math.round(130 * GAME.SCALE),
+              ),
               this.levelManager.level,
             );
           }
