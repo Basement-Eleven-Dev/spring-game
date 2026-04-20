@@ -119,7 +119,7 @@ export class LeaderboardManager {
     const q = query(
       collection(db, "leaderboard"),
       orderBy("score", "desc"),
-      limit(10),
+      limit(20),
     );
     const querySnapshot = await getDocs(q);
 

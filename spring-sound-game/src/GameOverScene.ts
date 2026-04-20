@@ -24,6 +24,12 @@ export class GameOverScene extends Phaser.Scene {
   private loadingText!: Phaser.GameObjects.Text;
   private partitaTab!: Phaser.GameObjects.Container;
   private classificaTab!: Phaser.GameObjects.Container;
+  private scrollMaskGfx?: Phaser.GameObjects.Graphics;
+  private _leaderScrollY = 0;
+  private _leaderMaxScroll = 0;
+  private _leaderBaseY = 0;
+  private _leaderDragStartY = 0;
+  private _leaderDragStartScroll = 0;
 
   constructor() {
     super("GameOverScene");
@@ -515,7 +521,7 @@ export class GameOverScene extends Phaser.Scene {
 
     this.classificaView.add(
       this.add
-        .text(0, resultsY - r(100), "CLASSIFICA", {
+        .text(0, resultsY - r(100), "CLASSIFICA TOP 20", {
           fontFamily: "ChillPixels",
           fontSize: `${r(16)}px`,
           color: "#000000",
@@ -655,6 +661,13 @@ export class GameOverScene extends Phaser.Scene {
       this.partitaView.setVisible(true);
       this.partitaTab.setAlpha(1);
       this.classificaTab.setAlpha(0.5);
+      // Rimuovi maschera e listener scroll
+      this.input.off("wheel", this._onLeaderWheel, this);
+      this.input.off("pointerdown", this._onLeaderDragStart, this);
+      this.input.off("pointermove", this._onLeaderDrag, this);
+      this.scoresContainer.clearMask(false);
+      this.scrollMaskGfx?.destroy();
+      this.scrollMaskGfx = undefined;
     } else {
       this.partitaView.setVisible(false);
       this.classificaView.setVisible(true);
@@ -674,7 +687,7 @@ export class GameOverScene extends Phaser.Scene {
         const r = (v: number) => Math.round(v * S);
         let startY = 0;
 
-        topScores.slice(0, 5).forEach((entry, index) => {
+        topScores.forEach((entry, index) => {
           const rankText = this.add
             .text(-r(120), startY, `${index + 1}. ${entry.nickname}`, {
               fontFamily: "ChillPixels",
@@ -699,6 +712,31 @@ export class GameOverScene extends Phaser.Scene {
         if (topScores.length === 0) {
           this.loadingText.setText("Nessun punteggio ancora!").setVisible(true);
         }
+
+        // ===== SCROLL =====
+        const cx = GAME.WIDTH / 2;
+        const cy = GAME.HEIGHT / 2;
+        const resultsY = r(20);
+        const visibleHeight = r(175);
+        const maskWorldX = cx - r(130);
+        const maskWorldY = cy + (resultsY - r(60)) - r(10);
+
+        this.scrollMaskGfx?.destroy();
+        this.scrollMaskGfx = this.add.graphics();
+        this.scrollMaskGfx.fillRect(maskWorldX, maskWorldY, r(260), visibleHeight);
+        this.scoresContainer.setMask(this.scrollMaskGfx.createGeometryMask());
+
+        this._leaderBaseY = resultsY - r(60);
+        this._leaderScrollY = 0;
+        this._leaderMaxScroll = Math.max(0, topScores.length * r(28) - visibleHeight + r(28));
+        this.scoresContainer.y = this._leaderBaseY;
+
+        this.input.off("wheel", this._onLeaderWheel, this);
+        this.input.off("pointerdown", this._onLeaderDragStart, this);
+        this.input.off("pointermove", this._onLeaderDrag, this);
+        this.input.on("wheel", this._onLeaderWheel, this);
+        this.input.on("pointerdown", this._onLeaderDragStart, this);
+        this.input.on("pointermove", this._onLeaderDrag, this);
       } catch (e) {
         console.error("Errore caricamento classifica:", e);
         this.loadingText.setText("Errore connessione");
@@ -846,5 +884,35 @@ export class GameOverScene extends Phaser.Scene {
         localStorage.setItem("spring_nickname", chosen);
       }
     });
+  }
+
+  private _onLeaderWheel(
+    _p: unknown,
+    _g: unknown,
+    _dx: number,
+    dy: number,
+  ): void {
+    this._leaderScrollY = Phaser.Math.Clamp(
+      this._leaderScrollY + dy * 0.5,
+      0,
+      this._leaderMaxScroll,
+    );
+    this.scoresContainer.y = this._leaderBaseY - this._leaderScrollY;
+  }
+
+  private _onLeaderDragStart(p: Phaser.Input.Pointer): void {
+    this._leaderDragStartY = p.y;
+    this._leaderDragStartScroll = this._leaderScrollY;
+  }
+
+  private _onLeaderDrag(p: Phaser.Input.Pointer): void {
+    if (!p.isDown) return;
+    const delta = this._leaderDragStartY - p.y;
+    this._leaderScrollY = Phaser.Math.Clamp(
+      this._leaderDragStartScroll + delta,
+      0,
+      this._leaderMaxScroll,
+    );
+    this.scoresContainer.y = this._leaderBaseY - this._leaderScrollY;
   }
 }

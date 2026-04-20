@@ -460,10 +460,10 @@ export class SpawnManager {
       cat === "wide" &&
       level >= MUD.MIN_LEVEL &&
       Math.random() <
-        Math.min(
-          MUD.BASE_PROB + (level - MUD.MIN_LEVEL) * MUD.PROB_PER_LEVEL,
-          MUD.MAX_PROB,
-        )
+      Math.min(
+        MUD.BASE_PROB + (level - MUD.MIN_LEVEL) * MUD.PROB_PER_LEVEL,
+        MUD.MAX_PROB,
+      )
     ) {
       let offsetX = 0;
       if (texture === "platformUbriacoTexture") {
@@ -502,11 +502,11 @@ export class SpawnManager {
       Math.abs(y - this.lastBouncerSpawnY) >= BOUNCER.MIN_SPAWN_SPACING &&
       Math.abs(y - this.lastSubwooferSpawnY) > this.r(150) && // Evita bouncer immediatamente sopra subwoofer
       Math.random() <
-        Math.min(
-          BOUNCER.BASE_PROB +
-            (level - BOUNCER.MIN_LEVEL) * BOUNCER.PROB_PER_LEVEL,
-          BOUNCER.MAX_PROB,
-        )
+      Math.min(
+        BOUNCER.BASE_PROB +
+        (level - BOUNCER.MIN_LEVEL) * BOUNCER.PROB_PER_LEVEL,
+        BOUNCER.MAX_PROB,
+      )
     ) {
       const bouncerOffset = platWidth / 2 - BOUNCER.WIDTH / 2 - this.r(4);
       const side = Math.random() < 0.5 ? -1 : 1;
@@ -588,6 +588,7 @@ export class SpawnManager {
 
     // Pulisci tutte le entità sopra il DJ Stage
     this.clearAbove(nextY + this.r(50));
+    this.lastDrinkSpawnY = nextY; // reset del tracking drink per il nuovo livello
 
     // Posizionamento DJ Stage
     const grassY = nextY - this.r(10);
@@ -613,7 +614,7 @@ export class SpawnManager {
       djStageGrass.body.setSize(
         PLATFORM.CHECKPOINT_GRASS_WIDTH,
         PLATFORM.CHECKPOINT_GRASS_HEIGHT -
-          PLATFORM.CHECKPOINT_GRASS_COLLISION_OFFSET_Y,
+        PLATFORM.CHECKPOINT_GRASS_COLLISION_OFFSET_Y,
       );
       djStageGrass.body.setOffset(
         0,
