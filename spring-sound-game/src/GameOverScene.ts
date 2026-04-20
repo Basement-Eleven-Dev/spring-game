@@ -686,13 +686,25 @@ export class GameOverScene extends Phaser.Scene {
         const S = GAME.SCALE;
         const r = (v: number) => Math.round(v * S);
         let startY = 0;
+        const playerNickname = localStorage.getItem("spring_nickname");
 
         topScores.forEach((entry, index) => {
+          const isPlayer =
+            playerNickname !== null && entry.nickname === playerNickname;
+
+          if (isPlayer) {
+            const highlight = this.add
+              .rectangle(0, startY, r(260), r(26), 0xf7c831, 0.55)
+              .setStrokeStyle(r(1.5), 0xe6a800)
+              .setOrigin(0.5, 0.5);
+            this.scoresContainer.add(highlight);
+          }
+
           const rankText = this.add
             .text(-r(120), startY, `${index + 1}. ${entry.nickname}`, {
               fontFamily: "ChillPixels",
               fontSize: `${r(12)}px`,
-              color: "#000000",
+              color: isPlayer ? "#7a4800" : "#000000",
               fontStyle: "bold",
             })
             .setOrigin(0, 0.5);
@@ -701,7 +713,8 @@ export class GameOverScene extends Phaser.Scene {
             .text(r(120), startY, this.formatScore(entry.score), {
               fontFamily: "ChillPixels",
               fontSize: `${r(12)}px`,
-              color: "#000000",
+              color: isPlayer ? "#7a4800" : "#000000",
+              fontStyle: isPlayer ? "bold" : "normal",
             })
             .setOrigin(1, 0.5);
 
