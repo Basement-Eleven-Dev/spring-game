@@ -153,7 +153,7 @@ export class StartScene extends Phaser.Scene {
     });
 
     studioLink.on("pointerdown", () => {
-      window.open("https://convivo.studio", "_blank");
+      window.location.href = "https://convivo.studio";
     });
   }
 }
