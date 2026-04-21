@@ -119,5 +119,41 @@ export class StartScene extends Phaser.Scene {
       duration: 600,
       ease: "Power2",
     });
+
+    // --- CREDIT IN BASSO ---
+    const creditY = GAME.HEIGHT - r(20);
+
+    const designedBy = this.add
+      .text(cx - r(10), creditY, "Designed by ", {
+        fontFamily: "ChillPixels",
+        fontSize: `${r(10)}px`,
+        color: "#ffffff",
+      })
+      .setOrigin(1, 1)
+      .setDepth(2)
+      .setShadow(2, 2, "#272727", 0.5);
+
+    const studioLink = this.add
+      .text(cx - r(10), creditY, "Convivo Studio", {
+        fontFamily: "ChillPixels",
+        fontSize: `${r(10)}px`,
+        color: "#fc5821",
+      })
+      .setOrigin(0, 1)
+      .setDepth(2)
+      .setShadow(2, 2, "#272727", 0.5)
+      .setInteractive({ useHandCursor: true });
+
+    studioLink.on("pointerover", () => {
+      studioLink.setStyle({ color: "#ffffff" });
+    });
+
+    studioLink.on("pointerout", () => {
+      studioLink.setStyle({ color: "#fc5821" });
+    });
+
+    studioLink.on("pointerdown", () => {
+      window.open("https://convivo.studio", "_blank");
+    });
   }
 }
