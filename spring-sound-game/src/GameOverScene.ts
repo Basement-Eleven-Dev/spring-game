@@ -633,8 +633,38 @@ export class GameOverScene extends Phaser.Scene {
     shareHit.on("pointerover", () => shareContainer.setScale(1.05));
     shareHit.on("pointerout", () => shareContainer.setScale(1));
     shareHit.on("pointerdown", () => {
-      console.log("Condividi risultati (TODO)");
-      // TODO: Implementare condivisione
+      this.game.renderer.snapshot(async (image) => {
+        try {
+          const img = image as HTMLImageElement;
+          const response = await fetch(img.src);
+          const blob = await response.blob();
+          const file = new File([blob], "spring-sound-score.png", {
+            type: "image/png",
+          });
+
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: "Spring Sound Game",
+              text: `Ho fatto ${this.formatScore(Math.floor(score))} punti su Spring Sound! 🎵`,
+            });
+          } else {
+            // Fallback: download diretto
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "spring-sound-score.png";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }
+        } catch (e) {
+          if ((e as Error).name !== "AbortError") {
+            console.error("Errore condivisione:", e);
+          }
+        }
+      });
     });
 
     container.add(shareContainer);
