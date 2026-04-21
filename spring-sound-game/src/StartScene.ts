@@ -123,7 +123,7 @@ export class StartScene extends Phaser.Scene {
     // --- CREDIT IN BASSO ---
     const creditY = GAME.HEIGHT - r(20);
 
-    const designedBy = this.add
+    this.add
       .text(cx - r(10), creditY, "Designed by ", {
         fontFamily: "ChillPixels",
         fontSize: `${r(10)}px`,
