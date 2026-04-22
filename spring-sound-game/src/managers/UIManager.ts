@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { GAME, UI, PARTY, minutesToClockString } from "../GameConfig";
+import { GAME, UI, PARTY, TIME, minutesToClockString } from "../GameConfig";
 
 /**
  * UIManager
@@ -39,6 +39,10 @@ export class UIManager {
   private currentPartyPhase: "empty" | "green" | "yellow" | "orange" | "red" =
     "empty";
   private isPaused: boolean = false;
+
+  // --- Stato avviso orologio finale ---
+  private clockWarningState: "normal" | "warning" | "danger" = "normal";
+  private blinkTween?: Phaser.Tweens.Tween;
 
   // --- Callback per la pausa ---
   private onPauseToggle?: (paused: boolean) => void;
@@ -273,6 +277,38 @@ export class UIManager {
 
     // Switch della party bar in base al party level
     this.updatePartyBar(partyLevel);
+
+    // Avviso orologio finale (rosso + lampeggio)
+    this.updateClockWarning(clockMinutes);
+  }
+
+  /**
+   * Gestisce i tre stadi di avviso dell'orologio verso la chiusura delle 02:00:
+   * - normal  → testo nero
+   * - warning → testo rosso (da 01:00)
+   * - danger  → testo rosso lampeggiante (ultimi 15 minuti)
+   */
+  private updateClockWarning(clockMinutes: number): void {
+    if (clockMinutes >= TIME.LAST_15_MINUTES) {
+      if (this.clockWarningState !== "danger") {
+        this.clockWarningState = "danger";
+        this.timeText.setColor("#FF2222");
+        if (this.blinkTween) this.blinkTween.stop();
+        this.blinkTween = this.scene.tweens.add({
+          targets: this.timeText,
+          alpha: 0.15,
+          duration: 420,
+          ease: "Sine.easeInOut",
+          yoyo: true,
+          repeat: -1,
+        });
+      }
+    } else if (clockMinutes >= TIME.LAST_HOUR_MINUTES) {
+      if (this.clockWarningState === "normal") {
+        this.clockWarningState = "warning";
+        this.timeText.setColor("#FF2222");
+      }
+    }
   }
 
   /**
@@ -379,6 +415,17 @@ export class UIManager {
         yoyo: true,
         ease: "Sine.easeInOut",
       });
+    }
+  }
+
+  /**
+   * Sincronizza lo stato UI quando il gioco viene ripreso esternamente
+   * (es. dal bottone RIPRENDI nel menu di pausa).
+   */
+  public setResumed(): void {
+    if (this.isPaused) {
+      this.isPaused = false;
+      this.controlButton.setTexture("pauseIcon");
     }
   }
 

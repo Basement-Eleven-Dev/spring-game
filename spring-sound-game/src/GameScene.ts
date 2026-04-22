@@ -588,10 +588,10 @@ export class GameScene extends Phaser.Scene {
             // Genera una nuova piattaforma in alto per mantenere la densità
             this.spawnManager.spawnPlatform(
               this.spawnManager.highestPlatformY -
-              Phaser.Math.Between(
-                Math.round(50 * GAME.SCALE),
-                Math.round(130 * GAME.SCALE),
-              ),
+                Phaser.Math.Between(
+                  Math.round(50 * GAME.SCALE),
+                  Math.round(130 * GAME.SCALE),
+                ),
               this.levelManager.level,
             );
           }
@@ -959,6 +959,9 @@ export class GameScene extends Phaser.Scene {
     if (this.backgroundMusic && SETTINGS.audioEnabled) {
       this.backgroundMusic.resume();
     }
+
+    // Sincronizza l'icona UI (può essere desynced se resume arriva dal menu di pausa)
+    this.uiManager.setResumed();
 
     // Nascondi il menu di pausa
     this.pauseMenuManager.hide();
