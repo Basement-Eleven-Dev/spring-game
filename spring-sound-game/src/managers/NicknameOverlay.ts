@@ -11,13 +11,17 @@
 export class NicknameOverlay {
   /**
    * Mostra il modale e risolve con il nickname scelto (uppercase, max 10 chars)
-   * oppure null se l'utente ha saltato.
+   * oppure null se l'utente ha saltato/annullato.
    *
    * @param checkAvailability  funzione async: true = nick libero, false = già usato
+   * @param options            opzioni per la modalità di modifica
    */
   public static show(
     checkAvailability: (nick: string) => Promise<boolean>,
+    options?: { mode: "edit"; currentNick: string },
   ): Promise<string | null> {
+    const isEdit = options?.mode === "edit";
+    const currentNick = options?.currentNick ?? "";
     return new Promise((resolve) => {
       /* ── Overlay backdrop ─────────────────────────────────────────────── */
       const overlay = document.createElement("div");
@@ -43,16 +47,17 @@ export class NicknameOverlay {
           <div style="
             font-size: 22px; font-weight: bold; color: #000;
             letter-spacing: 2px; margin-bottom: 4px;
-          ">🏆 NUOVO RECORD!</div>
+          ">${isEdit ? "⚙️ CAMBIA NICKNAME" : "🏆 NUOVO RECORD!"}</div>
 
           <div style="
             font-size: 11px; color: #555;
             letter-spacing: 1px; margin-bottom: 20px; line-height: 1.5;
-          ">Scegli il tuo nickname<br>per la classifica globale</div>
+          ">${isEdit ? "Modifica il tuo nickname<br>(max 10 caratteri)" : "Scegli il tuo nickname<br>per la classifica globale"}</div>
 
           <input id="nn-input" type="text" maxlength="10"
             autocomplete="off" autocorrect="off" autocapitalize="characters"
             spellcheck="false" placeholder="MAX 10 CARATTERI"
+            value="${currentNick}"
             style="
               width: 100%; box-sizing: border-box;
               padding: 10px 12px;
@@ -86,7 +91,7 @@ export class NicknameOverlay {
             font-size: 10px; letter-spacing: 1px;
             background: transparent; color: #888;
             border: 2px solid #ccc; cursor: pointer;
-          ">SALTA — non salvare in classifica</button>
+          ">${isEdit ? "ANNULLA" : "SALTA — non salvare in classifica"}</button>
         </div>
       `;
 
@@ -129,7 +134,11 @@ export class NicknameOverlay {
         if (e.key === "Enter") confirmBtn.click();
       });
 
+      // Pre-seleziona tutto il testo in modalità edit per facilitare la modifica
       input.focus();
+      if (isEdit && currentNick) {
+        input.select();
+      }
 
       /* ── Cleanup ───────────────────────────────────────────────────────── */
       const cleanup = () => overlay.remove();
@@ -147,6 +156,13 @@ export class NicknameOverlay {
         if (nick.length < 2) {
           errorEl.textContent = "MINIMO 2 CARATTERI!";
           input.focus();
+          return;
+        }
+
+        // In modalità edit, se il nickname non è cambiato non serve il check
+        if (isEdit && nick === currentNick.toUpperCase()) {
+          cleanup();
+          resolve(nick);
           return;
         }
 

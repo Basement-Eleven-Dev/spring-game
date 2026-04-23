@@ -199,6 +199,7 @@ export class GameOverScene extends Phaser.Scene {
       djAssignments = [1, 2, 3, 4, 5],
       isTimeout: _isTimeout,
     } = data;
+    const isTimeout = _isTimeout;
     const cx = GAME.WIDTH / 2;
     const cy = GAME.HEIGHT / 2;
     const S = GAME.SCALE;
@@ -233,15 +234,37 @@ export class GameOverScene extends Phaser.Scene {
       this.add.image(0, logoY, "gameOverLogo").setDisplaySize(r(65), r(65)),
     );
 
-    // ========== TITOLO "GAME OVER" ==========
+    // ========== TITOLO ==========
     container.add(
       this.add
-        .text(0, r(-195), "GAME OVER", {
+        .text(0, r(-195), isTimeout ? "SERATA EPICA!" : "GAME OVER", {
           fontFamily: "ChillPixels",
           fontSize: `${r(30)}px`,
-          color: "#F8F0CD",
+          color: isTimeout ? "#FFD700" : "#F8F0CD",
           fontStyle: "bold",
         })
+        .setOrigin(0.5),
+    );
+
+    // Sottotitolo contestuale
+    container.add(
+      this.add
+        .text(
+          0,
+          r(-165),
+          isTimeout
+            ? "hai ballato fino all'ultima nota"
+            : clockMinutes >= 540
+              ? "quasi fino alla fine..."
+              : clockMinutes >= 180
+                ? "la notte era ancora giovane"
+                : "uscito troppo presto!",
+          {
+            fontFamily: "ChillPixels",
+            fontSize: `${r(9)}px`,
+            color: "#B0C8FF",
+          },
+        )
         .setOrigin(0.5),
     );
 
@@ -349,19 +372,21 @@ export class GameOverScene extends Phaser.Scene {
     );
 
     const clockStr = minutesToClockString(clockMinutes);
+    const descText = isTimeout
+      ? `Sei rimasto in pista\nfino alle 02:00!\n${drinkCount} drink per la gloria.`
+      : clockMinutes >= 540
+        ? `Ci sei quasi!\nHai tenuto duro\nfino alle ${clockStr} bevendo ${drinkCount} drink.`
+        : clockMinutes >= 180
+          ? `Bella resistenza!\nHai ballato\nfino alle ${clockStr} bevendo ${drinkCount} drink.`
+          : `La serata era appena iniziata...\nsolo ${drinkCount} drink e poi niente.`;
     page0.add(
       this.add
-        .text(
-          0,
-          resultsY - r(15),
-          `Hai resistito\nfino alle ${clockStr}\nbevendo ${drinkCount} drink.`,
-          {
-            fontFamily: "ChillPixels",
-            fontSize: `${r(10)}px`,
-            color: "#F7F0D0",
-            align: "center",
-          },
-        )
+        .text(0, resultsY - r(15), descText, {
+          fontFamily: "ChillPixels",
+          fontSize: `${r(10)}px`,
+          color: "#F7F0D0",
+          align: "center",
+        })
         .setOrigin(0.5),
     );
 
@@ -766,12 +791,20 @@ export class GameOverScene extends Phaser.Scene {
 
         this.scrollMaskGfx?.destroy();
         this.scrollMaskGfx = this.add.graphics();
-        this.scrollMaskGfx.fillRect(maskWorldX, maskWorldY, r(260), visibleHeight);
+        this.scrollMaskGfx.fillRect(
+          maskWorldX,
+          maskWorldY,
+          r(260),
+          visibleHeight,
+        );
         this.scoresContainer.setMask(this.scrollMaskGfx.createGeometryMask());
 
         this._leaderBaseY = resultsY - r(60);
         this._leaderScrollY = 0;
-        this._leaderMaxScroll = Math.max(0, topScores.length * r(28) - visibleHeight + r(28));
+        this._leaderMaxScroll = Math.max(
+          0,
+          topScores.length * r(28) - visibleHeight + r(28),
+        );
         this.scoresContainer.y = this._leaderBaseY;
 
         this.input.off("wheel", this._onLeaderWheel, this);
@@ -920,8 +953,10 @@ export class GameOverScene extends Phaser.Scene {
    * Il vecchio nick rimane su Firestore (il record storico non viene toccato).
    */
   private openNicknameChange(): void {
-    NicknameOverlay.show((nick) =>
-      LeaderboardManager.isNicknameAvailable(nick),
+    const currentNick = localStorage.getItem("spring_nickname") ?? "";
+    NicknameOverlay.show(
+      (nick) => LeaderboardManager.isNicknameAvailable(nick),
+      { mode: "edit", currentNick },
     ).then((chosen) => {
       if (chosen) {
         localStorage.setItem("spring_nickname", chosen);

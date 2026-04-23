@@ -114,6 +114,10 @@ export const TIME = {
    * Lo switch effettivo avviene al successivo level up dopo questa soglia.
    */
   NIGHT_TRIGGER_MINUTES: 420,
+  /** Ultima ora: 01:00 = 11 ore dopo le 14:00 = 660 min. Orologio diventa rosso. */
+  LAST_HOUR_MINUTES: 660,
+  /** Ultimi 15 minuti: 01:45 = 705 min. Orologio pulsa. */
+  LAST_15_MINUTES: 705,
 } as const;
 
 /** Colori di sfondo: giorno (azzurro) e notte (blu scuro). */
