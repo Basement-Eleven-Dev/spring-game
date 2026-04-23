@@ -23,6 +23,10 @@ const config: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
+  fps: {
+    target: 60,
+    forceSetTimeOut: false, // Usa setTimeout invece di requestAnimationFrame per un frame rate più stabile su dispositivi lenti
+  },
   scene: [StartScene, TutorialScene, GameScene, GameOverScene],
   scale: {
     mode: Phaser.Scale.FIT,
